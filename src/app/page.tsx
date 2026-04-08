@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  CheckCircle2, 
-  Dumbbell, 
-  Flame, 
-  Trophy, 
+import {
+  CheckCircle2,
+  Dumbbell,
+  Flame,
+  Trophy,
   ChevronRight,
   User
 } from "lucide-react";
@@ -58,7 +58,7 @@ export default function Home() {
 
       {/* Main Check-in Area */}
       <section className="glass" style={{ padding: "2rem", position: "relative", overflow: "hidden" }}>
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", position: "relative", zChild: 2 }}>
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", position: "relative" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
             <h3 style={{ fontSize: "1.25rem", fontWeight: 700 }}>Daily Check-in</h3>
             <p style={{ opacity: 0.6, fontSize: "0.875rem" }}>Have you crushed your workout today?</p>
@@ -69,12 +69,12 @@ export default function Home() {
             whileTap={{ scale: 0.95 }}
             onClick={handleCheckIn}
             className={`btn-primary ${checkedIn ? 'checked' : ''}`}
-            style={{ 
-              width: "120px", 
-              height: "120px", 
-              borderRadius: "50%", 
-              display: "flex", 
-              alignItems: "center", 
+            style={{
+              width: "120px",
+              height: "120px",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
               justifyContent: "center",
               fontSize: "1rem",
               background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)",
@@ -101,12 +101,12 @@ export default function Home() {
         </div>
 
         {/* Subtle Background Glow */}
-        <div style={{ 
-          position: "absolute", 
-          top: "-50%", 
-          left: "-50%", 
-          width: "200%", 
-          height: "200%", 
+        <div style={{
+          position: "absolute",
+          top: "-50%",
+          left: "-50%",
+          width: "200%",
+          height: "200%",
           background: "radial-gradient(circle, rgba(56, 189, 248, 0.05) 0%, transparent 70%)",
           zIndex: 1
         }} />
@@ -124,10 +124,10 @@ export default function Home() {
           {days.map((day, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
               <span style={{ fontSize: "0.75rem", opacity: 0.5, fontWeight: 600 }}>{day}</span>
-              <div style={{ 
-                width: "2rem", 
-                height: "2rem", 
-                borderRadius: "0.5rem", 
+              <div style={{
+                width: "2rem",
+                height: "2rem",
+                borderRadius: "0.5rem",
                 background: progress[i] ? "var(--primary)" : "rgba(255,255,255,0.05)",
                 display: "flex",
                 alignItems: "center",
@@ -168,15 +168,15 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ 
-              position: "fixed", 
-              top: 0, 
-              left: 0, 
-              right: 0, 
-              bottom: 0, 
-              pointerEvents: "none", 
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: "none",
               zIndex: 100,
-              background: "radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, transparent 70%)" 
+              background: "radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, transparent 70%)"
             }}
           >
             {/* Simple CSS-based confetti or particles could be added here */}
