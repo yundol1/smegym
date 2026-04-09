@@ -25,6 +25,25 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
+.light {
+  --background: #f8fafc;
+  --foreground: #020617;
+  
+  --primary: #0ea5e9;
+  --primary-hover: #0284c7;
+  --secondary: #6366f1;
+  --accent: #f43f5e;
+  
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(203, 213, 225, 0.5);
+  
+  --success: #16a34a;
+  --warning: #ca8a04;
+  --error: #dc2626;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -42,10 +61,14 @@ body {
 
 body {
   background: var(--background);
-  background: radial-gradient(circle at top right, #1e293b 0%, #020617 100%);
   color: var(--foreground);
   font-family: var(--font-main);
   line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body:not(.light) {
+  background: radial-gradient(circle at top right, #1e293b 0%, #020617 100%);
 }
 
 a {
@@ -74,7 +97,8 @@ button {
   border: 1px solid var(--card-border);
   border-radius: 1rem;
   padding: 1.5rem;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.3s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .card:hover {
