@@ -7,7 +7,8 @@ import {
   Flame, CheckCircle2, ChevronRight, Image as ImageIcon,
   Home as HomeIcon, Users, Check, Heart, MessageCircle, Share2, Send,
   Dumbbell, Plus, ArrowLeft, X, Copy, CreditCard, History, BookOpen, 
-  Calendar, ShieldCheck, Mail, Lock, LogOut, Bell, AlertCircle, Trash2
+  Calendar, ShieldCheck, Mail, Lock, LogOut, Bell, AlertCircle, Trash2,
+  FileText, ShieldAlert
 } from "lucide-react";
 
 // --- Firebase Imports ---
@@ -51,6 +52,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("home");
   const [attendance, setAttendance] = useState<any[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
@@ -63,6 +65,7 @@ export default function Home() {
   const [isNoticeOpen, setIsNoticeOpen] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<string | null>(null);
+  const [adminApprovalTab, setAdminApprovalTab] = useState<"가입검토" | "사진검토" | "면제검토">("가입검토");
   const [toast, setToast] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState("");
@@ -76,7 +79,7 @@ export default function Home() {
   // --- Initial Admin Provisioning & Session Check ---
   useEffect(() => {
     const init = async () => {
-      // 1. Check Admin
+      // 1. Check Admin Account ensures it exists and is approved
       try {
         const adminRef = doc(db, "멤버", "admin");
         const adminSnap = await getDoc(adminRef);
@@ -87,20 +90,28 @@ export default function Home() {
             관리자여부: true,
             아바타: "AD",
             인사말: "SME 클럽 관리자입니다.",
+            승인상태: "승인", // Admin is pre-approved
+            운동횟수: 0,
             생성일: serverTimestamp()
           });
         }
       } catch (err) { console.error("Admin init error", err); }
 
-      // 2. Session check
+      // 2. Session check with real-time verification
       const savedSession = localStorage.getItem("sme_session");
       if (savedSession) {
         const parsed = JSON.parse(savedSession);
-        // Re-verify from DB for security
+        // We do a fresh DB fetch to ensure they haven't been banned/rejected
         const userRef = doc(db, "멤버", parsed.닉네임);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-          setCurrentUser(userSnap.data());
+          const freshData = userSnap.data();
+          if (freshData.승인상태 === "승인") {
+            setCurrentUser(freshData);
+          } else {
+            // They lost approval while logged out
+            localStorage.removeItem("sme_session");
+          }
         } else {
           localStorage.removeItem("sme_session");
         }
@@ -138,16 +149,16 @@ export default function Home() {
       }));
       setAttendance(combined);
       
-      // Check if checked in today
       const todayShort = new Date().toISOString().split('T')[0];
       if (dataMap[todayShort]) setCheckedIn(true);
       else setCheckedIn(false);
     });
 
-    // 2. Listen for All Members (for Rankings)
-    const unsubMembers = onSnapshot(collection(db, "멤버"), (snap) => {
+    // 2. Listen for All Active Members (for Rankings)
+    const qMembers = query(collection(db, "멤버"), where("승인상태", "==", "승인"));
+    const unsubMembers = onSnapshot(qMembers, (snap) => {
       const list: any[] = [];
-      snap.forEach(doc => list.push(doc.data()));
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
       setMembers(list);
     });
 
@@ -159,19 +170,34 @@ export default function Home() {
       setPosts(list);
     });
 
-    let unsubPending: () => void;
+    let unsubPendingA: () => void;
+    let unsubPendingM: () => void;
+
+    // 4. Admin-only Listeners
     if (currentUser.관리자여부) {
-      const qPending = query(collection(db, "활동"), where("상태", "==", "대기"));
-      unsubPending = onSnapshot(qPending, (snap) => {
+      // Pending Activities
+      const qPendingA = query(collection(db, "활동"), where("상태", "==", "대기"));
+      unsubPendingA = onSnapshot(qPendingA, (snap) => {
         const list: any[] = [];
         snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
         setPendingApprovals(list);
+      });
+
+      // Pending Members (New Registration Approval)
+      const qPendingM = query(collection(db, "멤버"), where("승인상태", "==", "대기"));
+      unsubPendingM = onSnapshot(qPendingM, (snap) => {
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setPendingMembers(list);
       });
     }
 
     return () => {
       unsubActivities(); unsubMembers(); unsubPosts();
-      if (currentUser.관리자여부 && unsubPending) unsubPending();
+      if (currentUser.관리자여부) {
+        if (unsubPendingA) unsubPendingA();
+        if (unsubPendingM) unsubPendingM();
+      }
     };
   }, [currentUser]);
 
@@ -195,11 +221,19 @@ export default function Home() {
     const password = formData.get("password") as string;
     const realName = formData.get("userName") as string;
 
+    const userRef = doc(db, "멤버", nickname);
+    const userSnap = await getDoc(userRef);
+
     if (authMode === "login") {
-      const userRef = doc(db, "멤버", nickname);
-      const userSnap = await getDoc(userRef);
       if (userSnap.exists() && userSnap.data().비밀번호 === password) {
         const userData = userSnap.data();
+        
+        // --- IRONCLAD MEMBER APPROVAL CHECK ---
+        if (userData.승인상태 === "대기") {
+           setToast("관리자의 승인이 아직 떨어지기 전입니다. 잠시만 기다려주세요. ⏳");
+           return; // Strictly block login
+        }
+
         setCurrentUser(userData);
         if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(userData));
       } else {
@@ -207,12 +241,11 @@ export default function Home() {
       }
     } else {
       // Signup
-      const userRef = doc(db, "멤버", nickname);
-      const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         setToast("이미 존재하는 닉네임입니다. ⚠️");
         return;
       }
+      
       const newUser = {
         닉네임: nickname,
         비밀번호: password,
@@ -221,12 +254,14 @@ export default function Home() {
         아바타: nickname.substring(0, 2).toUpperCase(),
         인사말: "득근에 진심입니다! 💪",
         운동횟수: 0,
+        승인상태: "대기", // CRUCIAL: Default to pending
         생성일: serverTimestamp()
       };
       await setDoc(userRef, newUser);
-      setCurrentUser(newUser);
-      if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(newUser));
-      setToast("회원가입을 환영합니다! 🎉");
+      
+      // Do NOT log them in. Show message and reset to login view.
+      setToast("회원가입이 완료되었습니다! 관리자 승인을 기다려주세요. ⏳");
+      setAuthMode("login");
     }
   };
 
@@ -246,28 +281,26 @@ export default function Home() {
   const handleUpload = async (file: File) => {
     if (!currentUser) return;
     const targetDay = showUpload?.fullDate || new Date().toISOString().split('T')[0];
-    const targetDayName = showUpload?.day || '목'; // Fallback
+    const targetDayName = showUpload?.day || '목'; 
     
     setToast("업로드 중... ⏳");
     try {
-      // 1. Upload to Storage
       const storageRef = ref(storage, `활동/${currentUser.닉네임}_${Date.now()}`);
       const uploadSnap = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(uploadSnap.ref);
 
-      // 2. Save to '활동' Collection
       const activityId = `${currentUser.닉네임}_${targetDay}`;
       await setDoc(doc(db, "활동", activityId), {
         닉네임: currentUser.닉네임,
         날짜: targetDay,
         요일: targetDayName,
         상태: "대기",
+        유형: "인증샷", // Distinguish from '면제' (exemption)
         이미지URL: downloadURL,
         반려사유: "",
         제출시간: serverTimestamp()
       });
 
-      // 3. Save to '게시글' Collection (Social Feed)
       await addDoc(collection(db, "게시글"), {
         닉네임: currentUser.닉네임,
         이름: currentUser.이름,
@@ -287,20 +320,19 @@ export default function Home() {
     }
   };
 
-  const handleApprove = async (id: string, userNickname: string) => {
+  const handleApproveActivity = async (id: string, userNickname: string) => {
     try {
       await updateDoc(doc(db, "활동", id), { 상태: "승인" });
-      // Update global user stats
       const userRef = doc(db, "멤버", userNickname);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         await updateDoc(userRef, { 운동횟수: (userSnap.data().운동횟수 || 0) + 1 });
       }
-      setToast("승인 처리되었습니다! ✅");
+      setToast("활동이 승인되었습니다! ✅");
     } catch (err) { console.error(err); }
   };
 
-  const confirmReject = async () => {
+  const confirmRejectActivity = async () => {
     if (!rejectId) return;
     try {
       await updateDoc(doc(db, "활동", rejectId), { 
@@ -309,6 +341,13 @@ export default function Home() {
       });
       setRejectId(null);
       setToast("반려 처리가 완료되었습니다. ❌");
+    } catch (err) { console.error(err); }
+  };
+
+  const handleApproveMember = async (nickname: string) => {
+    try {
+      await updateDoc(doc(db, "멤버", nickname), { 승인상태: "승인" });
+      setToast(`[${nickname}]님의 가입이 승인되었습니다! 🎉`);
     } catch (err) { console.error(err); }
   };
 
@@ -371,9 +410,6 @@ export default function Home() {
               <button onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")} style={{ fontSize: "0.85rem", fontWeight: 700, opacity: 0.6 }}>
                  {authMode === "login" ? "아직 회원이 아니신가요? 회원가입" : "이미 회원이신가요? 로그인"}
               </button>
-           </div>
-           <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid var(--glass-border)", textAlign: "center", fontSize: "0.75rem", opacity: 0.3 }}>
-              계정 (admin / admin9569)
            </div>
         </motion.div>
       </main>
@@ -491,6 +527,9 @@ export default function Home() {
                  {posts.filter(p => p.닉네임 === currentUser?.닉네임).map(p => (
                     <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.이미지URL} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
                  ))}
+                 {posts.filter(p => p.닉네임 === currentUser?.닉네임).length === 0 && (
+                   <div style={{ gridColumn: "span 3", textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>첫 인증을 남겨주세요😊</div>
+                 )}
               </div>
            </motion.div>
         )}
@@ -508,9 +547,12 @@ export default function Home() {
                </div>
                <nav style={{ display: "flex", flexDirection: "column", gap: "0.8rem", flex: 1 }}>
                   {currentUser?.관리자여부 && (
-                    <div onClick={() => { setMenuView("admin_approval"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "1.25rem", borderRadius: "1.25rem", background: "rgba(56, 189, 248, 0.1)", border: "1px solid rgba(56, 189, 248, 0.2)", cursor: "pointer" }}>
-                       <ShieldCheck size={22} color="var(--primary)" /> <span style={{ fontWeight: 800, color: "var(--primary)" }}>활동 승인 대기물</span>
-                    </div>
+                    <>
+                      <div onClick={() => { setMenuView("admin_approval"); setAdminApprovalTab("가입검토"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "1.25rem", borderRadius: "1.25rem", background: "rgba(56, 189, 248, 0.1)", border: "1px solid rgba(56, 189, 248, 0.3)", cursor: "pointer" }}>
+                         <ShieldCheck size={22} color="var(--primary)" /> <span style={{ fontWeight: 800, color: "var(--primary)" }}>관리자 대시보드</span>
+                         {(pendingMembers.length > 0 || pendingApprovals.length > 0) && <div style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: "50%", background: "var(--error)" }} />}
+                      </div>
+                    </>
                   )}
                   <div onClick={() => { setMenuView("penalty"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "1.25rem", borderRadius: "1.25rem", background: "rgba(0,0,0,0.03)", cursor: "pointer" }}>
                      <CreditCard size={22} color="var(--primary)" /> <span style={{ fontWeight: 800 }}>벌금 관리</span>
@@ -524,24 +566,82 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* --- 👑 SEGMENTED ADMIN DASHBOARD --- */}
       <AnimatePresence>
         {menuView === "admin_approval" && (
-           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "var(--bg-color)", zIndex: 2000, padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}><ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} /> <h2 style={{ fontSize: "1.3rem", fontWeight: 900 }}>승인 대기 목록 📥</h2></div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem", overflowY: "auto" }}>
-                 {pendingApprovals.map(item => (
-                    <div key={item.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
-                       <div style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div><span style={{ fontWeight: 900 }}>{item.닉네임}</span> <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} ({item.날짜})</span></div>
-                       </div>
-                       <img src={item.이미지URL} alt="proof" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover" }} />
-                       <div style={{ padding: "1rem", display: "flex", gap: "0.8rem" }}>
-                          <button onClick={() => startReject(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", border: "1px solid var(--error)", color: "var(--error)", fontWeight: 800 }}>반려하기</button>
-                          <button onClick={() => handleApprove(item.id, item.닉네임)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "var(--primary)", color: "white", fontWeight: 800 }}>활동 승인</button>
-                       </div>
-                    </div>
+           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "var(--bg-color)", zIndex: 2000, display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1.5rem" }}><ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} /> <h2 style={{ fontSize: "1.3rem", fontWeight: 900 }}>승인 관리 대시보드</h2></div>
+              
+              <div style={{ display: "flex", padding: "0 1.5rem", marginBottom: "1rem", borderBottom: "1px solid var(--glass-border)" }}>
+                 {["가입검토", "사진검토", "면제검토"].map((tab) => (
+                    <button key={tab} onClick={() => setAdminApprovalTab(tab as any)} style={{ flex: 1, padding: "1rem 0", fontWeight: 800, color: adminApprovalTab === tab ? "var(--primary)" : "inherit", opacity: adminApprovalTab === tab ? 1 : 0.4, borderBottom: adminApprovalTab === tab ? "3px solid var(--primary)" : "3px solid transparent", transition: "0.2s" }}>
+                       {tab}
+                       {tab === "가입검토" && pendingMembers.length > 0 && <span style={{ background: "var(--error)", color: "white", padding: "2px 6px", borderRadius: "10px", fontSize: "0.6rem", marginLeft: "5px" }}>{pendingMembers.length}</span>}
+                       {tab === "사진검토" && pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length > 0 && <span style={{ background: "var(--error)", color: "white", padding: "2px 6px", borderRadius: "10px", fontSize: "0.6rem", marginLeft: "5px" }}>{pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length}</span>}
+                       {tab === "면제검토" && pendingApprovals.filter(p => p.유형 === "면제").length > 0 && <span style={{ background: "var(--error)", color: "white", padding: "2px 6px", borderRadius: "10px", fontSize: "0.6rem", marginLeft: "5px" }}>{pendingApprovals.filter(p => p.유형 === "면제").length}</span>}
+                    </button>
                  ))}
-                 {pendingApprovals.length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}>대기 중인 활동이 없습니다.</div>}
+              </div>
+
+              <div style={{ padding: "0 1.5rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "1rem", paddingBottom: "2rem" }}>
+                 
+                 {/* 가입검토 탭 */}
+                 {adminApprovalTab === "가입검토" && (
+                   <>
+                     {pendingMembers.map(item => (
+                        <div key={item.닉네임} className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                              <div style={{ width: "3rem", height: "3rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{item.아바타}</div>
+                              <div><div style={{ fontWeight: 900 }}>{item.닉네임}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.이름}</div></div>
+                           </div>
+                           <button onClick={() => handleApproveMember(item.닉네임)} className="btn-primary" style={{ padding: "0.6rem 1.2rem", borderRadius: "0.8rem", fontWeight: 800 }}>가입 승인</button>
+                        </div>
+                     ))}
+                     {pendingMembers.length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}><ShieldAlert size={48} style={{ margin: "0 auto 1rem" }} /><p>대기 중인 신규 회원이 없습니다.</p></div>}
+                   </>
+                 )}
+
+                 {/* 사진검토 탭 */}
+                 {adminApprovalTab === "사진검토" && (
+                   <>
+                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").map(item => (
+                        <div key={item.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
+                           <div style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div><span style={{ fontWeight: 900 }}>{item.닉네임}</span> <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} ({item.날짜})</span></div>
+                           </div>
+                           <img src={item.이미지URL} alt="proof" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover" }} />
+                           <div style={{ padding: "1rem", display: "flex", gap: "0.8rem" }}>
+                              <button onClick={() => startReject(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", border: "1px solid var(--error)", color: "var(--error)", fontWeight: 800 }}>반려하기</button>
+                              <button onClick={() => handleApproveActivity(item.id, item.닉네임)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "var(--primary)", color: "white", fontWeight: 800 }}>인증 승인</button>
+                           </div>
+                        </div>
+                     ))}
+                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}><ImageIcon size={48} style={{ margin: "0 auto 1rem" }} /><p>대기 중인 인증샷이 없습니다.</p></div>}
+                   </>
+                 )}
+
+                 {/* 면제검토 탭 */}
+                 {adminApprovalTab === "면제검토" && (
+                   <>
+                     {pendingApprovals.filter(p => p.유형 === "면제").map(item => (
+                        <div key={item.id} className="card" style={{ padding: "1.25rem" }}>
+                           <div style={{ paddingBottom: "1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "1rem" }}>
+                              <div><span style={{ fontWeight: 900 }}>{item.닉네임}</span> <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} ({item.날짜})</span></div>
+                           </div>
+                           <div style={{ display: "flex", gap: "0.8rem", color: "var(--primary)", marginBottom: "1rem", background: "rgba(56, 189, 248, 0.1)", padding: "1rem", borderRadius: "1rem" }}>
+                              <FileText size={24} />
+                              <div><div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: "0.2rem" }}>면제 사유서</div><p style={{ fontSize: "0.85rem", opacity: 0.8, lineHeight: 1.5 }}>{item.내용}</p></div>
+                           </div>
+                           <div style={{ display: "flex", gap: "0.8rem" }}>
+                              <button onClick={() => startReject(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", border: "1px solid var(--error)", color: "var(--error)", fontWeight: 800 }}>거절하기</button>
+                              <button onClick={() => handleApproveActivity(item.id, item.닉네임)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "var(--primary)", color: "white", fontWeight: 800 }}>면제 승인</button>
+                           </div>
+                        </div>
+                     ))}
+                     {pendingApprovals.filter(p => p.유형 === "면제").length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}><FileText size={48} style={{ margin: "0 auto 1rem" }} /><p>대기 중인 면제 신청서가 없습니다.</p></div>}
+                   </>
+                 )}
+
               </div>
            </motion.div>
         )}
@@ -617,7 +717,7 @@ export default function Home() {
                <textarea value={rejectReasonInput} onChange={(e) => setRejectReasonInput(e.target.value)} placeholder="반려 사유를 작성해 주세요." style={{ width: "100%", height: "120px", background: "rgba(0,0,0,0.03)", borderRadius: "1rem", padding: "1rem", border: "none", marginBottom: "1.5rem" }} />
                <div style={{ display: "flex", gap: "1rem" }}>
                   <button onClick={() => setRejectId(null)} style={{ flex: 1, opacity: 0.5 }}>취소</button>
-                  <button onClick={confirmReject} disabled={!rejectReasonInput} style={{ flex: 1, padding: "0.8rem", background: "var(--error)", color: "white", borderRadius: "1rem", fontWeight: 800 }}>반려 확정</button>
+                  <button onClick={confirmRejectActivity} disabled={!rejectReasonInput} style={{ flex: 1, padding: "0.8rem", background: "var(--error)", color: "white", borderRadius: "1rem", fontWeight: 800 }}>반려 확정</button>
                </div>
             </div>
           </motion.div>
