@@ -140,6 +140,7 @@ button {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: visible;
 }
 
 @media (max-width: 480px) {

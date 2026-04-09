@@ -400,16 +400,16 @@ export default function Home() {
               {authMode === "signup" && (
                 <div style={{ position: "relative" }}>
                    <User size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                   <input name="userName" type="text" placeholder="이름 (실명)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
+                   <input name="userName" type="text" placeholder="이름 (실명)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", fontSize: "16px" }} />
                 </div>
               )}
               <div style={{ position: "relative" }}>
                 <Users size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                <input name="nickname" type="text" placeholder="닉네임 (ID)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
+                <input name="nickname" type="text" placeholder="닉네임 (ID)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", fontSize: "16px" }} />
               </div>
               <div style={{ position: "relative" }}>
                 <Lock size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                <input name="password" type="password" placeholder="비밀번호" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
+                <input name="password" type="password" placeholder="비밀번호" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", fontSize: "16px" }} />
               </div>
               {authMode === "login" && (
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0 0.2rem" }}>
@@ -427,6 +427,12 @@ export default function Home() {
               </button>
            </div>
         </motion.div>
+        {/* 로그인 화면 토스트 */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} style={{ position: "fixed", bottom: "3rem", left: "50%", background: "rgba(0,0,0,0.9)", color: "white", padding: "1rem 1.5rem", borderRadius: "1.25rem", zIndex: 4000, fontWeight: 800, fontSize: "0.88rem", maxWidth: "90vw", textAlign: "center", lineHeight: 1.5, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>{toast}</motion.div>
+          )}
+        </AnimatePresence>
       </main>
     );
   }
@@ -646,8 +652,9 @@ export default function Home() {
 
               {/* 콘텐츠 스크롤 영역 */}
               <div style={{
-                flex: 1, overflowY: "auto",
-                padding: "0.75rem 1rem 5rem 1rem",
+                flex: 1, overflowY: "scroll",
+                WebkitOverflowScrolling: "touch" as any,
+                padding: "0.75rem 1rem 2rem 1rem",
                 display: "flex", flexDirection: "column", gap: "0.75rem"
               }}>
 
