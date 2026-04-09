@@ -10,49 +10,35 @@ import {
   Calendar, ShieldCheck, Mail, Lock, LogOut, Bell, AlertCircle, Trash2
 } from "lucide-react";
 
-// --- MOCK DATA ---
-const MOCK_POSTS = [
-  {
-    id: 1, user: { name: "도니 전사", avatar: "DN" },
-    imageUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1000&auto=format&fit=crop",
-    content: "오늘 하체 조졌습니다! 스쿼트 100kg 달성 💪",
-    date: "어제", likes: 24, comments: [], liked: true
-  },
-  {
-    id: 2, user: { name: "헬스왕", avatar: "HW" },
-    imageUrl: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=1000&auto=format&fit=crop",
-    content: "단백질 식단 공유합니다. 닭가슴살 샐러드 맛도리네요.",
-    date: "2일 전", likes: 12, comments: [], liked: false
+// --- Firebase Imports ---
+import { db, storage } from "@/lib/firebase";
+import { 
+  collection, doc, getDoc, setDoc, updateDoc, query, where, 
+  onSnapshot, serverTimestamp, getDocs, addDoc, orderBy, limit 
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+// --- Date Helpers ---
+const getWeekRange = () => {
+  const now = new Date();
+  const day = now.getDay(); // 0: Sun, 1: Mon, ..., 6: Sat
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  const monday = new Date(now.setDate(diff));
+  monday.setHours(0,0,0,0);
+  
+  const days = [];
+  const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    days.push({
+      날짜: d.toISOString().split('T')[0],
+      요일: dayNames[i],
+      일: d.getDate().toString()
+    });
   }
-];
-
-const MOCK_MEMBERS = [
-  { id: 1, name: "돌콩님", avatar: "DK", weekly: 2, monthly: 12, yearly: 148, bio: "SME 클럽 관리자 | 헬스 & 테크 🚀" },
-  { id: 2, name: "도니 전사", avatar: "DN", weekly: 3, monthly: 15, yearly: 120, bio: "득근에 진심인 전사입니다. 💪" },
-  { id: 3, name: "헬스왕", avatar: "HW", weekly: 1, monthly: 10, yearly: 200, bio: "꾸준함이 진리다. 🏋️‍♂️" },
-  { id: 4, name: "눈곰", avatar: "NG", weekly: 2, monthly: 11, yearly: 95, bio: "매일 조금씩 성장하기 🐻" },
-  { id: 5, name: "돌맹", avatar: "DM", weekly: 3, monthly: 14, yearly: 110, bio: "운동 초보 탈출기!" }
-];
-
-const INITIAL_ATTENDANCE = [
-  { day: '월', date: '6', status: 'approved', imageUrl: '', reason: '' },
-  { day: '화', date: '7', status: 'none', imageUrl: '', reason: '' },
-  { day: '수', date: '8', status: 'rejected', imageUrl: 'https://images.unsplash.com/photo-1505691723518-36a5ac3be353?q=80&w=200&auto=format&fit=crop', reason: '운동 사진이 아닌 가구 사진입니다.' },
-  { day: '목', date: '9', status: 'pending', imageUrl: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=200&auto=format&fit=crop', reason: '' },    
-  { day: '금', date: '10', status: 'none', imageUrl: '', reason: '' },
-  { day: '토', date: '11', status: 'none', imageUrl: '', reason: '' },
-  { day: '일', date: '12', status: 'none', imageUrl: '', reason: '' },
-];
-
-const MOCK_LEDGER = [
-  { id: 1, name: "돌콩님", amount: 4000, date: "24.04.01", status: "납부완료" },
-  { id: 2, name: "헬스왕", amount: 6000, date: "24.04.01", status: "미납" },
-];
-
-const MOCK_PENDING_LIST = [
-  { id: 101, user: "도니 전사", type: "인증샷", date: "4/9", imageUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400&auto=format&fit=crop" },
-  { id: 102, user: "헬스왕", type: "면제", date: "4/10", reason: "지방 출장으로 인해 운동 불가" },
-];
+  return days;
+};
 
 export default function Home() {
   const [isLightMode, setIsLightMode] = useState(true);
@@ -61,32 +47,133 @@ export default function Home() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [rememberMe, setRememberMe] = useState(true);
 
-  // App State
+  // App State (Firestore Linked)
   const [activeTab, setActiveTab] = useState("home");
-  const [attendance, setAttendance] = useState(INITIAL_ATTENDANCE);
-  const [pendingApprovals, setPendingApprovals] = useState(MOCK_PENDING_LIST);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
+  const [ledger, setLedger] = useState<any[]>([]);
+
+  // UI State
   const [checkedIn, setCheckedIn] = useState(false);
-  const [showUpload, setShowUpload] = useState<string | null>(null); // State used to carry the date/day name
-  const [posts, setPosts] = useState(MOCK_POSTS);
-  const [rankingPeriod, setRankingPeriod] = useState("monthly");
+  const [showUpload, setShowUpload] = useState<any>(null); 
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [selectedDay, setSelectedDay] = useState<any>(null);
   const [isNoticeOpen, setIsNoticeOpen] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [rejectId, setRejectId] = useState<number | null>(null);
+  const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState("");
+  const [rankingPeriod, setRankingPeriod] = useState("monthly");
 
-  const workoutCount = attendance.filter(d => d.status === 'approved').length;
+  const weekInfo = getWeekRange();
+  const workoutCount = attendance.filter(d => d.상태 === '승인').length;
   const penalty = Math.max(0, 3 - workoutCount) * 2000;
-  const hasRejection = attendance.some(d => d.status === 'rejected');
+  const hasRejection = attendance.some(d => d.상태 === '반려');
 
+  // --- Initial Admin Provisioning & Session Check ---
   useEffect(() => {
-    const savedSession = localStorage.getItem("sme_session");
-    if (savedSession) setCurrentUser(JSON.parse(savedSession));
-    setIsAuthChecking(false);
+    const init = async () => {
+      // 1. Check Admin
+      try {
+        const adminRef = doc(db, "멤버", "admin");
+        const adminSnap = await getDoc(adminRef);
+        if (!adminSnap.exists()) {
+          await setDoc(adminRef, {
+            닉네임: "admin",
+            비밀번호: "admin9569",
+            관리자여부: true,
+            아바타: "AD",
+            인사말: "SME 클럽 관리자입니다.",
+            생성일: serverTimestamp()
+          });
+        }
+      } catch (err) { console.error("Admin init error", err); }
+
+      // 2. Session check
+      const savedSession = localStorage.getItem("sme_session");
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        // Re-verify from DB for security
+        const userRef = doc(db, "멤버", parsed.닉네임);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setCurrentUser(userSnap.data());
+        } else {
+          localStorage.removeItem("sme_session");
+        }
+      }
+      setIsAuthChecking(false);
+    };
+    init();
   }, []);
+
+  // --- Real-time Listeners ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // 1. Listen for Current Week's Activities (Current User)
+    const startDate = weekInfo[0].날짜;
+    const endDate = weekInfo[6].날짜;
+    const qActivities = query(
+      collection(db, "활동"),
+      where("닉네임", "==", currentUser.닉네임),
+      where("날짜", ">=", startDate),
+      where("날짜", "<=", endDate)
+    );
+    const unsubActivities = onSnapshot(qActivities, (snap) => {
+      const dataMap: any = {};
+      snap.forEach(doc => { dataMap[doc.data().날짜] = { id: doc.id, ...doc.data() }; });
+      
+      const combined = weekInfo.map(info => ({
+        day: info.요일,
+        date: info.일,
+        fullDate: info.날짜,
+        상태: dataMap[info.날짜]?.상태 || 'none',
+        imageUrl: dataMap[info.날짜]?.이미지URL || '',
+        reason: dataMap[info.날짜]?.반려사유 || '',
+        id: dataMap[info.날짜]?.id
+      }));
+      setAttendance(combined);
+      
+      // Check if checked in today
+      const todayShort = new Date().toISOString().split('T')[0];
+      if (dataMap[todayShort]) setCheckedIn(true);
+      else setCheckedIn(false);
+    });
+
+    // 2. Listen for All Members (for Rankings)
+    const unsubMembers = onSnapshot(collection(db, "멤버"), (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push(doc.data()));
+      setMembers(list);
+    });
+
+    // 3. Listen for Posts (Global Feed)
+    const qPosts = query(collection(db, "게시글"), orderBy("생성시간", "desc"), limit(20));
+    const unsubPosts = onSnapshot(qPosts, (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setPosts(list);
+    });
+
+    let unsubPending: () => void;
+    if (currentUser.관리자여부) {
+      const qPending = query(collection(db, "활동"), where("상태", "==", "대기"));
+      unsubPending = onSnapshot(qPending, (snap) => {
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setPendingApprovals(list);
+      });
+    }
+
+    return () => {
+      unsubActivities(); unsubMembers(); unsubPosts();
+      if (currentUser.관리자여부 && unsubPending) unsubPending();
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (isLightMode) document.body.classList.add("light");
@@ -100,25 +187,43 @@ export default function Home() {
     }
   }, [toast]);
 
-  const handleAuth = (e: React.FormEvent<HTMLFormElement>) => {
+  // --- Handlers ---
+  const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const id = formData.get("userId") as string;
-    const pw = formData.get("password") as string;
-    const name = formData.get("userName") as string;
+    const nickname = (formData.get("nickname") as string).trim();
+    const password = formData.get("password") as string;
+    const realName = formData.get("userName") as string;
 
     if (authMode === "login") {
-      if (id === "admin" && pw === "admin9569") {
-        const adminUser = { id: "admin", name: "관리자", isAdmin: true };
-        setCurrentUser(adminUser);
-        if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(adminUser));
+      const userRef = doc(db, "멤버", nickname);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists() && userSnap.data().비밀번호 === password) {
+        const userData = userSnap.data();
+        setCurrentUser(userData);
+        if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(userData));
+      } else {
+        setToast("닉네임 또는 비밀번호가 틀렸습니다. ❌");
+      }
+    } else {
+      // Signup
+      const userRef = doc(db, "멤버", nickname);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setToast("이미 존재하는 닉네임입니다. ⚠️");
         return;
       }
-      const mockUser = { id, name: id || "사용자", isAdmin: false };
-      setCurrentUser(mockUser);
-      if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(mockUser));
-    } else {
-      const newUser = { id, name: name || id, isAdmin: false };
+      const newUser = {
+        닉네임: nickname,
+        비밀번호: password,
+        이름: realName || nickname,
+        관리자여부: false,
+        아바타: nickname.substring(0, 2).toUpperCase(),
+        인사말: "득근에 진심입니다! 💪",
+        운동횟수: 0,
+        생성일: serverTimestamp()
+      };
+      await setDoc(userRef, newUser);
       setCurrentUser(newUser);
       if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(newUser));
       setToast("회원가입을 환영합니다! 🎉");
@@ -133,60 +238,95 @@ export default function Home() {
     setToast("로그아웃 되었습니다.");
   };
 
-  const copyAccount = () => {
-    navigator.clipboard.writeText("카카오뱅크 7942-19-81948");
-    setToast("계좌번호가 복사되었습니다! 💳");
-  };
-
-  const handleUpload = () => {
-    // If we're updating a specific day from the calendar
-    if (showUpload && showUpload !== 'today') {
-      const updated = attendance.map(d => d.day === showUpload ? { ...d, status: 'pending', imageUrl: 'https://images.unsplash.com/photo-1540206276207-3af25c08abbb?auto=format&fit=crop&q=80&w=400' } : d);
-      setAttendance(updated as any);
-      setToast(`${showUpload}요일 인증샷이 제출되었습니다! ⏳`);
-    } else {
-      // General upload (today)
-      const todayDay = attendance.find(d => d.date === '9')?.day || '목';
-      const updated = attendance.map(d => d.day === todayDay ? { ...d, status: 'pending', imageUrl: 'https://images.unsplash.com/photo-1540206276207-3af25c08abbb?auto=format&fit=crop&q=80&w=400' } : d);
-      setAttendance(updated as any);
-      setCheckedIn(true);
-      setToast("인증샷이 제출되었습니다! 관리자 승인을 기다려주세요. ⏳");
-    }
-    setShowUpload(null);
-    setSelectedDay(null);
-  };
-
-  const handleApprove = (id: number) => {
-    setPendingApprovals(prev => prev.filter(p => p.id !== id));
-    setToast("정상적으로 승인되었습니다! ✅");
-  };
-
-  const startReject = (id: number) => {
+  const startReject = (id: string) => {
     setRejectId(id);
     setRejectReasonInput("");
   };
 
-  const confirmReject = () => {
-    setPendingApprovals(prev => prev.filter(p => p.id !== rejectId));
-    setRejectId(null);
-    setToast("반려 처리가 완료되었습니다. ❌");
+  const handleUpload = async (file: File) => {
+    if (!currentUser) return;
+    const targetDay = showUpload?.fullDate || new Date().toISOString().split('T')[0];
+    const targetDayName = showUpload?.day || '목'; // Fallback
+    
+    setToast("업로드 중... ⏳");
+    try {
+      // 1. Upload to Storage
+      const storageRef = ref(storage, `활동/${currentUser.닉네임}_${Date.now()}`);
+      const uploadSnap = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(uploadSnap.ref);
+
+      // 2. Save to '활동' Collection
+      const activityId = `${currentUser.닉네임}_${targetDay}`;
+      await setDoc(doc(db, "활동", activityId), {
+        닉네임: currentUser.닉네임,
+        날짜: targetDay,
+        요일: targetDayName,
+        상태: "대기",
+        이미지URL: downloadURL,
+        반려사유: "",
+        제출시간: serverTimestamp()
+      });
+
+      // 3. Save to '게시글' Collection (Social Feed)
+      await addDoc(collection(db, "게시글"), {
+        닉네임: currentUser.닉네임,
+        이름: currentUser.이름,
+        아바타: currentUser.아바타,
+        이미지URL: downloadURL,
+        내용: `[${targetDay}] 오늘도 득근! 💪`,
+        생성시간: serverTimestamp(),
+        좋아요: 0
+      });
+
+      setToast("인증샷 제출 완료! 관리자 승인을 기다려주세요. ⏳");
+      setShowUpload(null);
+      setSelectedDay(null);
+    } catch (err) {
+      console.error(err);
+      setToast("업로드 실패 ❌");
+    }
   };
 
-  const ProfileHeader = ({ name }: { name: string }) => {
-    const member = MOCK_MEMBERS.find(m => m.name === name) || MOCK_MEMBERS[0];
-    const userPosts = posts.filter(p => p.user.name === name);
+  const handleApprove = async (id: string, userNickname: string) => {
+    try {
+      await updateDoc(doc(db, "활동", id), { 상태: "승인" });
+      // Update global user stats
+      const userRef = doc(db, "멤버", userNickname);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        await updateDoc(userRef, { 운동횟수: (userSnap.data().운동횟수 || 0) + 1 });
+      }
+      setToast("승인 처리되었습니다! ✅");
+    } catch (err) { console.error(err); }
+  };
+
+  const confirmReject = async () => {
+    if (!rejectId) return;
+    try {
+      await updateDoc(doc(db, "활동", rejectId), { 
+        상태: "반려", 
+        반려사유: rejectReasonInput 
+      });
+      setRejectId(null);
+      setToast("반려 처리가 완료되었습니다. ❌");
+    } catch (err) { console.error(err); }
+  };
+
+  const ProfileHeader = ({ name, data }: { name: string, data?: any }) => {
+    const member = members.find(m => m.닉네임 === name) || members[0] || {};
+    const userPosts = posts.filter(p => p.닉네임 === name);
     return (
       <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
             <div style={{ width: "5.5rem", height: "5.5rem", borderRadius: "50%", background: "var(--secondary)", border: "3px solid var(--primary)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", fontWeight: 800, color: "white" }}>
-               {name === "돌콩님" || name === "관리자" ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.avatar}
+               {(name === "admin" || name === "관리자") ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.아바타}
             </div>
             <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
-               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{member.monthly}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div></div>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{member.운동횟수 || 0}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div></div>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div></div>
             </div>
          </div>
-         <div style={{ marginTop: "1rem" }}><div style={{ fontWeight: 800 }}>{name}</div><p style={{ fontSize: "0.85rem", opacity: 0.7 }}>{member.bio}</p></div>
+         <div style={{ marginTop: "1rem" }}><div style={{ fontWeight: 800 }}>{name}</div><p style={{ fontSize: "0.85rem", opacity: 0.7 }}>{member.인사말}</p></div>
       </div>
     );
   };
@@ -206,12 +346,12 @@ export default function Home() {
               {authMode === "signup" && (
                 <div style={{ position: "relative" }}>
                    <User size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                   <input name="userName" type="text" placeholder="이름" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
+                   <input name="userName" type="text" placeholder="이름 (실명)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
                 </div>
               )}
               <div style={{ position: "relative" }}>
                 <Users size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                <input name="userId" type="text" placeholder="아이디" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
+                <input name="nickname" type="text" placeholder="닉네임 (ID)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
               </div>
               <div style={{ position: "relative" }}>
                 <Lock size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
@@ -232,7 +372,7 @@ export default function Home() {
                  {authMode === "login" ? "아직 회원이 아니신가요? 회원가입" : "이미 회원이신가요? 로그인"}
               </button>
            </div>
-           <div style={{ marginTop: "2rem", paddingTop: "2rem", borderTop: "1px solid var(--glass-border)", textAlign: "center", fontSize: "0.75rem", opacity: 0.3 }}>
+           <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid var(--glass-border)", textAlign: "center", fontSize: "0.75rem", opacity: 0.3 }}>
               계정 (admin / admin9569)
            </div>
         </motion.div>
@@ -240,7 +380,7 @@ export default function Home() {
     );
   }
 
-  // --- APP VIEW ---
+  // --- MAIN APP RENDER ---
   return (
     <main style={{ padding: "1.5rem 0 7.5rem 0", display: "flex", flexDirection: "column", gap: "2rem" }}>
       
@@ -248,7 +388,7 @@ export default function Home() {
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1.25rem" }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
            <h1 onClick={() => {setActiveTab("home"); setMenuView(null);}} style={{ fontSize: "1.1rem", fontWeight: 900, color: "var(--primary)", cursor: "pointer" }}>SME CLUB</h1>
-           <span style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>4월 2주차 (4/6 ~ 4/12)</span>
+           <span style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>이번 주 활동 ({weekInfo[0].일}일 ~ {weekInfo[6].일}일)</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
            <div onClick={() => setIsLightMode(!isLightMode)} style={{ width: "36px", height: "18px", borderRadius: "9px", background: isLightMode ? "#e0e7ff" : "#334155", position: "relative", cursor: "pointer" }}>
@@ -277,24 +417,24 @@ export default function Home() {
 
             <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", padding: "0 1.25rem" }}>
               <div className="card" style={{ padding: "1.5rem" }}><div style={{ fontSize: "0.75rem", opacity: 0.6 }}>이번 주 벌금</div><div style={{ fontSize: "1.5rem", fontWeight: 900, color: penalty > 0 ? "var(--warning)" : "var(--success)" }}>{penalty === 0 ? "0원" : `${penalty.toLocaleString()}원`}</div></div>
-              <div className="card" style={{ padding: "1.5rem" }}><div style={{ fontSize: "0.75rem", opacity: 0.6 }}>현재 횟수</div><div style={{ fontSize: "1.5rem", fontWeight: 900 }}>{workoutCount} / 3</div></div>
+              <div className="card" style={{ padding: "1.5rem" }}><div style={{ fontSize: "0.75rem", opacity: 0.6 }}>활동 승인</div><div style={{ fontSize: "1.5rem", fontWeight: 900 }}>{workoutCount} / 3</div></div>
             </section>
             
             <section style={{ textAlign: "center" }}>
-               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowUpload('today')} style={{ width: "130px", height: "130px", borderRadius: "65px", background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary), var(--secondary))", color: "white", boxShadow: "0 10px 40px rgba(56, 189, 248, 0.25)" }}>
+               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowUpload({ fullDate: new Date().toISOString().split('T')[0], day: '오늘' })} style={{ width: "130px", height: "130px", borderRadius: "65px", background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary), var(--secondary))", color: "white", boxShadow: "0 10px 40px rgba(56, 189, 248, 0.25)" }}>
                  {checkedIn ? <CheckCircle2 size={50} /> : <Dumbbell size={50} />}
                </motion.button>
-               <h3 style={{ marginTop: "1rem", fontWeight: 800 }}>{checkedIn ? "오운완 인증 완료!" : "운동 인증샷 올리기"}</h3>
+               <h3 style={{ marginTop: "1rem", fontWeight: 800 }}>{checkedIn ? "오늘 활동 완료!" : "오늘 활동 인증하기"}</h3>
             </section>
 
             <section style={{ padding: "0 1.25rem" }}>
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
                  {attendance.map((day, i) => (
-                   <motion.div key={i} whileTap={{ scale: 0.95 }} onClick={() => setSelectedDay(day)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", padding: "0.75rem 0", borderRadius: "1rem", border: day.status === 'rejected' ? "1px solid var(--error)" : "1px solid var(--glass-border)", background: day.status === 'rejected' ? "rgba(239, 68, 68, 0.05)" : "transparent", cursor: "pointer", opacity: day.status === 'none' ? 0.3 : 1 }}>
+                   <motion.div key={i} whileTap={{ scale: 0.95 }} onClick={() => setSelectedDay(day)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", padding: "0.75rem 0", borderRadius: "1rem", border: day.상태 === '반려' ? "1px solid var(--error)" : "1px solid var(--glass-border)", background: day.상태 === '반려' ? "rgba(239, 68, 68, 0.05)" : "transparent", cursor: "pointer", opacity: day.상태 === 'none' ? 0.3 : 1 }}>
                      <span style={{ fontSize: "0.6rem", fontWeight: 700 }}>{day.day}</span>
-                     {day.status === 'approved' ? <CheckCircle2 size={16} color="var(--success)" /> : 
-                      day.status === 'rejected' ? <AlertCircle size={16} color="var(--error)" /> : 
-                      day.status === 'pending' ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2 }}><RefreshCw size={14} color="var(--primary)" /></motion.div> :
+                     {day.상태 === '승인' ? <CheckCircle2 size={16} color="var(--success)" /> : 
+                      day.상태 === '반려' ? <AlertCircle size={16} color="var(--error)" /> : 
+                      day.상태 === '대기' ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2 }}><RefreshCw size={14} color="var(--primary)" /></motion.div> :
                       <span style={{ fontWeight: 800, fontSize: "0.85rem" }}>{day.date}</span>}
                    </motion.div>
                  ))}
@@ -303,20 +443,20 @@ export default function Home() {
 
             <section className="card" style={{ margin: "0 1.25rem", padding: "1.5rem" }}>
                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                  <h3 style={{ fontWeight: 900 }}>SME 열정 랭킹 🏆</h3>
+                  <h3 style={{ fontWeight: 900 }}>SME 활동 랭킹 🏆</h3>
                   <div style={{ display: "flex", gap: "0.4rem", background: "rgba(0,0,0,0.05)", padding: "0.2rem", borderRadius: "0.8rem" }}>
                     {["weekly", "monthly", "yearly"].map(p => (
                       <button key={p} onClick={() => setRankingPeriod(p)} style={{ padding: "0.35rem 0.6rem", borderRadius: "0.6rem", fontSize: "0.6rem", fontWeight: 800, background: rankingPeriod === p ? "white" : "transparent" }}>{p === 'weekly' ? '주간' : p === 'monthly' ? '월간' : '연간'}</button>
                     ))}
                   </div>
                </div>
-               {[...MOCK_MEMBERS].sort((a,b) => (b as any)[rankingPeriod] - (a as any)[rankingPeriod]).map((m, i) => (
-                  <div key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
+               {[...members].sort((a,b) => (b.운동횟수 || 0) - (a.운동횟수 || 0)).map((m, i) => (
+                  <div key={m.닉네임} style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
                      <span style={{ width: "1.2rem", fontWeight: 900 }}>{i < 3 ? ["🥇","🥈","🥉"][i] : i+1}</span>
-                     <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800 }}>{m.avatar}</div>
+                     <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800 }}>{m.아바타}</div>
                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: 800 }}><span>{m.name}</span><span>{(m as any)[rankingPeriod]}회</span></div>
-                        <div style={{ width: "100%", height: "5px", background: "rgba(0,0,0,0.05)", borderRadius: "3px", marginTop: "5px" }}><div style={{ width: `${Math.min(100, ((m as any)[rankingPeriod] / (rankingPeriod === 'weekly' ? 3 : rankingPeriod === 'monthly' ? 12 : 150)) * 100)}%`, height: "100%", background: "var(--primary)", borderRadius: "3px" }} /></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: 800 }}><span>{m.닉네임}</span><span>{m.운동횟수 || 0}회</span></div>
+                        <div style={{ width: "100%", height: "5px", background: "rgba(0,0,0,0.05)", borderRadius: "3px", marginTop: "5px" }}><div style={{ width: `${Math.min(100, ((m.운동횟수 || 0) / 100) * 100)}%`, height: "100%", background: "var(--primary)", borderRadius: "3px" }} /></div>
                      </div>
                   </div>
                ))}
@@ -324,20 +464,20 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* --- Social, Profile & My Tabs --- */}
+        {/* --- Tabs: 피드, 마이 --- */}
         {activeTab === "social" && (
            <motion.div key="social" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <h2 style={{ padding: "0 1.25rem", fontSize: "1.6rem", fontWeight: 900 }}>실시간 피드</h2>
+              <h2 style={{ padding: "0 1.25rem", fontSize: "1.6rem", fontWeight: 900 }}>활동 피드</h2>
               {posts.map(post => (
                 <article key={post.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
-                  <div onClick={() => { setSelectedProfile(post.user); setActiveTab("profile"); }} style={{ padding: "0.8rem 1.25rem", display: "flex", alignItems: "center", gap: "0.8rem", cursor: "pointer" }}>
-                    <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 900 }}>{post.user.avatar}</div>
-                    <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{post.user.name}</span>
+                  <div onClick={() => { setSelectedProfile(post); setActiveTab("profile"); }} style={{ padding: "0.8rem 1.25rem", display: "flex", alignItems: "center", gap: "0.8rem", cursor: "pointer" }}>
+                    <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 900 }}>{post.아바타}</div>
+                    <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{post.닉네임}</span>
                   </div>
-                  <img src={post.imageUrl} alt="feed" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+                  <img src={post.이미지URL} alt="feed" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
                   <div style={{ padding: "1.25rem" }}>
                      <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.7rem" }}><Heart size={24} /> <MessageCircle size={24} /> <Share2 size={24} style={{ marginLeft: "auto" }} /></div>
-                     <p style={{ fontSize: "0.95rem", lineHeight: 1.5 }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.user.name}</span>{post.content}</p>
+                     <p style={{ fontSize: "0.95rem", lineHeight: 1.5 }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
                   </div>
                 </article>
               ))}
@@ -346,23 +486,17 @@ export default function Home() {
 
         {activeTab === "my" && (
            <motion.div key="my" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: "flex", flexDirection: "column" }}>
-              <ProfileHeader name={currentUser?.isAdmin ? "관리자" : currentUser?.name} />
+              <ProfileHeader name={currentUser?.닉네임} />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
-                 {posts.filter(p => p.user.name === (currentUser?.isAdmin ? "관리자" : currentUser?.name)).map(p => (
-                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+                 {posts.filter(p => p.닉네임 === currentUser?.닉네임).map(p => (
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.이미지URL} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
                  ))}
-                 {posts.filter(p => p.user.name === (currentUser?.isAdmin ? "관리자" : currentUser?.name)).length === 0 && (
-                    <div style={{ gridColumn: "span 3", padding: "4rem 2rem", textAlign: "center", opacity: 0.3 }}>
-                       <ImageIcon size={48} style={{ marginBottom: "1rem" }} />
-                       <p>첫 인증샷을 올려보세요!</p>
-                    </div>
-                 )}
               </div>
            </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 🔴 Enhanced Side Menu Drawer */}
+      {/* --- Modals & Overlays --- */}
       <AnimatePresence>
         {isMenuOpen && (
           <>
@@ -373,16 +507,13 @@ export default function Home() {
                   <X size={26} style={{ cursor: "pointer", opacity: 0.5 }} onClick={() => setIsMenuOpen(false)} />
                </div>
                <nav style={{ display: "flex", flexDirection: "column", gap: "0.8rem", flex: 1 }}>
-                  {currentUser?.isAdmin && (
+                  {currentUser?.관리자여부 && (
                     <div onClick={() => { setMenuView("admin_approval"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "1.25rem", borderRadius: "1.25rem", background: "rgba(56, 189, 248, 0.1)", border: "1px solid rgba(56, 189, 248, 0.2)", cursor: "pointer" }}>
-                       <ShieldCheck size={22} color="var(--primary)" /> <span style={{ fontWeight: 800, color: "var(--primary)" }}>관리자 승인 대기물</span>
+                       <ShieldCheck size={22} color="var(--primary)" /> <span style={{ fontWeight: 800, color: "var(--primary)" }}>활동 승인 대기물</span>
                     </div>
                   )}
                   <div onClick={() => { setMenuView("penalty"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "1.25rem", borderRadius: "1.25rem", background: "rgba(0,0,0,0.03)", cursor: "pointer" }}>
                      <CreditCard size={22} color="var(--primary)" /> <span style={{ fontWeight: 800 }}>벌금 관리</span>
-                  </div>
-                  <div onClick={() => { setMenuView("ledger"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1.2rem", padding: "1.25rem", borderRadius: "1.25rem", background: "rgba(0,0,0,0.03)", cursor: "pointer" }}>
-                     <BookOpen size={22} color="var(--secondary)" /> <span style={{ fontWeight: 800 }}>장부 (벌금 현황)</span>
                   </div>
                </nav>
                <button onClick={handleLogout} style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: "0.8rem", padding: "1.25rem", borderRadius: "1.25rem", background: "rgba(239, 68, 68, 0.05)", color: "var(--error)", fontWeight: 800, cursor: "pointer", border: "none" }}>
@@ -393,7 +524,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* 🔵 Menu Detail & Approval Views */}
       <AnimatePresence>
         {menuView === "admin_approval" && (
            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "var(--bg-color)", zIndex: 2000, padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -401,63 +531,50 @@ export default function Home() {
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem", overflowY: "auto" }}>
                  {pendingApprovals.map(item => (
                     <div key={item.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
-                       <div style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--glass-border)" }}>
-                          <div><span style={{ fontWeight: 900 }}>{item.user}</span> <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.type} ({item.date})</span></div>
+                       <div style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div><span style={{ fontWeight: 900 }}>{item.닉네임}</span> <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} ({item.날짜})</span></div>
                        </div>
-                       {item.imageUrl && <img src={item.imageUrl} alt="proof" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover" }} />}
-                       {item.reason && <div style={{ padding: "1.25rem", fontSize: "0.85rem", background: "rgba(0,0,0,0.02)" }}>{item.reason}</div>}
+                       <img src={item.이미지URL} alt="proof" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover" }} />
                        <div style={{ padding: "1rem", display: "flex", gap: "0.8rem" }}>
-                          <button onClick={() => startReject(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", border: "1px solid var(--error)", color: "var(--error)", fontWeight: 800, fontSize: "0.85rem" }}>반려하기</button>
-                          <button onClick={() => handleApprove(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "var(--primary)", color: "white", fontWeight: 800, fontSize: "0.85rem" }}>승인 완료</button>
+                          <button onClick={() => startReject(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", border: "1px solid var(--error)", color: "var(--error)", fontWeight: 800 }}>반려하기</button>
+                          <button onClick={() => handleApprove(item.id, item.닉네임)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "var(--primary)", color: "white", fontWeight: 800 }}>활동 승인</button>
                        </div>
                     </div>
                  ))}
-                 {pendingApprovals.length === 0 && (
-                   <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
-                      <CheckCircle2 size={48} style={{ margin: "0 auto 1rem" }} />
-                      <p>모든 승인이 완료되었습니다!</p>
-                   </div>
-                 )}
+                 {pendingApprovals.length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}>대기 중인 활동이 없습니다.</div>}
               </div>
            </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 🟢 Day Detail Modal (For Re-submission) */}
       <AnimatePresence>
         {selectedDay && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="card" style={{ width: "100%", maxWidth: "400px", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <h3 style={{ fontSize: "1.2rem", fontWeight: 800 }}>{selectedDay.day}요일 인증 현황</h3>
+                  <h3 style={{ fontSize: "1.2rem", fontWeight: 800 }}>{selectedDay.day}요일 활동 현황</h3>
                   <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => setSelectedDay(null)} />
                </div>
-               
-               {selectedDay.status === 'approved' ? (
-                 <div style={{ textAlign: "center", padding: "1rem" }}>
-                    <div style={{ width: "4rem", height: "4rem", borderRadius: "50%", background: "var(--success)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem" }}><Check size={32} color="white" /></div>
-                    <p style={{ fontWeight: 800, color: "var(--success)" }}>최종 승인된 기록입니다.</p>
-                 </div>
-               ) : selectedDay.status === 'rejected' ? (
+               {selectedDay.상태 === '반려' ? (
                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                     <div style={{ padding: "1.25rem", background: "rgba(239, 68, 68, 0.05)", borderRadius: "1rem", border: "1px solid rgba(239, 68, 68, 0.1)" }}>
                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: "var(--error)", marginBottom: "0.5rem" }}><AlertCircle size={18} /> <span style={{ fontWeight: 800 }}>반려 사유</span></div>
                        <p style={{ fontSize: "0.9rem", lineHeight: 1.6, opacity: 0.8 }}>{selectedDay.reason}</p>
                     </div>
-                    {selectedDay.imageUrl && <img src={selectedDay.imageUrl} alt="rejected" style={{ width: "100%", borderRadius: "1rem", aspectRatio: "16/9", objectFit: "cover", filter: "grayscale(100%) opacity(0.5)" }} />}
-                    <button onClick={() => setShowUpload(selectedDay.day)} className="btn-primary" style={{ padding: "1.1rem", borderRadius: "1.25rem", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem" }}><RefreshCw size={18} /> 사진 재제출하기</button>
+                    <button onClick={() => setShowUpload(selectedDay)} className="btn-primary" style={{ padding: "1.1rem", borderRadius: "1.25rem", fontWeight: 800 }}>활동 재제출하기</button>
                  </div>
-               ) : selectedDay.status === 'pending' ? (
-                 <div style={{ textAlign: "center", padding: "2rem" }}>
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2 }} style={{ margin: "0 auto 1.5rem" }}><RefreshCw size={40} color="var(--primary)" /></motion.div>
-                    <p style={{ fontWeight: 800 }}>관리자가 사진을 검토 중입니다.</p>
-                    <p style={{ fontSize: "0.8rem", opacity: 0.5, marginTop: "0.5rem" }}>조금만 기다려 주세요!</p>
+               ) : selectedDay.상태 === 'none' ? (
+                 <div style={{ textAlign: "center", padding: "1rem" }}>
+                    <ImageIcon size={40} style={{ opacity: 0.1, marginBottom: "1rem" }} />
+                    <p style={{ opacity: 0.5 }}>기록이 없습니다.</p>
+                    <button onClick={() => setShowUpload(selectedDay)} className="btn-primary" style={{ padding: "1rem 2rem", borderRadius: "1.25rem", fontWeight: 800, marginTop: "1.5rem" }}>활동 인증하기</button>
                  </div>
                ) : (
-                 <div style={{ textAlign: "center", padding: "1rem" }}>
-                    <ImageIcon size={40} style={{ opacity: 0.2, marginBottom: "1rem" }} />
-                    <p style={{ opacity: 0.5 }}>아직 등록된 기록이 없습니다.</p>
-                    <button onClick={() => setShowUpload(selectedDay.day)} className="btn-primary" style={{ padding: "1rem 2rem", borderRadius: "1.25rem", fontWeight: 800, marginTop: "1.5rem" }}>인증샷 올리기</button>
+                 <div style={{ textAlign: "center", padding: "2rem" }}>
+                    <div style={{ width: "4rem", height: "4rem", borderRadius: "50%", background: selectedDay.상태 === '승인' ? "var(--success)" : "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}>
+                       {selectedDay.상태 === '승인' ? <Check size={32} color="white" /> : <RefreshCw size={32} color="white" className="animate-spin" />}
+                    </div>
+                    <p style={{ fontWeight: 800 }}>{selectedDay.상태 === '승인' ? "정상 승인되었습니다." : "관리자 검토 중입니다."}</p>
                  </div>
                )}
             </motion.div>
@@ -465,39 +582,19 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* 🟠 Reject Reason Input Modal (Admin) */}
-      <AnimatePresence>
-        {rejectId && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-            <div className="card" style={{ width: "100%", maxWidth: "360px", padding: "2rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-               <h3 style={{ fontWeight: 900 }}>반려 사유 입력</h3>
-               <textarea value={rejectReasonInput} onChange={(e) => setRejectReasonInput(e.target.value)} placeholder="반려 사유를 상세하게 작성해 주세요 (예: 헬스장 사진이 아님)" style={{ width: "100%", height: "120px", background: "rgba(0,0,0,0.03)", borderRadius: "1rem", padding: "1rem", border: "none" }} />
-               <div style={{ display: "flex", gap: "1rem" }}>
-                  <button onClick={() => setRejectId(null)} style={{ flex: 1, padding: "0.8rem", fontWeight: 800, opacity: 0.5 }}>취소</button>
-                  <button onClick={confirmReject} disabled={!rejectReasonInput} style={{ flex: 1, padding: "0.8rem", borderRadius: "1rem", background: "var(--error)", color: "white", fontWeight: 800 }}>반려 확정</button>
-               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {showUpload && (
+        <label style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem", cursor: "pointer" }}>
+           <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+           <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "380px", textAlign: "center", padding: "3rem 2rem" }}>
+              <ImageIcon size={48} style={{ opacity: 0.2, margin: "0 auto 1.5rem" }} />
+              <h3 style={{ fontWeight: 900 }}>[{showUpload.day}] 사진 업로드</h3>
+              <p style={{ opacity: 0.5, marginTop: "0.5rem", fontSize: "0.9rem" }}>여기를 클릭하여 활동 사진을 선택하세요.</p>
+              <button onClick={() => setShowUpload(null)} style={{ marginTop: "2rem", opacity: 0.4 }}>취소</button>
+           </div>
+        </label>
+      )}
 
-      {/* 🟠 General Upload Modal */}
-      <AnimatePresence>
-        {showUpload && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="card" style={{ width: "100%", maxWidth: "400px", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-               <h3 style={{ fontSize: "1.3rem", fontWeight: 800 }}>[{showUpload === 'today' ? '오늘' : showUpload + '요일'}] 인증샷 올리기</h3>
-               <div style={{ width: "100%", aspectRatio: "1/1", border: "2px dashed var(--glass-border)", borderRadius: "1.5rem", display: "flex", alignItems: "center", justifyContent: "center" }}><ImageIcon size={48} style={{ opacity: 0.3 }} /></div>
-               <div style={{ display: "flex", gap: "1rem" }}>
-                  <button onClick={() => setShowUpload(null)} style={{ flex: 1, padding: "1rem", borderRadius: "1.25rem", background: "rgba(0,0,0,0.05)", fontWeight: 800 }}>취소</button>
-                  <button onClick={handleUpload} className="btn-primary" style={{ flex: 1, borderRadius: "1.25rem", fontWeight: 800 }}>인증 완료</button>
-               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Global Toast & Nav (Restored & Preserved) */}
+      {/* --- Global UI --- */}
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} style={{ position: "fixed", bottom: "7.5rem", left: "50%", background: "rgba(0,0,0,0.85)", color: "white", padding: "1rem 2rem", borderRadius: "2.5rem", zIndex: 4000, fontWeight: 800, fontSize: "0.95rem" }}>{toast}</motion.div>
@@ -510,6 +607,22 @@ export default function Home() {
           </button>
         ))}
       </nav>
+
+      {/* --- Admin Reject UI --- */}
+      <AnimatePresence>
+        {rejectId && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+            <div className="card" style={{ width: "100%", maxWidth: "360px", padding: "2rem" }}>
+               <h3 style={{ fontWeight: 900, marginBottom: "1rem" }}>반려 사유 입력</h3>
+               <textarea value={rejectReasonInput} onChange={(e) => setRejectReasonInput(e.target.value)} placeholder="반려 사유를 작성해 주세요." style={{ width: "100%", height: "120px", background: "rgba(0,0,0,0.03)", borderRadius: "1rem", padding: "1rem", border: "none", marginBottom: "1.5rem" }} />
+               <div style={{ display: "flex", gap: "1rem" }}>
+                  <button onClick={() => setRejectId(null)} style={{ flex: 1, opacity: 0.5 }}>취소</button>
+                  <button onClick={confirmReject} disabled={!rejectReasonInput} style={{ flex: 1, padding: "0.8rem", background: "var(--error)", color: "white", borderRadius: "1rem", fontWeight: 800 }}>반려 확정</button>
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
