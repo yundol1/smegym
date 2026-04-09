@@ -292,7 +292,7 @@ export default function Home() {
                       )}
 
                       {/* Comment Input */}
-                      <div style={{ display: "flex", mt: "0.5rem", gap: "0.5rem", alignItems: "center" }}>
+                      <div style={{ display: "flex", marginTop: "0.5rem", gap: "0.5rem", alignItems: "center" }}>
                         <input 
                           type="text" 
                           placeholder="댓글 달기..."
