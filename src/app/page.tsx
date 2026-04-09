@@ -18,10 +18,7 @@ const MOCK_POSTS = [
     content: "오늘 하체 조졌습니다! 스쿼트 100kg 달성 💪",
     date: "어제",
     likes: 24,
-    comments: [
-      { user: "헬스초보", text: "대단하시네요! 저도 열심히 해야겠어요." },
-      { user: "근성왕", text: "득근하세요!" }
-    ],
+    comments: [],
     liked: true
   },
   {
@@ -37,11 +34,11 @@ const MOCK_POSTS = [
 ];
 
 const MOCK_MEMBERS = [
-  { id: 1, name: "돌콩님", avatar: "DK", weekly: 2, monthly: 12, yearly: 148 },
-  { id: 2, name: "도니 전사", avatar: "DN", weekly: 3, monthly: 15, yearly: 120 },
-  { id: 3, name: "헬스왕", avatar: "HW", weekly: 1, monthly: 10, yearly: 200 },
-  { id: 4, name: "눈곰", avatar: "NG", weekly: 2, monthly: 11, yearly: 95 },
-  { id: 5, name: "돌맹", avatar: "DM", weekly: 3, monthly: 14, yearly: 110 }
+  { id: 1, name: "돌콩님", avatar: "DK", weekly: 2, monthly: 12, yearly: 148, bio: "SME 클럽 관리자 | 헬스 & 테크 🚀" },
+  { id: 2, name: "도니 전사", avatar: "DN", weekly: 3, monthly: 15, yearly: 120, bio: "득근에 진심인 전사입니다. 💪" },
+  { id: 3, name: "헬스왕", avatar: "HW", weekly: 1, monthly: 10, yearly: 200, bio: "꾸준함이 진리다. 🏋️‍♂️" },
+  { id: 4, name: "눈곰", avatar: "NG", weekly: 2, monthly: 11, yearly: 95, bio: "매일 조금씩 성장하기 🐻" },
+  { id: 5, name: "돌맹", avatar: "DM", weekly: 3, monthly: 14, yearly: 110, bio: "운동 초보 탈출기!" }
 ];
 
 const weekDays = [
@@ -61,10 +58,8 @@ export default function Home() {
   const [checkedIn, setCheckedIn] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [posts, setPosts] = useState(MOCK_POSTS);
-  const [rankingPeriod, setRankingPeriod] = useState("monthly"); // Default to monthly
-  
+  const [rankingPeriod, setRankingPeriod] = useState("monthly");
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const penalty = Math.max(0, 3 - workoutCount) * 2000;
 
@@ -79,14 +74,11 @@ export default function Home() {
       if (activeTab !== "home") return;
       const scrollPosition = window.innerHeight + window.scrollY;
       const threshold = document.documentElement.scrollHeight - 50; 
-      
       if (scrollPosition >= threshold) {
-        // Natural transition to Social/Feed
         setTimeout(() => setActiveTab("social"), 100);
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, [activeTab]);
@@ -100,7 +92,7 @@ export default function Home() {
       id: posts.length + 1,
       user: { name: "돌콩님", avatar: "DK" },
       imageUrl: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1000&auto=format&fit=crop",
-      content: "오늘 운동 인증샷! 모두 득근하세요 🔥",
+      content: "오늘 운동 인증샷! 득근 가자 🔥",
       date: "방금 전",
       likes: 0,
       comments: [],
@@ -112,32 +104,63 @@ export default function Home() {
     setShowUpload(false);
   };
 
-  const getSortedRankings = () => {
-    return [...MOCK_MEMBERS].sort((a: any, b: any) => b[rankingPeriod] - a[rankingPeriod]);
+  const getMemberStats = (name: string) => {
+    const member = MOCK_MEMBERS.find(m => m.name === name) || MOCK_MEMBERS[0];
+    const userPosts = posts.filter(p => p.user.name === name);
+    return {
+      workouts: member.monthly,
+      postCount: userPosts.length,
+      bio: member.bio,
+      avatar: member.avatar
+    };
   };
 
-  const getGaugeColor = (value: number, period: string) => {
-    const max = period === "weekly" ? 3 : period === "monthly" ? 12 : 150;
-    const percent = (value / max) * 100;
-    if (percent >= 100) return "var(--success)";
-    if (percent >= 50) return "var(--warning)";
-    return "var(--primary)";
+  const ProfileHeader = ({ name }: { name: string }) => {
+    const stats = getMemberStats(name);
+    return (
+      <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
+         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
+            {/* Circular Avatar */}
+            <div style={{ 
+              width: "5.5rem", height: "5.5rem", borderRadius: "50%", 
+              background: "var(--secondary)", border: "3px solid var(--primary)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.8rem", fontWeight: 800, color: "white", overflow: "hidden"
+            }}>
+               {name === "돌콩님" ? (
+                  <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+               ) : stats.avatar}
+            </div>
+            {/* Stats Row */}
+            <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
+               <div style={{ textAlign: "center" }}>
+                  <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{stats.workouts}</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div>
+               </div>
+               <div style={{ textAlign: "center" }}>
+                  <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{stats.postCount}</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div>
+               </div>
+            </div>
+         </div>
+         {/* Name & Bio */}
+         <div style={{ marginTop: "1rem" }}>
+            <div style={{ fontWeight: 800, fontSize: "1rem" }}>{name}</div>
+            <p style={{ fontSize: "0.85rem", marginTop: "0.25rem", opacity: 0.7, lineHeight: 1.4 }}>{stats.bio}</p>
+         </div>
+      </div>
+    );
   };
 
   return (
     <main style={{ padding: "1.5rem 0 7rem 0", display: "flex", flexDirection: "column", gap: "2.5rem" }}>
       
-      {/* 🔴 Top Sticky Header */}
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--primary)" }}>SME CLUB</h1>
-          <span style={{ fontSize: "0.75rem", opacity: 0.4 }}>4월 2주차</span>
-        </div>
+      {/* Top Header */}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1.25rem" }}>
+        <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--primary)" }}>SME CLUB</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
            <div onClick={() => setIsLightMode(!isLightMode)} style={{ width: "40px", height: "20px", borderRadius: "10px", background: isLightMode ? "#e0e7ff" : "#334155", position: "relative", cursor: "pointer" }}>
-            <motion.div animate={{ x: isLightMode ? 2 : 22 }} style={{ width: "16px", height: "16px", borderRadius: "50%", background: "white", position: "absolute", top: "2px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {isLightMode ? <Sun size={10} color="#f59e0b" /> : <Moon size={10} color="#3b82f6" />}
-            </motion.div>
+            <motion.div animate={{ x: isLightMode ? 2 : 22 }} style={{ width: "16px", height: "16px", borderRadius: "50%", background: "white", position: "absolute", top: "2px" }} />
           </div>
           <Menu size={22} style={{ opacity: 0.6 }} />
         </div>
@@ -146,128 +169,72 @@ export default function Home() {
       <AnimatePresence mode="wait">
         {/* --- HOME TAB --- */}
         {activeTab === "home" && (
-          <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-            
-            {/* Dashboard Stats */}
-            <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
-              <div className="card" style={{ padding: "1.5rem", border: penalty > 0 ? "1px solid var(--warning)" : "1px solid var(--success)" }}>
-                 <div style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>이번 주 벌금</div>
-                 <div style={{ fontSize: "1.5rem", fontWeight: 800, color: penalty > 0 ? "var(--warning)" : "var(--success)" }}>
-                   {penalty === 0 ? "0원 🎉" : `${penalty.toLocaleString()}원`}
-                 </div>
+          <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
+            <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", padding: "0 1.25rem" }}>
+              <div className="card" style={{ padding: "1.5rem" }}>
+                 <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>이번 주 벌금</div>
+                 <div style={{ fontSize: "1.5rem", fontWeight: 800, color: penalty > 0 ? "var(--warning)" : "var(--success)" }}>{penalty === 0 ? "0원" : `${penalty.toLocaleString()}원`}</div>
               </div>
               <div className="card" style={{ padding: "1.5rem" }}>
-                 <div style={{ fontSize: "0.75rem", opacity: 0.6, marginBottom: "0.5rem" }}>현재 달성 횟수</div>
-                 <div style={{ fontSize: "1.5rem", fontWeight: 800 }}>
-                   {workoutCount}<span style={{ fontSize: "1rem", opacity: 0.3 }}> / 3회</span>
-                 </div>
+                 <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>달성 횟수</div>
+                 <div style={{ fontSize: "1.5rem", fontWeight: 800 }}>{workoutCount} / 3</div>
               </div>
             </section>
-
-            {/* Central Check-in Button */}
-            <section style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
-               <motion.button
-                 whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                 onClick={() => setShowUpload(true)}
-                 style={{
-                   width: "150px", height: "150px", borderRadius: "75px",
-                   background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)",
-                   color: "white", display: "flex", alignItems: "center", justifyContent: "center",
-                   boxShadow: checkedIn ? "0 0 30px var(--success)" : "0 8px 30px rgba(56, 189, 248, 0.3)",
-                   transition: "all 0.5s ease"
-                 }}
-               >
-                 {checkedIn ? <CheckCircle2 size={60} /> : <Dumbbell size={50} />}
+            <section style={{ textAlign: "center" }}>
+               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowUpload(true)} style={{ width: "140px", height: "140px", borderRadius: "70px", background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary), var(--secondary))", color: "white", boxShadow: "0 10px 30px rgba(56,189,248,0.2)" }}>
+                 {checkedIn ? <CheckCircle2 size={50} /> : <Dumbbell size={50} />}
                </motion.button>
-               <h3 style={{ fontSize: "1.1rem", fontWeight: 700 }}>{checkedIn ? "운동 인증을 완료했습니다!" : "사진으로 운동 인증하기"}</h3>
+               <h3 style={{ marginTop: "1rem", fontWeight: 700 }}>{checkedIn ? "인증 성공!" : "운동 인증하기"}</h3>
             </section>
-
-            {/* Weekly Calendar Section */}
-            <section style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <h3 style={{ fontSize: "1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>이번 주 진행 현황 <Check size={16} color="var(--primary)" /></h3>
-               </div>
+            {/* Weekly Status */}
+            <section style={{ padding: "0 1.25rem" }}>
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
                  {weekDays.map((wd, i) => (
-                   <div key={i} style={{ 
-                     display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", padding: "0.75rem 0",
-                     background: wd.status === 'selected' ? "rgba(56, 189, 248, 0.08)" : "var(--card-bg)",
-                     borderRadius: "1rem", border: wd.status === 'selected' ? "1px solid var(--primary)" : "1px solid var(--glass-border)",
-                     opacity: wd.status === '인정' || wd.status === 'selected' ? 1 : 0.4
-                   }}>
-                     <span style={{ fontSize: "0.6rem", fontWeight: 700 }}>{wd.day}</span>
-                     {wd.status === '인정' ? <CheckCircle2 size={16} color="var(--success)" /> : <span style={{ fontSize: "0.9rem", fontWeight: 800 }}>{wd.date}</span>}
+                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", padding: "0.75rem 0", borderRadius: "1rem", border: "1px solid var(--glass-border)", opacity: wd.status === '인정' || wd.status === 'selected' ? 1 : 0.4 }}>
+                     <span style={{ fontSize: "0.6rem" }}>{wd.day}</span>
+                     {wd.status === '인정' ? <CheckCircle2 size={16} color="var(--success)" /> : <span style={{ fontWeight: 800 }}>{wd.date}</span>}
                    </div>
                  ))}
                </div>
             </section>
-
-            {/* SME MEMBER RANKING (Leaderboard) */}
-            <section className="card" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <h3 style={{ fontSize: "1.1rem", fontWeight: 800 }}>SME 열정 랭킹 🏆</h3>
-                  {/* Period Selector Tabs */}
-                  <div style={{ display: "flex", background: "rgba(0,0,0,0.05)", padding: "0.2rem", borderRadius: "10px" }}>
+            {/* SME Ranking */}
+            <section className="card" style={{ margin: "0 1.25rem", padding: "1.5rem" }}>
+               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+                  <h3 style={{ fontWeight: 800 }}>SME 열정 랭킹 🏆</h3>
+                  <div style={{ display: "flex", gap: "0.5rem", background: "rgba(0,0,0,0.05)", padding: "0.2rem", borderRadius: "8px" }}>
                     {["weekly", "monthly", "yearly"].map(p => (
-                      <button 
-                        key={p} onClick={() => setRankingPeriod(p)}
-                        style={{ padding: "0.3rem 0.6rem", borderRadius: "8px", fontSize: "0.7rem", fontWeight: 700, background: rankingPeriod === p ? "white" : "transparent", color: rankingPeriod === p ? "var(--primary)" : "inherit", transition: "0.2s" }}
-                      >
+                      <button key={p} onClick={() => setRankingPeriod(p)} style={{ padding: "0.3rem 0.5rem", borderRadius: "6px", fontSize: "0.65rem", fontWeight: 700, background: rankingPeriod === p ? "white" : "transparent" }}>
                         {p === 'weekly' ? '주간' : p === 'monthly' ? '월간' : '연간'}
                       </button>
                     ))}
                   </div>
                </div>
-
-               <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                  {getSortedRankings().map((member: any, i) => (
-                    <div key={member.id} style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                       {/* Rank Number */}
-                       <div style={{ width: "1.5rem", fontWeight: 800, fontSize: "1.1rem", color: i < 3 ? "var(--accent)" : "inherit", textAlign: "center" }}>
-                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
-                       </div>
-                       <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800 }}>
-                         {member.avatar}
-                       </div>
-                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                             <span style={{ fontWeight: 700, fontSize: "0.9rem" }}>{member.name}</span>
-                             <span style={{ fontSize: "0.75rem", fontWeight: 800 }}>{member[rankingPeriod]}회</span>
-                          </div>
-                          {/* Gauge Bar */}
-                          <div style={{ width: "100%", height: "6px", background: "rgba(0,0,0,0.05)", borderRadius: "3px", overflow: "hidden" }}>
-                             <motion.div 
-                               initial={{ width: 0 }}
-                               animate={{ width: `${Math.min(100, (member[rankingPeriod] / (rankingPeriod === 'weekly' ? 3 : rankingPeriod === 'monthly' ? 12 : 150)) * 100)}%` }}
-                               style={{ height: "100%", background: getGaugeColor(member[rankingPeriod], rankingPeriod) }}
-                             />
-                          </div>
-                       </div>
-                    </div>
-                  ))}
-               </div>
+               {[...MOCK_MEMBERS].sort((a,b) => (b as any)[rankingPeriod] - (a as any)[rankingPeriod]).map((m, i) => (
+                  <div key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+                     <span style={{ width: "1.2rem", fontWeight: 800 }}>{i < 3 ? ["🥇","🥈","🥉"][i] : i+1}</span>
+                     <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800 }}>{m.avatar}</div>
+                     <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: 700 }}>
+                           <span>{m.name}</span><span>{(m as any)[rankingPeriod]}회</span>
+                        </div>
+                        <div style={{ width: "100%", height: "4px", background: "rgba(0,0,0,0.05)", borderRadius: "2px", marginTop: "4px" }}>
+                           <div style={{ width: `${Math.min(100, ((m as any)[rankingPeriod] / (rankingPeriod === 'weekly' ? 3 : 15)) * 100)}%`, height: "100%", background: "var(--primary)", borderRadius: "2px" }} />
+                        </div>
+                     </div>
+                  </div>
+               ))}
             </section>
-
-            {/* Bottom Invitation */}
-            <div style={{ textAlign: "center", paddingBottom: "2rem", opacity: 0.3, fontSize: "0.8rem" }}>
-               ↓ 아래로 더 스크롤하여 팀원들의 인증샷 확인
-            </div>
+            <div style={{ textAlign: "center", opacity: 0.3, fontSize: "0.75rem" }}>↓ 스크롤하여 팀원 피드 확인</div>
           </motion.div>
         )}
 
         {/* --- SOCIAL FEED TAB --- */}
         {activeTab === "social" && (
-           <motion.div key="social" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                 <h2 style={{ fontSize: "1.5rem", fontWeight: 800 }}>실시간 피드</h2>
-                 <Plus size={24} onClick={() => setShowUpload(true)} />
-              </div>
+           <motion.div key="social" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+              <h2 style={{ padding: "0 1.25rem", fontSize: "1.5rem", fontWeight: 800 }}>실시간 피드</h2>
               {posts.map(post => (
                 <article key={post.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
-                  <div 
-                    onClick={() => { setSelectedProfile(post.user); setActiveTab("profile"); }}
-                    style={{ padding: "1rem", display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}
-                  >
+                  <div onClick={() => { setSelectedProfile(post.user); setActiveTab("profile"); }} style={{ padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
                     <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800 }}>{post.user.avatar}</div>
                     <span style={{ fontWeight: 700, fontSize: "0.9rem" }}>{post.user.name}</span>
                   </div>
@@ -283,12 +250,12 @@ export default function Home() {
 
         {/* --- PROFILE DETAIL VIEW --- */}
         {activeTab === "profile" && (
-           <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                 <ArrowLeft onClick={() => setActiveTab("social")} style={{ cursor: "pointer" }} />
-                 <h2 style={{ fontSize: "1.25rem", fontWeight: 800 }}>{selectedProfile?.name} 갤러리</h2>
+           <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
+                 <ArrowLeft onClick={() => setActiveTab("social")} style={{ cursor: "pointer", marginBottom: "1rem" }} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px" }}>
+              <ProfileHeader name={selectedProfile?.name} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
                  {posts.filter(p => p.user.name === selectedProfile?.name).map(p => (
                     <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}>
                        <img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -301,36 +268,22 @@ export default function Home() {
         {/* --- MY INFO TAB --- */}
         {activeTab === "my" && (
            <motion.div key="my" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "0 1rem", marginBottom: "2rem" }}>
-                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                    <div style={{ width: "5rem", height: "5rem", borderRadius: "50%", border: "2px solid var(--primary)", overflow: "hidden" }}>
-                       <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="me" />
+              <ProfileHeader name="돌콩님" />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
+                 {posts.filter(p => p.user.name === "돌콩님").map(p => (
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}>
+                       <img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </div>
-                    <div style={{ display: "flex", gap: "1.5rem" }}>
-                       <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800 }}>{posts.filter(p => p.user.name === "돌콩님").length}</div><div style={{ fontSize: "0.7rem", opacity: 0.5 }}>인증</div></div>
-                       <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800 }}>48</div><div style={{ fontSize: "0.7rem", opacity: 0.5 }}>누적</div></div>
-                    </div>
-                 </div>
-                 <h2 style={{ fontSize: "1.25rem", fontWeight: 800 }}>돌콩님</h2>
-                 <p style={{ opacity: 0.5, fontSize: "0.85rem" }}>SME 클럽 관리자 | 헬스 & 테크</p>
-              </div>
-              <div style={{ borderTop: "1px solid var(--glass-border)", paddingTop: "1rem" }}>
-                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px" }}>
-                    {posts.filter(p => p.user.name === "돌콩님").map(p => (
-                       <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}>
-                          <img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                       </div>
-                    ))}
-                 </div>
+                 ))}
               </div>
            </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 🟣 Fixed Bottom Navigation */}
+      {/* Fixed Bottom Navigation */}
       <nav className="glass" style={{ 
         position: "fixed", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)",
-        width: "calc(100% - 3rem)", maxWidth: "420px", height: "4.5rem",
+        width: "calc(100% - 2.5rem)", maxWidth: "420px", height: "4.5rem",
         display: "flex", justifyContent: "space-around", alignItems: "center", zIndex: 100, borderRadius: "2.5rem",
         background: isLightMode ? "rgba(255,255,255,0.9)" : "rgba(15, 23, 42, 0.8)"
       }}>
@@ -339,7 +292,7 @@ export default function Home() {
           { id: "social", icon: <Users size={24} />, label: "피드" },
           { id: "my", icon: <User size={24} />, label: "마이" }
         ].map(it => (
-          <button key={it.id} onClick={() => {setActiveTab(it.id); setSelectedProfile(null); window.scrollTo(0,0);}} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.2rem", color: (activeTab === it.id || (it.id === 'social' && activeTab === 'profile')) ? "var(--primary)" : "rgba(128,128,128,0.5)" }}>
+          <button key={it.id} onClick={() => {setActiveTab(it.id); setSelectedProfile(null); window.scrollTo(0,0);}} style={{ display: "flex", flexDirection: "column", alignItems: "center", color: (activeTab === it.id || (it.id === 'social' && activeTab === 'profile')) ? "var(--primary)" : "rgba(128,128,128,0.5)" }}>
             {it.icon} <span style={{ fontSize: "0.6rem", fontWeight: 700 }}>{it.label}</span>
           </button>
         ))}
