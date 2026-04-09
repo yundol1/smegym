@@ -221,47 +221,62 @@ export default function Home() {
     const password = formData.get("password") as string;
     const realName = formData.get("userName") as string;
 
-    const userRef = doc(db, "멤버", nickname);
-    const userSnap = await getDoc(userRef);
+    try {
+      const userRef = doc(db, "멤버", nickname);
+      const userSnap = await getDoc(userRef);
 
-    if (authMode === "login") {
-      if (userSnap.exists() && userSnap.data().비밀번호 === password) {
-        const userData = userSnap.data();
-        
-        // --- IRONCLAD MEMBER APPROVAL CHECK ---
-        if (userData.승인상태 === "대기") {
-           setToast("관리자의 승인이 아직 떨어지기 전입니다. 잠시만 기다려주세요. ⏳");
-           return; // Strictly block login
+      if (authMode === "login") {
+        // Case 1: Nickname doesn't exist
+        if (!userSnap.exists()) {
+          setToast("존재하지 않는 닉네임입니다. 회원가입을 해주세요. ❌");
+          return;
         }
 
+        const userData = userSnap.data();
+
+        // Case 2: Password wrong
+        if (userData.비밀번호 !== password) {
+          setToast("비밀번호가 틀렸습니다. ❌");
+          return;
+        }
+
+        // Case 3: Correct credentials but pending approval
+        if (userData.승인상태 === "대기") {
+          setToast("관리자의 승인이 아직 떨어지기 전입니다. 잠시만 기다려주세요. ⏳");
+          return;
+        }
+
+        // Case 4: All good — log in
         setCurrentUser(userData);
         if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(userData));
+
       } else {
-        setToast("닉네임 또는 비밀번호가 틀렸습니다. ❌");
+        // Signup
+        if (userSnap.exists()) {
+          setToast("이미 존재하는 닉네임입니다. ⚠️");
+          return;
+        }
+        
+        const newUser = {
+          닉네임: nickname,
+          비밀번호: password,
+          이름: realName || nickname,
+          관리자여부: false,
+          아바타: nickname.substring(0, 2).toUpperCase(),
+          인사말: "득근에 진심입니다! 💪",
+          운동횟수: 0,
+          승인상태: "대기", // Default to pending — admin must approve
+          생성일: serverTimestamp()
+        };
+        await setDoc(userRef, newUser);
+        
+        // Do NOT log them in. Show message and return to login view.
+        setToast("회원가입이 완료되었습니다! 관리자 승인을 기다려주세요. ⏳");
+        setAuthMode("login");
       }
-    } else {
-      // Signup
-      if (userSnap.exists()) {
-        setToast("이미 존재하는 닉네임입니다. ⚠️");
-        return;
-      }
-      
-      const newUser = {
-        닉네임: nickname,
-        비밀번호: password,
-        이름: realName || nickname,
-        관리자여부: false,
-        아바타: nickname.substring(0, 2).toUpperCase(),
-        인사말: "득근에 진심입니다! 💪",
-        운동횟수: 0,
-        승인상태: "대기", // CRUCIAL: Default to pending
-        생성일: serverTimestamp()
-      };
-      await setDoc(userRef, newUser);
-      
-      // Do NOT log them in. Show message and reset to login view.
-      setToast("회원가입이 완료되었습니다! 관리자 승인을 기다려주세요. ⏳");
-      setAuthMode("login");
+    } catch (err) {
+      console.error("Auth error:", err);
+      setToast("오류가 발생했습니다. 잠시 후 다시 시도해주세요. 🔧");
     }
   };
 
