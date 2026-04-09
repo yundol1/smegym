@@ -46,6 +46,31 @@ const MOCK_POSTS = [
   }
 ];
 
+// Helper to get current week info (Mon-Sun)
+const getCurrentWeekInfo = () => {
+  const now = new Date();
+  const day = now.getDay(); // 0(Sun) - 6(Sat)
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  const monday = new Date(now.setDate(diff));
+  const sunday = new Date(now.setDate(diff + 6));
+  
+  const month = monday.getMonth() + 1;
+  const dateStr = `${monday.getDate()}일 ~ ${sunday.getDate()}일`;
+  
+  // Calculate week of the month
+  const firstDayOfMonth = new Date(monday.getFullYear(), monday.getMonth(), 1);
+  const firstMonday = new Date(firstDayOfMonth.setDate(
+    firstDayOfMonth.getDate() + (1 - firstDayOfMonth.getDay() + 7) % 7
+  ));
+  const weekNum = Math.ceil((monday.getDate() - firstMonday.getDate() + 1) / 7) + 1;
+  
+  return {
+    month,
+    weekNum,
+    range: dateStr
+  };
+};
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState("home");
   const [checkedIn, setCheckedIn] = useState(false);
@@ -53,10 +78,16 @@ export default function Home() {
   const [posts, setPosts] = useState(MOCK_POSTS);
   const [showUpload, setShowUpload] = useState(false);
   const [newComment, setNewComment] = useState<{ [key: number]: string }>({});
+  
+  // SME Penalty Logic
+  const [workoutCount, setWorkoutCount] = useState(2); // Mock: already worked out twice this week
+  const weekInfo = getCurrentWeekInfo();
+  const penalty = Math.max(0, 3 - workoutCount) * 2000;
 
   const handleCheckIn = () => {
     if (checkedIn) return;
     setCheckedIn(true);
+    setWorkoutCount(prev => prev + 1);
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 3000);
   };
@@ -113,21 +144,30 @@ export default function Home() {
             exit={{ opacity: 0, y: -10 }}
             style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
           >
+            {/* Week Info */}
+            <div style={{ padding: "0.5rem 1rem", background: "rgba(56, 189, 248, 0.1)", borderRadius: "1rem", border: "1px solid rgba(56, 189, 248, 0.2)", alignSelf: "flex-start" }}>
+              <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--primary)" }}>
+                {weekInfo.month}월 {weekInfo.weekNum}주차 ({weekInfo.range})
+              </span>
+            </div>
+
             {/* Stats Cards */}
             <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-              <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--primary)" }}>
+              <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem", border: penalty > 0 ? "1px solid rgba(234, 179, 8, 0.3)" : "1px solid var(--success)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: penalty > 0 ? "var(--warning)" : "var(--success)" }}>
                   <Flame size={18} />
-                  <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>연속 달성</span>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>예상 벌금</span>
                 </div>
-                <span style={{ fontSize: "1.5rem", fontWeight: 700 }}>12일</span>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700 }}>
+                  {penalty === 0 ? "벌금 없음 🎉" : `${penalty.toLocaleString()}원`}
+                </span>
               </div>
               <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--accent)" }}>
                   <Trophy size={18} />
-                  <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>레벨</span>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>주간 목표</span>
                 </div>
-                <span style={{ fontSize: "1.5rem", fontWeight: 700 }}>실버 III</span>
+                <span style={{ fontSize: "1.5rem", fontWeight: 700 }}>{workoutCount}/3회</span>
               </div>
             </section>
 
@@ -420,7 +460,18 @@ export default function Home() {
               />
               <div style={{ display: "flex", gap: "1rem" }}>
                 <button onClick={() => setShowUpload(false)} style={{ flex: 1, padding: "0.75rem", borderRadius: "0.75rem", background: "rgba(255,255,255,0.05)", fontWeight: 600 }}>취소</button>
-                <button onClick={() => setShowUpload(false)} className="btn-primary" style={{ flex: 1 }}>업로드</button>
+                <button 
+                  onClick={() => {
+                    setShowUpload(false);
+                    setWorkoutCount(prev => prev + 1);
+                    setShowConfetti(true);
+                    setTimeout(() => setShowConfetti(false), 3000);
+                  }} 
+                  className="btn-primary" 
+                  style={{ flex: 1 }}
+                >
+                  업로드
+                </button>
               </div>
             </motion.div>
           </motion.div>
