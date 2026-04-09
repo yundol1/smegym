@@ -6,7 +6,7 @@ import {
   RefreshCw, Menu, Moon, Sun, User, Megaphone, ChevronDown, Trophy,
   Flame, CheckCircle2, ChevronRight, Image as ImageIcon,
   Home as HomeIcon, Users, Check, Heart, MessageCircle, Share2, Send,
-  Dumbbell, Plus, ArrowLeft
+  Dumbbell, Plus, ArrowLeft, X, Copy, CreditCard, History, BookOpen
 } from "lucide-react";
 
 // --- MOCK DATA ---
@@ -41,7 +41,24 @@ const MOCK_MEMBERS = [
   { id: 5, name: "돌맹", avatar: "DM", weekly: 3, monthly: 14, yearly: 110, bio: "운동 초보 탈출기!" }
 ];
 
-const weekDays = [
+const LAST_WEEK_DAYS = [
+  { day: '월', status: '인정' },
+  { day: '화', status: '인정' },
+  { day: '수', status: '미흡' },
+  { day: '목', status: '미흡' },
+  { day: '금', status: '미흡' },
+  { day: '토', status: '인정' },
+  { day: '일', status: '미흡' },
+];
+
+const MOCK_LEDGER = [
+  { id: 1, name: "돌콩님", amount: 4000, date: "24.04.01", status: "납부완료" },
+  { id: 2, name: "헬스왕", amount: 6000, date: "24.04.01", status: "미납" },
+  { id: 3, name: "눈곰", amount: 2000, date: "24.03.25", status: "납부완료" },
+  { id: 4, name: "돌맹", amount: 2000, date: "24.03.25", status: "납부완료" },
+];
+
+const CURRENT_WEEK_DAYS = [
   { day: '월', date: '6', status: '인정' },
   { day: '화', date: '7', status: '대기' },
   { day: '수', date: '8', status: '인정' },
@@ -61,27 +78,33 @@ export default function Home() {
   const [rankingPeriod, setRankingPeriod] = useState("monthly");
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
 
+  // Menu & Penalty State
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuView, setMenuView] = useState<string | null>(null); // 'penalty' or 'ledger'
+  const [toast, setToast] = useState<string | null>(null);
+
   const penalty = Math.max(0, 3 - workoutCount) * 2000;
+  const lastWeekWorkoutCount = LAST_WEEK_DAYS.filter(d => d.status === '인정').length;
+  const lastWeekPenalty = Math.max(0, 3 - lastWeekWorkoutCount) * 2000;
 
   useEffect(() => {
     if (isLightMode) document.body.classList.add("light");
     else document.body.classList.remove("light");
   }, [isLightMode]);
 
-  // Seamless Scroll Logic
+  // Toast Timer
   useEffect(() => {
-    const handleScroll = () => {
-      if (activeTab !== "home") return;
-      const scrollPosition = window.innerHeight + window.scrollY;
-      const threshold = document.documentElement.scrollHeight - 50; 
-      if (scrollPosition >= threshold) {
-        setTimeout(() => setActiveTab("social"), 100);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [activeTab]);
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const copyAccount = () => {
+    const account = "카카오뱅크 7942-19-81948";
+    navigator.clipboard.writeText(account);
+    setToast("계좌번호가 복사되었습니다! 💳");
+  };
 
   const handleUpload = () => {
     if (checkedIn) {
@@ -92,7 +115,7 @@ export default function Home() {
       id: posts.length + 1,
       user: { name: "돌콩님", avatar: "DK" },
       imageUrl: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1000&auto=format&fit=crop",
-      content: "오늘 운동 인증샷! 득근 가자 🔥",
+      content: "오늘도 득근! 💪",
       date: "방금 전",
       likes: 0,
       comments: [],
@@ -104,50 +127,21 @@ export default function Home() {
     setShowUpload(false);
   };
 
-  const getMemberStats = (name: string) => {
+  const ProfileHeader = ({ name }: { name: string }) => {
     const member = MOCK_MEMBERS.find(m => m.name === name) || MOCK_MEMBERS[0];
     const userPosts = posts.filter(p => p.user.name === name);
-    return {
-      workouts: member.monthly,
-      postCount: userPosts.length,
-      bio: member.bio,
-      avatar: member.avatar
-    };
-  };
-
-  const ProfileHeader = ({ name }: { name: string }) => {
-    const stats = getMemberStats(name);
     return (
       <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
-            {/* Circular Avatar */}
-            <div style={{ 
-              width: "5.5rem", height: "5.5rem", borderRadius: "50%", 
-              background: "var(--secondary)", border: "3px solid var(--primary)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "1.8rem", fontWeight: 800, color: "white", overflow: "hidden"
-            }}>
-               {name === "돌콩님" ? (
-                  <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-               ) : stats.avatar}
+            <div style={{ width: "5.5rem", height: "5.5rem", borderRadius: "50%", background: "var(--secondary)", border: "3px solid var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", fontWeight: 800, color: "white", overflow: "hidden" }}>
+               {name === "돌콩님" ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.avatar}
             </div>
-            {/* Stats Row */}
             <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
-               <div style={{ textAlign: "center" }}>
-                  <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{stats.workouts}</div>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div>
-               </div>
-               <div style={{ textAlign: "center" }}>
-                  <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{stats.postCount}</div>
-                  <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div>
-               </div>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{member.monthly}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div></div>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div></div>
             </div>
          </div>
-         {/* Name & Bio */}
-         <div style={{ marginTop: "1rem" }}>
-            <div style={{ fontWeight: 800, fontSize: "1rem" }}>{name}</div>
-            <p style={{ fontSize: "0.85rem", marginTop: "0.25rem", opacity: 0.7, lineHeight: 1.4 }}>{stats.bio}</p>
-         </div>
+         <div style={{ marginTop: "1rem" }}><div style={{ fontWeight: 800 }}>{name}</div><p style={{ fontSize: "0.85rem", opacity: 0.7 }}>{member.bio}</p></div>
       </div>
     );
   };
@@ -155,14 +149,14 @@ export default function Home() {
   return (
     <main style={{ padding: "1.5rem 0 7rem 0", display: "flex", flexDirection: "column", gap: "2.5rem" }}>
       
-      {/* Top Header */}
+      {/* 🟢 Top Header */}
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1.25rem" }}>
-        <h1 style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--primary)" }}>SME CLUB</h1>
+        <h1 onClick={() => setActiveTab("home")} style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--primary)", cursor: "pointer" }}>SME CLUB</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
            <div onClick={() => setIsLightMode(!isLightMode)} style={{ width: "40px", height: "20px", borderRadius: "10px", background: isLightMode ? "#e0e7ff" : "#334155", position: "relative", cursor: "pointer" }}>
             <motion.div animate={{ x: isLightMode ? 2 : 22 }} style={{ width: "16px", height: "16px", borderRadius: "50%", background: "white", position: "absolute", top: "2px" }} />
           </div>
-          <Menu size={22} style={{ opacity: 0.6 }} />
+          <Menu size={24} style={{ opacity: 0.6, cursor: "pointer" }} onClick={() => setIsMenuOpen(true)} />
         </div>
       </header>
 
@@ -180,16 +174,17 @@ export default function Home() {
                  <div style={{ fontSize: "1.5rem", fontWeight: 800 }}>{workoutCount} / 3</div>
               </div>
             </section>
+            
             <section style={{ textAlign: "center" }}>
-               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowUpload(true)} style={{ width: "140px", height: "140px", borderRadius: "70px", background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary), var(--secondary))", color: "white", boxShadow: "0 10px 30px rgba(56,189,248,0.2)" }}>
+               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowUpload(true)} style={{ width: "140px", height: "140px", borderRadius: "70px", background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary), var(--secondary))", color: "white" }}>
                  {checkedIn ? <CheckCircle2 size={50} /> : <Dumbbell size={50} />}
                </motion.button>
-               <h3 style={{ marginTop: "1rem", fontWeight: 700 }}>{checkedIn ? "인증 성공!" : "운동 인증하기"}</h3>
+               <h3 style={{ marginTop: "1rem" }}>{checkedIn ? "인증 성공!" : "운동 인증하기"}</h3>
             </section>
-            {/* Weekly Status */}
+
             <section style={{ padding: "0 1.25rem" }}>
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
-                 {weekDays.map((wd, i) => (
+                 {CURRENT_WEEK_DAYS.map((wd, i) => (
                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", padding: "0.75rem 0", borderRadius: "1rem", border: "1px solid var(--glass-border)", opacity: wd.status === '인정' || wd.status === 'selected' ? 1 : 0.4 }}>
                      <span style={{ fontSize: "0.6rem" }}>{wd.day}</span>
                      {wd.status === '인정' ? <CheckCircle2 size={16} color="var(--success)" /> : <span style={{ fontWeight: 800 }}>{wd.date}</span>}
@@ -197,13 +192,13 @@ export default function Home() {
                  ))}
                </div>
             </section>
-            {/* SME Ranking */}
+
             <section className="card" style={{ margin: "0 1.25rem", padding: "1.5rem" }}>
                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1.5rem" }}>
                   <h3 style={{ fontWeight: 800 }}>SME 열정 랭킹 🏆</h3>
-                  <div style={{ display: "flex", gap: "0.5rem", background: "rgba(0,0,0,0.05)", padding: "0.2rem", borderRadius: "8px" }}>
+                  <div style={{ display: "flex", gap: "0.4rem", background: "rgba(0,0,0,0.05)", padding: "0.2rem", borderRadius: "8px" }}>
                     {["weekly", "monthly", "yearly"].map(p => (
-                      <button key={p} onClick={() => setRankingPeriod(p)} style={{ padding: "0.3rem 0.5rem", borderRadius: "6px", fontSize: "0.65rem", fontWeight: 700, background: rankingPeriod === p ? "white" : "transparent" }}>
+                      <button key={p} onClick={() => setRankingPeriod(p)} style={{ padding: "0.3rem 0.6rem", borderRadius: "6px", fontSize: "0.6rem", fontWeight: 700, background: rankingPeriod === p ? "white" : "transparent" }}>
                         {p === 'weekly' ? '주간' : p === 'monthly' ? '월간' : '연간'}
                       </button>
                     ))}
@@ -214,7 +209,7 @@ export default function Home() {
                      <span style={{ width: "1.2rem", fontWeight: 800 }}>{i < 3 ? ["🥇","🥈","🥉"][i] : i+1}</span>
                      <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800 }}>{m.avatar}</div>
                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: 700 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: 700 }}>
                            <span>{m.name}</span><span>{(m as any)[rankingPeriod]}회</span>
                         </div>
                         <div style={{ width: "100%", height: "4px", background: "rgba(0,0,0,0.05)", borderRadius: "2px", marginTop: "4px" }}>
@@ -224,7 +219,6 @@ export default function Home() {
                   </div>
                ))}
             </section>
-            <div style={{ textAlign: "center", opacity: 0.3, fontSize: "0.75rem" }}>↓ 스크롤하여 팀원 피드 확인</div>
           </motion.div>
         )}
 
@@ -251,15 +245,11 @@ export default function Home() {
         {/* --- PROFILE DETAIL VIEW --- */}
         {activeTab === "profile" && (
            <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
-                 <ArrowLeft onClick={() => setActiveTab("social")} style={{ cursor: "pointer", marginBottom: "1rem" }} />
-              </div>
+              <div style={{ padding: "0 1.25rem", marginBottom: "1rem" }}><ArrowLeft onClick={() => setActiveTab("social")} style={{ cursor: "pointer" }} /></div>
               <ProfileHeader name={selectedProfile?.name} />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
                  {posts.filter(p => p.user.name === selectedProfile?.name).map(p => (
-                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}>
-                       <img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </div>
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
                  ))}
               </div>
            </motion.div>
@@ -271,16 +261,117 @@ export default function Home() {
               <ProfileHeader name="돌콩님" />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
                  {posts.filter(p => p.user.name === "돌콩님").map(p => (
-                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}>
-                       <img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </div>
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
                  ))}
               </div>
            </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Fixed Bottom Navigation */}
+      {/* 🔴 Side Menu Drawer */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMenuOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000 }} />
+            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "300px", background: "var(--card-bg)", zIndex: 1001, padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h2 style={{ fontWeight: 800 }}>전체 메뉴</h2>
+                  <X size={24} style={{ cursor: "pointer" }} onClick={() => setIsMenuOpen(false)} />
+               </div>
+               <nav style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <div onClick={() => { setMenuView("penalty"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem", borderRadius: "1rem", background: "rgba(0,0,0,0.03)", cursor: "pointer" }}>
+                     <CreditCard size={20} color="var(--primary)" />
+                     <span style={{ fontWeight: 700 }}>벌금 관리</span>
+                  </div>
+                  <div onClick={() => { setMenuView("ledger"); setIsMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem", borderRadius: "1rem", background: "rgba(0,0,0,0.03)", cursor: "pointer" }}>
+                     <BookOpen size={20} color="var(--secondary)" />
+                     <span style={{ fontWeight: 700 }}>장부 (벌금 현황)</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem", opacity: 0.3 }}>
+                     <History size={20} />
+                     <span style={{ fontWeight: 700 }}>누적 랭킹 히스토리</span>
+                  </div>
+               </nav>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 🔵 Menu Detail Views (Modals) */}
+      <AnimatePresence>
+        {menuView === "penalty" && (
+           <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} style={{ position: "fixed", inset: 0, background: "var(--bg-color)", zIndex: 2000, padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} />
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 800 }}>지난 주 벌금 정산</h2>
+              </div>
+              <div className="card" style={{ padding: "1.5rem" }}>
+                 <p style={{ fontSize: "0.85rem", opacity: 0.6, marginBottom: "1rem" }}>지난 주 운동 기록 (목표 3회)</p>
+                 <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
+                   {LAST_WEEK_DAYS.map((wd, i) => (
+                     <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3rem" }}>
+                       <span style={{ fontSize: "0.6rem" }}>{wd.day}</span>
+                       <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: wd.status === '인정' ? "var(--success)" : "rgba(239, 68, 68, 0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                         {wd.status === '인정' ? <Check size={16} color="white" /> : <X size={16} color="var(--error)" />}
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+                 <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--glass-border)", paddingTop: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                       <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>납부할 벌금</div>
+                       <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--error)" }}>{lastWeekPenalty.toLocaleString()}원</div>
+                    </div>
+                    <button onClick={copyAccount} className="btn-primary" style={{ padding: "0.75rem 1rem", borderRadius: "12px", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                       <Copy size={16} /> 납부하기
+                    </button>
+                 </div>
+              </div>
+              <div style={{ fontSize: "0.8rem", opacity: 0.5, textAlign: "center", lineHeight: 1.6 }}>
+                 계좌번호: 카카오뱅크 7942-19-81948 (김상연)<br/>
+                 입금 후 관리자에게 사진을 보내주세요!
+              </div>
+           </motion.div>
+        )}
+
+        {menuView === "ledger" && (
+           <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} style={{ position: "fixed", inset: 0, background: "var(--bg-color)", zIndex: 2000, padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} />
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 800 }}>SME 벌금 장부 📖</h2>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                 {MOCK_LEDGER.map((item) => (
+                   <div key={item.id} className="card" style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                         <div style={{ fontWeight: 800 }}>{item.name}</div>
+                         <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.date} 정산</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                         <div style={{ fontWeight: 800 }}>{item.amount.toLocaleString()}원</div>
+                         <div style={{ fontSize: "0.7rem", color: item.status === '납부완료' ? "var(--success)" : "var(--error)", fontWeight: 700 }}>{item.status}</div>
+                      </div>
+                   </div>
+                 ))}
+              </div>
+              <div className="card" style={{ background: "rgba(56, 189, 248, 0.1)", border: "1px solid var(--primary)", padding: "1.5rem", textAlign: "center" }}>
+                 <div style={{ fontSize: "0.85rem", fontWeight: 700 }}>총 누적 벌금액</div>
+                 <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--primary)", marginTop: "0.5rem" }}>144,000원</div>
+              </div>
+           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🟣 Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} style={{ position: "fixed", bottom: "7rem", left: "50%", background: "rgba(0,0,0,0.8)", color: "white", padding: "0.8rem 1.5rem", borderRadius: "2rem", zIndex: 3000, fontWeight: 700, fontSize: "0.9rem", boxShadow: "0 10px 30px rgba(0,0,0,0.3)" }}>
+             {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🟣 Fixed Bottom Navigation */}
       <nav className="glass" style={{ 
         position: "fixed", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)",
         width: "calc(100% - 2.5rem)", maxWidth: "420px", height: "4.5rem",
@@ -292,13 +383,12 @@ export default function Home() {
           { id: "social", icon: <Users size={24} />, label: "피드" },
           { id: "my", icon: <User size={24} />, label: "마이" }
         ].map(it => (
-          <button key={it.id} onClick={() => {setActiveTab(it.id); setSelectedProfile(null); window.scrollTo(0,0);}} style={{ display: "flex", flexDirection: "column", alignItems: "center", color: (activeTab === it.id || (it.id === 'social' && activeTab === 'profile')) ? "var(--primary)" : "rgba(128,128,128,0.5)" }}>
+          <button key={it.id} onClick={() => {setActiveTab(it.id); setSelectedProfile(null); window.scrollTo(0,0); setMenuView(null);}} style={{ display: "flex", flexDirection: "column", alignItems: "center", color: (activeTab === it.id || (it.id === 'social' && activeTab === 'profile')) ? "var(--primary)" : "rgba(128,128,128,0.5)" }}>
             {it.icon} <span style={{ fontSize: "0.6rem", fontWeight: 700 }}>{it.label}</span>
           </button>
         ))}
       </nav>
 
-      {/* Global Upload Modal */}
       <AnimatePresence>
         {showUpload && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
