@@ -55,6 +55,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [rememberMe, setRememberMe] = useState(true);
 
   // App State
   const [activeTab, setActiveTab] = useState("home");
@@ -102,18 +103,18 @@ export default function Home() {
       if (id === "admin" && pw === "admin9569") {
         const adminUser = { id: "admin", name: "관리자", isAdmin: true };
         setCurrentUser(adminUser);
-        localStorage.setItem("sme_session", JSON.stringify(adminUser));
+        if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(adminUser));
         return;
       }
       // General User Check (Mock)
       const mockUser = { id, name: id || "사용자", isAdmin: false };
       setCurrentUser(mockUser);
-      localStorage.setItem("sme_session", JSON.stringify(mockUser));
+      if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(mockUser));
     } else {
       // Signup Mock
       const newUser = { id, name: name || id, isAdmin: false };
       setCurrentUser(newUser);
-      localStorage.setItem("sme_session", JSON.stringify(newUser));
+      if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(newUser));
       setToast("회원가입을 환영합니다! 🎉");
     }
   };
@@ -152,6 +153,25 @@ export default function Home() {
     setShowUpload(false);
   };
 
+  const ProfileHeader = ({ name }: { name: string }) => {
+    const member = MOCK_MEMBERS.find(m => m.name === name) || MOCK_MEMBERS[0];
+    const userPosts = posts.filter(p => p.user.name === name);
+    return (
+      <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
+         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
+            <div style={{ width: "5.5rem", height: "5.5rem", borderRadius: "50%", background: "var(--secondary)", border: "3px solid var(--primary)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", fontWeight: 800, color: "white" }}>
+               {name === "돌콩님" ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.avatar}
+            </div>
+            <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{member.monthly}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div></div>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div></div>
+            </div>
+         </div>
+         <div style={{ marginTop: "1rem" }}><div style={{ fontWeight: 800 }}>{name}</div><p style={{ fontSize: "0.85rem", opacity: 0.7 }}>{member.bio}</p></div>
+      </div>
+    );
+  };
+
   if (isAuthChecking) return null;
 
   // --- AUTH VIEW ---
@@ -178,6 +198,14 @@ export default function Home() {
                 <Lock size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
                 <input name="password" type="password" placeholder="비밀번호" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} />
               </div>
+
+              {authMode === "login" && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0 0.2rem" }}>
+                   <input type="checkbox" id="remember" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer" }} />
+                   <label htmlFor="remember" style={{ fontSize: "0.85rem", fontWeight: 700, opacity: 0.6, cursor: "pointer" }}>로그인 상태 유지</label>
+                </div>
+              )}
+
               <button type="submit" className="btn-primary" style={{ padding: "1.1rem", borderRadius: "1.2rem", fontWeight: 800, fontSize: "1rem", marginTop: "1rem" }}>
                 {authMode === "login" ? "로그인" : "회원가입"}
               </button>
@@ -282,7 +310,6 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* ... (Existing Tabs: social, profile, my) ... */}
         {activeTab === "social" && (
           <motion.div key="social" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
              <h2 style={{ padding: "0 1.25rem", fontSize: "1.6rem", fontWeight: 900 }}>실시간 피드</h2>
@@ -300,6 +327,35 @@ export default function Home() {
                </article>
              ))}
           </motion.div>
+        )}
+
+        {activeTab === "profile" && (
+           <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ padding: "0 1.25rem", marginBottom: "1rem" }}><ArrowLeft onClick={() => setActiveTab("social")} style={{ cursor: "pointer" }} /></div>
+              <ProfileHeader name={selectedProfile?.name} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
+                 {posts.filter(p => p.user.name === selectedProfile?.name).map(p => (
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+                 ))}
+              </div>
+           </motion.div>
+        )}
+
+        {activeTab === "my" && (
+           <motion.div key="my" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: "flex", flexDirection: "column" }}>
+              <ProfileHeader name={currentUser?.isAdmin ? "관리자" : currentUser?.name} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
+                 {posts.filter(p => p.user.name === (currentUser?.isAdmin ? "관리자" : currentUser?.name)).map(p => (
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.imageUrl} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+                 ))}
+                 {posts.filter(p => p.user.name === (currentUser?.isAdmin ? "관리자" : currentUser?.name)).length === 0 && (
+                    <div style={{ gridColumn: "span 3", padding: "4rem 2rem", textAlign: "center", opacity: 0.3 }}>
+                       <ImageIcon size={48} style={{ marginBottom: "1rem" }} />
+                       <p>인증샷을 올려보세요!</p>
+                    </div>
+                 )}
+              </div>
+           </motion.div>
         )}
       </AnimatePresence>
 
