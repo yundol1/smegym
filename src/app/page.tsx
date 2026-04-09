@@ -584,78 +584,185 @@ export default function Home() {
       {/* --- 👑 SEGMENTED ADMIN DASHBOARD --- */}
       <AnimatePresence>
         {menuView === "admin_approval" && (
-           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "var(--bg-color)", zIndex: 2000, display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1.5rem" }}><ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} /> <h2 style={{ fontSize: "1.3rem", fontWeight: 900 }}>승인 관리 대시보드</h2></div>
-              
-              <div style={{ display: "flex", padding: "0 1.5rem", marginBottom: "1rem", borderBottom: "1px solid var(--glass-border)" }}>
-                 {["가입검토", "사진검토", "면제검토"].map((tab) => (
-                    <button key={tab} onClick={() => setAdminApprovalTab(tab as any)} style={{ flex: 1, padding: "1rem 0", fontWeight: 800, color: adminApprovalTab === tab ? "var(--primary)" : "inherit", opacity: adminApprovalTab === tab ? 1 : 0.4, borderBottom: adminApprovalTab === tab ? "3px solid var(--primary)" : "3px solid transparent", transition: "0.2s" }}>
-                       {tab}
-                       {tab === "가입검토" && pendingMembers.length > 0 && <span style={{ background: "var(--error)", color: "white", padding: "2px 6px", borderRadius: "10px", fontSize: "0.6rem", marginLeft: "5px" }}>{pendingMembers.length}</span>}
-                       {tab === "사진검토" && pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length > 0 && <span style={{ background: "var(--error)", color: "white", padding: "2px 6px", borderRadius: "10px", fontSize: "0.6rem", marginLeft: "5px" }}>{pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length}</span>}
-                       {tab === "면제검토" && pendingApprovals.filter(p => p.유형 === "면제").length > 0 && <span style={{ background: "var(--error)", color: "white", padding: "2px 6px", borderRadius: "10px", fontSize: "0.6rem", marginLeft: "5px" }}>{pendingApprovals.filter(p => p.유형 === "면제").length}</span>}
-                    </button>
-                 ))}
+           <motion.div
+             initial={{ opacity: 0, y: 30 }}
+             animate={{ opacity: 1, y: 0 }}
+             exit={{ opacity: 0, y: 30 }}
+             style={{
+               position: "fixed", inset: 0, zIndex: 2000,
+               background: "var(--background)",
+               display: "flex", flexDirection: "column",
+               maxWidth: "480px", margin: "0 auto"
+             }}
+           >
+              {/* 헤더 */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: "0.8rem",
+                padding: "1rem 1.25rem",
+                borderBottom: "1px solid var(--glass-border)",
+                background: "var(--background)",
+                flexShrink: 0
+              }}>
+                <ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer", flexShrink: 0 }} />
+                <h2 style={{ fontSize: "1.1rem", fontWeight: 900 }}>승인 관리 대시보드</h2>
+                {(pendingMembers.length > 0 || pendingApprovals.length > 0) && (
+                  <span style={{ marginLeft: "auto", background: "var(--error)", color: "white", padding: "2px 8px", borderRadius: "10px", fontSize: "0.7rem", fontWeight: 800 }}>
+                    {pendingMembers.length + pendingApprovals.length}
+                  </span>
+                )}
               </div>
 
-              <div style={{ padding: "0 1.5rem", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "1rem", paddingBottom: "2rem" }}>
-                 
-                 {/* 가입검토 탭 */}
-                 {adminApprovalTab === "가입검토" && (
-                   <>
-                     {pendingMembers.map(item => (
-                        <div key={item.닉네임} className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                              <div style={{ width: "3rem", height: "3rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{item.아바타}</div>
-                              <div><div style={{ fontWeight: 900 }}>{item.닉네임}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.이름}</div></div>
-                           </div>
-                           <button onClick={() => handleApproveMember(item.닉네임)} className="btn-primary" style={{ padding: "0.6rem 1.2rem", borderRadius: "0.8rem", fontWeight: 800 }}>가입 승인</button>
-                        </div>
-                     ))}
-                     {pendingMembers.length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}><ShieldAlert size={48} style={{ margin: "0 auto 1rem" }} /><p>대기 중인 신규 회원이 없습니다.</p></div>}
-                   </>
-                 )}
+              {/* 탭 */}
+              <div style={{
+                display: "flex", background: "var(--background)",
+                borderBottom: "1px solid var(--glass-border)",
+                flexShrink: 0
+              }}>
+                {["가입검토", "사진검토", "면제검토"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setAdminApprovalTab(tab as any)}
+                    style={{
+                      flex: 1, padding: "0.8rem 0", fontWeight: 800, fontSize: "0.8rem",
+                      color: adminApprovalTab === tab ? "var(--primary)" : "inherit",
+                      opacity: adminApprovalTab === tab ? 1 : 0.45,
+                      borderBottom: adminApprovalTab === tab ? "2.5px solid var(--primary)" : "2.5px solid transparent",
+                      transition: "0.2s", background: "none"
+                    }}
+                  >
+                    {tab}
+                    {tab === "가입검토" && pendingMembers.length > 0 && (
+                      <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingMembers.length}</span>
+                    )}
+                    {tab === "사진검토" && pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length > 0 && (
+                      <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length}</span>
+                    )}
+                    {tab === "면제검토" && pendingApprovals.filter(p => p.유형 === "면제").length > 0 && (
+                      <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingApprovals.filter(p => p.유형 === "면제").length}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
 
-                 {/* 사진검토 탭 */}
-                 {adminApprovalTab === "사진검토" && (
-                   <>
-                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").map(item => (
-                        <div key={item.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
-                           <div style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div><span style={{ fontWeight: 900 }}>{item.닉네임}</span> <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} ({item.날짜})</span></div>
-                           </div>
-                           <img src={item.이미지URL} alt="proof" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover" }} />
-                           <div style={{ padding: "1rem", display: "flex", gap: "0.8rem" }}>
-                              <button onClick={() => startReject(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", border: "1px solid var(--error)", color: "var(--error)", fontWeight: 800 }}>반려하기</button>
-                              <button onClick={() => handleApproveActivity(item.id, item.닉네임)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "var(--primary)", color: "white", fontWeight: 800 }}>인증 승인</button>
-                           </div>
-                        </div>
-                     ))}
-                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}><ImageIcon size={48} style={{ margin: "0 auto 1rem" }} /><p>대기 중인 인증샷이 없습니다.</p></div>}
-                   </>
-                 )}
+              {/* 콘텐츠 스크롤 영역 */}
+              <div style={{
+                flex: 1, overflowY: "auto",
+                padding: "0.75rem 1rem 5rem 1rem",
+                display: "flex", flexDirection: "column", gap: "0.75rem"
+              }}>
 
-                 {/* 면제검토 탭 */}
-                 {adminApprovalTab === "면제검토" && (
-                   <>
-                     {pendingApprovals.filter(p => p.유형 === "면제").map(item => (
-                        <div key={item.id} className="card" style={{ padding: "1.25rem" }}>
-                           <div style={{ paddingBottom: "1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "1rem" }}>
-                              <div><span style={{ fontWeight: 900 }}>{item.닉네임}</span> <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} ({item.날짜})</span></div>
-                           </div>
-                           <div style={{ display: "flex", gap: "0.8rem", color: "var(--primary)", marginBottom: "1rem", background: "rgba(56, 189, 248, 0.1)", padding: "1rem", borderRadius: "1rem" }}>
-                              <FileText size={24} />
-                              <div><div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: "0.2rem" }}>면제 사유서</div><p style={{ fontSize: "0.85rem", opacity: 0.8, lineHeight: 1.5 }}>{item.내용}</p></div>
-                           </div>
-                           <div style={{ display: "flex", gap: "0.8rem" }}>
-                              <button onClick={() => startReject(item.id)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", border: "1px solid var(--error)", color: "var(--error)", fontWeight: 800 }}>거절하기</button>
-                              <button onClick={() => handleApproveActivity(item.id, item.닉네임)} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "var(--primary)", color: "white", fontWeight: 800 }}>면제 승인</button>
-                           </div>
+                {/* 가입검토 탭 */}
+                {adminApprovalTab === "가입검토" && (
+                  <>
+                    {pendingMembers.map(item => (
+                      <div key={item.닉네임} className="card" style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+                          <div style={{ width: "2.6rem", height: "2.6rem", flexShrink: 0, borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.85rem" }}>{item.아바타}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 900, fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.닉네임}</div>
+                            <div style={{ fontSize: "0.72rem", opacity: 0.5 }}>{item.이름}</div>
+                          </div>
                         </div>
-                     ))}
-                     {pendingApprovals.filter(p => p.유형 === "면제").length === 0 && <div style={{ textAlign: "center", padding: "5rem 0", opacity: 0.3 }}><FileText size={48} style={{ margin: "0 auto 1rem" }} /><p>대기 중인 면제 신청서가 없습니다.</p></div>}
-                   </>
-                 )}
+                        <button
+                          onClick={() => handleApproveMember(item.닉네임)}
+                          className="btn-primary"
+                          style={{ padding: "0.5rem 1rem", borderRadius: "0.7rem", fontWeight: 800, fontSize: "0.8rem", flexShrink: 0 }}
+                        >승인</button>
+                      </div>
+                    ))}
+                    {pendingMembers.length === 0 && (
+                      <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
+                        <ShieldAlert size={40} style={{ margin: "0 auto 0.8rem" }} />
+                        <p style={{ fontSize: "0.85rem" }}>대기 중인 신규 회원이 없습니다.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* 사진검토 탭 */}
+                {adminApprovalTab === "사진검토" && (
+                  <>
+                    {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").map(item => (
+                      <div key={item.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
+                        {/* 유저 정보 */}
+                        <div style={{ padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                          <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, flexShrink: 0 }}>
+                            {item.아바타 || item.닉네임?.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <span style={{ fontWeight: 900, fontSize: "0.88rem" }}>{item.닉네임}</span>
+                            <span style={{ fontSize: "0.72rem", opacity: 0.5, marginLeft: "0.5rem" }}>{item.요일} · {item.날짜}</span>
+                          </div>
+                        </div>
+                        {/* 이미지 - 모바일 최적화된 높이 */}
+                        <img
+                          src={item.이미지URL}
+                          alt="proof"
+                          style={{ width: "100%", maxHeight: "220px", objectFit: "cover", display: "block" }}
+                        />
+                        {/* 버튼 */}
+                        <div style={{ padding: "0.75rem", display: "flex", gap: "0.6rem" }}>
+                          <button
+                            onClick={() => startReject(item.id)}
+                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", border: "1.5px solid var(--error)", color: "var(--error)", fontWeight: 800, fontSize: "0.82rem", background: "none" }}
+                          >❌ 반려</button>
+                          <button
+                            onClick={() => handleApproveActivity(item.id, item.닉네임)}
+                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", background: "var(--primary)", color: "white", fontWeight: 800, fontSize: "0.82rem", border: "none" }}
+                          >✅ 승인</button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length === 0 && (
+                      <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
+                        <ImageIcon size={40} style={{ margin: "0 auto 0.8rem" }} />
+                        <p style={{ fontSize: "0.85rem" }}>대기 중인 인증샷이 없습니다.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* 면제검토 탭 */}
+                {adminApprovalTab === "면제검토" && (
+                  <>
+                    {pendingApprovals.filter(p => p.유형 === "면제").map(item => (
+                      <div key={item.id} className="card" style={{ padding: "1rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
+                          <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, flexShrink: 0 }}>
+                            {item.아바타 || item.닉네임?.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <span style={{ fontWeight: 900, fontSize: "0.88rem" }}>{item.닉네임}</span>
+                            <span style={{ fontSize: "0.72rem", opacity: 0.5, marginLeft: "0.5rem" }}>{item.요일} · {item.날짜}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "0.6rem", color: "var(--primary)", marginBottom: "0.75rem", background: "rgba(56, 189, 248, 0.08)", padding: "0.8rem", borderRadius: "0.8rem", alignItems: "flex-start" }}>
+                          <FileText size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: "0.8rem", marginBottom: "0.2rem" }}>면제 사유서</div>
+                            <p style={{ fontSize: "0.82rem", opacity: 0.8, lineHeight: 1.5, color: "inherit" }}>{item.내용}</p>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "0.6rem" }}>
+                          <button
+                            onClick={() => startReject(item.id)}
+                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", border: "1.5px solid var(--error)", color: "var(--error)", fontWeight: 800, fontSize: "0.82rem", background: "none" }}
+                          >❌ 거절</button>
+                          <button
+                            onClick={() => handleApproveActivity(item.id, item.닉네임)}
+                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", background: "var(--primary)", color: "white", fontWeight: 800, fontSize: "0.82rem", border: "none" }}
+                          >✅ 면제 승인</button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingApprovals.filter(p => p.유형 === "면제").length === 0 && (
+                      <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
+                        <FileText size={40} style={{ margin: "0 auto 0.8rem" }} />
+                        <p style={{ fontSize: "0.85rem" }}>대기 중인 면제 신청서가 없습니다.</p>
+                      </div>
+                    )}
+                  </>
+                )}
 
               </div>
            </motion.div>
