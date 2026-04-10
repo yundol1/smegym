@@ -1,4 +1,5 @@
 "use client";
+// VERSION: 1.0.1 - Profile Edit & UI Cleanup Update
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
