@@ -1681,7 +1681,17 @@ export default function Home() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 6000, display: "flex", alignItems: "flex-end" }}>
              <motion.div 
                initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-               style={{ width: "100%", maxHeight: "85vh", background: "var(--bg-color)", borderTopLeftRadius: "1.5rem", borderTopRightRadius: "1.5rem", display: "flex", flexDirection: "column", padding: "1.5rem 0" }}
+               style={{ 
+                 width: "100%", 
+                 maxHeight: "85vh", 
+                 background: isLightMode ? "#ffffff" : "#0f172a", 
+                 borderTopLeftRadius: "1.5rem", 
+                 borderTopRightRadius: "1.5rem", 
+                 display: "flex", 
+                 flexDirection: "column", 
+                 padding: "1.5rem 0",
+                 boxShadow: "0 -10px 40px rgba(0,0,0,0.2)"
+               }}
              >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1.5rem 1rem 1.5rem", borderBottom: "1px solid var(--glass-border)" }}>
                    <div style={{ width: 40 }} />
@@ -1691,7 +1701,7 @@ export default function Home() {
                 
                 <div style={{ flex: 1, overflowY: "auto" }}>
                    {/* Post Info Header */}
-                   <div style={{ padding: "1.5rem", borderBottom: "4px solid var(--glass-border)", background: isLightMode ? "rgba(0,0,0,0.01)" : "rgba(255,255,255,0.02)" }}>
+                   <div style={{ padding: "1.5rem", borderBottom: "4px solid var(--glass-border)", background: isLightMode ? "#f8fafc" : "rgba(255,255,255,0.03)" }}>
                       <div style={{ borderRadius: "1.25rem", overflow: "hidden", background: "#f8fafc", marginBottom: "1.25rem", border: "1px solid var(--glass-border)", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>
                          <img src={showComments.이미지URL} alt="post" style={{ width: "100%", height: "auto", display: "block" }} />
                       </div>
