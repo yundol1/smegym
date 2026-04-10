@@ -952,7 +952,7 @@ export default function Home() {
                                          setActiveTab("profile");
                                          window.scrollTo(0,0);
                                        }}
-                                       style={{ width: "1.6rem", height: "1.6rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer", border: "1px solid var(--glass-border)" }}
+                                       style={{ width: "1.6rem", height: "1.6rem", borderRadius: "50%", background: cmtMember?.배경색 || "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer" }}
                                      >
                                         {cmtMember?.아바타?.startsWith('http') ? 
                                           <img src={cmtMember.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${cmtMember.아바타줌 || 1})` }} /> : 
@@ -1719,7 +1719,7 @@ export default function Home() {
                                  setShowComments(null);
                                  window.scrollTo(0,0);
                                }}
-                               style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer", border: "1px solid var(--glass-border)" }}
+                               style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: members.find(m => m.닉네임 === cmt.닉네임)?.배경색 || "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer" }}
                              >
                                 {(() => {
                                    const cmtMember = members.find(m => m.닉네임 === cmt.닉네임);
