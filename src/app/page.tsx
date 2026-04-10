@@ -931,27 +931,48 @@ export default function Home() {
                          {/* Inline Comments Area */}
                          {(post.댓글 || []).length > 0 && (
                            <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", padding: "0.8rem 0", borderTop: "1px solid rgba(0,0,0,0.03)" }}>
-                              {(post.댓글 || []).map((cmt: any, i: number) => (
-                                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: "0.85rem", lineHeight: 1.4 }}>
-                                   <div style={{ flex: 1 }}>
-                                      <span 
-                                        onClick={() => {
-                                          const target = members.find(m => m.닉네임 === cmt.닉네임) || { 닉네임: cmt.닉네임 };
-                                          setSelectedProfile(target);
-                                          setActiveTab("profile");
-                                          window.scrollTo(0,0);
-                                        }}
-                                        style={{ fontWeight: 800, marginRight: "0.5rem", cursor: "pointer" }}
-                                      >
-                                        {cmt.닉네임}
-                                      </span>
-                                      <span style={{ opacity: 0.8 }}>{cmt.내용}</span>
-                                   </div>
-                                   <span style={{ fontSize: "0.65rem", opacity: 0.4, marginLeft: "0.5rem", whiteSpace: "nowrap" }}>
-                                      {new Date(cmt.생성시간).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                   </span>
-                                </div>
-                              ))}
+                              {(post.댓글 || []).map((cmt: any, i: number) => {
+                                const cmtMember = members.find(m => m.닉네임 === cmt.닉네임);
+                                return (
+                                  <div key={i} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start", fontSize: "0.85rem", lineHeight: 1.4 }}>
+                                     <div 
+                                       onClick={() => {
+                                         const target = cmtMember || { 닉네임: cmt.닉네임 };
+                                         setSelectedProfile(target);
+                                         setActiveTab("profile");
+                                         window.scrollTo(0,0);
+                                       }}
+                                       style={{ width: "1.6rem", height: "1.6rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer", border: "1px solid var(--glass-border)" }}
+                                     >
+                                        {cmtMember?.아바타?.startsWith('http') ? 
+                                          <img src={cmtMember.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${cmtMember.아바타줌 || 1})` }} /> : 
+                                          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 800, color: "white" }}>{cmt.닉네임.substring(0,2)}</div>
+                                        }
+                                     </div>
+                                     <div style={{ flex: 1 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                           <div style={{ flex: 1 }}>
+                                              <span 
+                                                onClick={() => {
+                                                  const target = cmtMember || { 닉네임: cmt.닉네임 };
+                                                  setSelectedProfile(target);
+                                                  setActiveTab("profile");
+                                                  window.scrollTo(0,0);
+                                                }}
+                                                style={{ fontWeight: 800, marginRight: "0.5rem", cursor: "pointer" }}
+                                              >
+                                                {cmt.닉네임}
+                                              </span>
+                                              <span style={{ opacity: 0.8 }}>{cmt.내용}</span>
+                                           </div>
+                                           <span style={{ fontSize: "0.65rem", opacity: 0.4, marginLeft: "0.5rem", whiteSpace: "nowrap" }}>
+                                              {new Date(cmt.생성시간).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                           </span>
+                                        </div>
+                                     </div>
+                                  </div>
+                                );
+                              })}
                            </div>
                          )}
 
@@ -1680,18 +1701,23 @@ export default function Home() {
                    <div style={{ padding: "1.5rem" }}>
                       {(showComments.댓글 || []).map((cmt: any, idx: number) => (
                         <div key={idx} style={{ display: "flex", gap: "0.8rem", marginBottom: "1.5rem" }}>
-                           <div 
-                             onClick={() => {
-                               const target = members.find(m => m.닉네임 === cmt.닉네임) || { 닉네임: cmt.닉네임 };
-                               setSelectedProfile(target);
-                               setActiveTab("profile");
-                               setShowComments(null);
-                               window.scrollTo(0,0);
-                             }}
-                             style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer" }}
-                           >
-                              {cmt.아바타 && cmt.아바타.startsWith('http') ? <img src={cmt.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, color: "white" }}>{cmt.아바타}</div>}
-                           </div>
+                             <div 
+                               onClick={() => {
+                                 const target = members.find(m => m.닉네임 === cmt.닉네임) || { 닉네임: cmt.닉네임 };
+                                 setSelectedProfile(target);
+                                 setActiveTab("profile");
+                                 setShowComments(null);
+                                 window.scrollTo(0,0);
+                               }}
+                               style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer", border: "1px solid var(--glass-border)" }}
+                             >
+                                {(() => {
+                                   const cmtMember = members.find(m => m.닉네임 === cmt.닉네임);
+                                   return cmtMember?.아바타?.startsWith('http') ? 
+                                     <img src={cmtMember.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${cmtMember.아바타줌 || 1})` }} /> : 
+                                     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, color: "white" }}>{cmt.닉네임.substring(0,2)}</div>
+                                })()}
+                             </div>
                            <div style={{ flex: 1 }}>
                               <div 
                                 onClick={() => {
