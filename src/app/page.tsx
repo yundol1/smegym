@@ -2,7 +2,7 @@
 // VERSION: 1.0.1 - Profile Edit & UI Cleanup Update
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import {
   RefreshCw, Menu, Moon, Sun, User, Megaphone, ChevronDown, Trophy,
   Flame, CheckCircle2, ChevronRight, Image as ImageIcon,
@@ -131,24 +131,16 @@ export default function Home() {
   const [commentInput, setCommentInput] = useState("");
   const [inlineInputs, setInlineInputs] = useState<any>({});
   const [isNavVisible, setIsNavVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const { scrollY } = useScroll();
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      // Hide check: scrolling down and scrolled at least 100px
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setIsNavVisible(false);
-      } else {
-        setIsNavVisible(true);
-      }
-      setLastScrollY(currentScrollY);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
-
-
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() || 0;
+    if (latest > previous && latest > 100) {
+      setIsNavVisible(false);
+    } else {
+      setIsNavVisible(true);
+    }
+  });
 
   const weekInfo = getWeekRange();
   const workoutCount = attendance.filter(d => d.상태 === '승인').length;
@@ -1844,8 +1836,8 @@ export default function Home() {
       <motion.nav 
         className="glass" 
         initial={{ y: 0, x: "-50%" }}
-        animate={{ y: isNavVisible ? 0 : 100, x: "-50%" }}
-        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        animate={{ y: isNavVisible ? 0 : 150, x: "-50%" }}
+        transition={{ duration: 0.2 }}
         style={{ position: "fixed", bottom: "1.5rem", left: "50%", width: "calc(100% - 2.5rem)", maxWidth: "420px", height: "4.8rem", display: "flex", justifyContent: "space-around", alignItems: "center", zIndex: 100, borderRadius: "2.5rem", background: isLightMode ? "rgba(255,255,255,0.92)" : "rgba(15, 23, 42, 0.85)" }}
       >
         {[ { id: "home", icon: <HomeIcon size={24} />, label: "홈" }, { id: "social", icon: <Users size={24} />, label: "피드" }, { id: "my", icon: <User size={24} />, label: "마이" } ].map(it => (
