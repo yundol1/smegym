@@ -554,7 +554,6 @@ export default function Home() {
               <div className="card" style={{ padding: "1.5rem" }}><div style={{ fontSize: "0.75rem", opacity: 0.6 }}>활동 승인</div><div style={{ fontSize: "1.5rem", fontWeight: 900 }}>{workoutCount} / 3</div></div>
             </section>
             
-            {/* 중앙 버튼 제거 후 캘린더를 더 강조하거나 간격을 조정할 수 있습니다. */}
             <section style={{ padding: "0 1.25rem", marginTop: "-0.5rem" }}>
                <h3 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: "1rem", opacity: 0.8 }}>요일별 활동 현황</h3>
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
@@ -613,16 +612,16 @@ export default function Home() {
                       </div>
                       <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{post.닉네임}</span>
                     </div>
-                  {/* 사진 전체 노출을 위한 컨테이너 추가 */}
-                  <div style={{ background: isLightMode ? "#f8fafc" : "#0f172a", textAlign: "center", borderBottom: "1px solid var(--glass-border)" }}>
-                     <img src={post.이미지URL} alt="feed" style={{ width: "100%", height: "auto", display: "block" }} />
-                  </div>
-                  <div style={{ padding: "1.25rem" }}>
-                     <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.7rem" }}><Heart size={24} /> <MessageCircle size={24} /> <Share2 size={24} style={{ marginLeft: "auto" }} /></div>
-                     <p style={{ fontSize: "0.95rem", lineHeight: 1.5 }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
-                  </div>
-                </article>
-              ))}
+                    <div style={{ background: isLightMode ? "#f8fafc" : "#0f172a", textAlign: "center", borderBottom: "1px solid var(--glass-border)" }}>
+                       <img src={post.이미지URL} alt="feed" style={{ width: "100%", height: "auto", display: "block" }} />
+                    </div>
+                    <div style={{ padding: "1.25rem" }}>
+                       <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.7rem" }}><Heart size={24} /> <MessageCircle size={24} /> <Share2 size={24} style={{ marginLeft: "auto" }} /></div>
+                       <p style={{ fontSize: "0.95rem", lineHeight: 1.5 }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
+                    </div>
+                  </article>
+                );
+              })}
            </motion.div>
         )}
 
