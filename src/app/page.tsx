@@ -123,7 +123,7 @@ export default function Home() {
   const [profileZoom, setProfileZoom] = useState(1);
   const [rankingPeriod, setRankingPeriod] = useState("monthly");
   const [editBgColor, setEditBgColor] = useState("var(--secondary)");
-  const [editBorderColor, setEditBorderColor] = useState("var(--primary)");
+  
   const [uploadText, setUploadText] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -623,13 +623,13 @@ export default function Home() {
     }
   };
 
-  const handleUpdateProfile = async (newBio: string, avatarUrl?: string, bgColor?: string, borderColor?: string) => {
+  const handleUpdateProfile = async (newBio: string, avatarUrl?: string, bgColor?: string) => {
     if (!currentUser) return;
     try {
       const updateData: any = { 인사말: newBio };
       if (avatarUrl !== undefined) updateData.아바타 = avatarUrl;
       if (bgColor) updateData.배경색 = bgColor;
-      if (borderColor) updateData.테두리색 = borderColor;
+      
       updateData.아바타줌 = profileZoom;
       
       await updateDoc(doc(db, "멤버", currentUser.닉네임), updateData);
@@ -703,7 +703,7 @@ export default function Home() {
       const uploadSnap = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(uploadSnap.ref);
       // Pass the current color states as well
-      handleUpdateProfile(editBio, downloadURL, editBgColor, editBorderColor);
+      handleUpdateProfile(editBio, downloadURL, editBgColor);
     } catch (err) {
       console.error(err);
       setToast("이미지 업로드 실패 ❌");
@@ -719,13 +719,12 @@ export default function Home() {
     return (
       <div style={{ padding: "0 1.25rem", marginBottom: "1rem" }}>
          <div style={{ display: "flex", alignItems: "center", gap: "2rem", marginBottom: "1.25rem" }}>
-            <div style={{ 
-              width: "5.5rem", height: "5.5rem", borderRadius: "50%", 
-              background: member.배경색 || "var(--secondary)", 
-              border: `3px solid ${member.테두리색 || "var(--primary)"}`, 
-              overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", 
-              fontSize: "1.8rem", fontWeight: 800, color: "white", flexShrink: 0
-            }}>
+             <div style={{ 
+               width: "5.5rem", height: "5.5rem", borderRadius: "50%", 
+               background: member.배경색 || "var(--secondary)", 
+               overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", 
+               fontSize: "1.8rem", fontWeight: 800, color: "white", flexShrink: 0
+             }}>
                {member.아바타 && member.아바타.startsWith('http') ? 
                  <img src={member.아바타} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${member.아바타줌 || 1})` }} /> : 
                  (name === "admin" ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.아바타)}
@@ -746,7 +745,7 @@ export default function Home() {
                 onClick={() => { 
                   setEditBio(member.인사말 || ""); 
                   setEditBgColor(member.배경색 || "var(--secondary)");
-                  setEditBorderColor(member.테두리색 || "var(--primary)");
+                  
                   setProfileZoom(member.아바타줌 || 1);
                   setIsEditProfileOpen(true); 
                 }}
@@ -902,7 +901,7 @@ export default function Home() {
               <h2 style={{ padding: "0 1.25rem", fontSize: "1.6rem", fontWeight: 900 }}>활동 피드</h2>
               {posts.map(post => {
                 const postMember = members.find(m => m.닉네임.trim() === post.닉네임.trim()) || 
-                  { 아바타: post.아바타, 배경색: "var(--secondary)", 테두리색: "var(--primary)", 아바타줌: 1 };
+                  { 아바타: post.아바타, 배경색: "var(--secondary)",  아바타줌: 1 };
 
                 return (
                   <article key={post.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
@@ -910,7 +909,7 @@ export default function Home() {
                       <div style={{ 
                         width: "2rem", height: "2rem", borderRadius: "50%", 
                         background: postMember.배경색 || "var(--secondary)", 
-                        border: `2px solid ${postMember.테두리색 || "var(--primary)"}`, 
+                         
                         color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
                         fontSize: "0.75rem", fontWeight: 900, overflow: "hidden" 
                       }}>
@@ -1581,7 +1580,6 @@ export default function Home() {
                           display: "flex", alignItems: "center", justifyContent: "center", 
                           fontSize: "2rem", fontWeight: 800, color: "white", 
                           overflow: "hidden", 
-                          border: `4px solid ${editBorderColor}` 
                         }}>
                            {tempProfileImg ? 
                              <img src={tempProfileImg} alt="temp" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${profileZoom})` }} /> : 
@@ -1618,10 +1616,6 @@ export default function Home() {
                          <label style={{ fontSize: "0.7rem", fontWeight: 800, opacity: 0.5, display: "block", marginBottom: "0.5rem" }}>배경색</label>
                          <input type="color" value={editBgColor} onChange={(e) => setEditBgColor(e.target.value)} style={{ width: "2.5rem", height: "2.5rem", padding: 0, border: "none", borderRadius: "50%", overflow: "hidden", cursor: "pointer" }} />
                        </div>
-                       <div style={{ textAlign: "center" }}>
-                         <label style={{ fontSize: "0.7rem", fontWeight: 800, opacity: 0.5, display: "block", marginBottom: "0.5rem" }}>테두리색</label>
-                         <input type="color" value={editBorderColor} onChange={(e) => setEditBorderColor(e.target.value)} style={{ width: "2.5rem", height: "2.5rem", padding: 0, border: "none", borderRadius: "50%", overflow: "hidden", cursor: "pointer" }} />
-                       </div>
                      </div>
 
                      <div style={{ display: "flex", gap: "0.8rem", marginTop: "1.5rem" }}>
@@ -1647,7 +1641,7 @@ export default function Home() {
                       if (tempProfileFile) {
                         handleProfileImageUpload(tempProfileFile);
                       } else {
-                        handleUpdateProfile(editBio, undefined, editBgColor, editBorderColor);
+                        handleUpdateProfile(editBio, undefined, editBgColor);
                       }
                     }}
                     className="btn-primary" 
