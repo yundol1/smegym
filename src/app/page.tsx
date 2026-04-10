@@ -76,6 +76,8 @@ export default function Home() {
   const [tempProfileFile, setTempProfileFile] = useState<File | null>(null);
   const [profileZoom, setProfileZoom] = useState(1);
   const [rankingPeriod, setRankingPeriod] = useState("monthly");
+  const [editBgColor, setEditBgColor] = useState("var(--secondary)");
+  const [editBorderColor, setEditBorderColor] = useState("var(--primary)");
 
   const weekInfo = getWeekRange();
   const workoutCount = attendance.filter(d => d.상태 === '승인').length;
