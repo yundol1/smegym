@@ -976,6 +976,21 @@ export default function Home() {
                          />
                        </div>
                      )}
+                     
+                     <div style={{ display: "flex", justifyContent: "center", gap: "1.5rem", marginTop: "1.5rem", padding: "0 1rem" }}>
+                       <div style={{ textAlign: "center" }}>
+                         <label style={{ fontSize: "0.7rem", fontWeight: 800, opacity: 0.5, display: "block", marginBottom: "0.5rem" }}>배경색</label>
+                         <input type="color" value={editBgColor} onChange={(e) => setEditBgColor(e.target.value)} style={{ width: "2.5rem", height: "2.5rem", padding: 0, border: "none", borderRadius: "50%", overflow: "hidden", cursor: "pointer" }} />
+                       </div>
+                       <div style={{ textAlign: "center" }}>
+                         <label style={{ fontSize: "0.7rem", fontWeight: 800, opacity: 0.5, display: "block", marginBottom: "0.5rem" }}>테두리색</label>
+                         <input type="color" value={editBorderColor} onChange={(e) => setEditBorderColor(e.target.value)} style={{ width: "2.5rem", height: "2.5rem", padding: 0, border: "none", borderRadius: "50%", overflow: "hidden", cursor: "pointer" }} />
+                       </div>
+                     </div>
+
+                     <div style={{ display: "flex", gap: "0.8rem", marginTop: "1.5rem" }}>
+                       <button onClick={handleDeleteProfileImage} style={{ flex: 1, padding: "0.8rem", borderRadius: "0.8rem", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444", fontWeight: 800, fontSize: "0.8rem" }}>사진 삭제</button>
+                     </div>
                      <p style={{ fontSize: "0.75rem", opacity: 0.5, marginTop: "0.8rem" }}>
                         {tempProfileImg ? "슬라이더로 크기를 조절해 보세요!" : "사진을 클릭하여 변경하세요."}
                      </p>
@@ -996,7 +1011,7 @@ export default function Home() {
                       if (tempProfileFile) {
                         handleProfileImageUpload(tempProfileFile);
                       } else {
-                        handleUpdateProfile(editBio);
+                        handleUpdateProfile(editBio, undefined, editBgColor, editBorderColor);
                       }
                     }}
                     className="btn-primary" 
