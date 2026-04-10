@@ -695,6 +695,23 @@ export default function Home() {
   };
 
 
+
+  const handleDeleteComment = async (postId: string, cmtIndex: number) => {
+    if (!currentUser) return;
+    try {
+      const postRef = doc(db, "게시글", postId);
+      const postSnap = await getDoc(postRef);
+      if (!postSnap.exists()) return;
+      const existingComments = postSnap.data().댓글 || [];
+      const updatedComments = existingComments.filter((_: any, i: number) => i !== cmtIndex);
+      await updateDoc(postRef, { 댓글: updatedComments });
+      if (showComments?.id === postId) {
+        setShowComments((prev: any) => prev ? { ...prev, 댓글: updatedComments } : prev);
+      }
+      setToast("댓글이 삭제되었습니다.");
+    } catch (err) { console.error(err); }
+  };
+
   const handleProfileImageUpload = async (file: File) => {
     setToast("사진 업로드 중... ⏳");
     try {
@@ -1061,10 +1078,15 @@ export default function Home() {
                                               </span>
                                               <span style={{ opacity: 0.8 }}>{cmt.내용}</span>
                                            </div>
-                                           <span style={{ fontSize: "0.65rem", opacity: 0.4, marginLeft: "0.5rem", whiteSpace: "nowrap" }}>
-                                              {new Date(cmt.생성시간).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                           </span>
                                         </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.2rem" }}>
+                                            <span style={{ fontSize: "0.65rem", opacity: 0.4, whiteSpace: "nowrap" }}>
+                                               {new Date(cmt.생성시간).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                            {(cmt.닉네임 === currentUser.닉네임 || currentUser.닉네임 === 'admin') && (
+                                              <button onClick={() => handleDeleteComment(post.id, i)} style={{ fontSize: "0.65rem", color: "var(--error)", opacity: 0.6, fontWeight: 700 }}>삭제</button>
+                                            )}
+                                         </div>
                                      </div>
                                   </div>
                                 );
@@ -1935,3 +1957,4 @@ export default function Home() {
     </main>
   );
 }
+
