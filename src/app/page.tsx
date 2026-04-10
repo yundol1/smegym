@@ -582,7 +582,11 @@ export default function Home() {
                {[...members].sort((a,b) => (b.운동횟수 || 0) - (a.운동횟수 || 0)).map((m, i) => (
                   <div key={m.닉네임} style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
                      <span style={{ width: "1.2rem", fontWeight: 900 }}>{i < 3 ? ["🥇","🥈","🥉"][i] : i+1}</span>
-                     <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800 }}>{m.아바타}</div>
+                     <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800, overflow: "hidden", border: "1.5px solid rgba(0,0,0,0.05)" }}>
+                       {m.아바타 && m.아바타.startsWith('http') ? 
+                         <img src={m.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                         m.아바타}
+                     </div>
                      <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: 800 }}><span>{m.닉네임}</span><span>{m.운동횟수 || 0}회</span></div>
                         <div style={{ width: "100%", height: "5px", background: "rgba(0,0,0,0.05)", borderRadius: "3px", marginTop: "5px" }}><div style={{ width: `${Math.min(100, ((m.운동횟수 || 0) / 100) * 100)}%`, height: "100%", background: "var(--primary)", borderRadius: "3px" }} /></div>
@@ -598,7 +602,7 @@ export default function Home() {
            <motion.div key="social" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
               <h2 style={{ padding: "0 1.25rem", fontSize: "1.6rem", fontWeight: 900 }}>활동 피드</h2>
               {posts.map(post => {
-                const postMember = members.find(m => m.닉네임 === post.닉네임) || { 아바타: post.아바타 };
+                const postMember = members.find(m => m.닉네임.trim() === post.닉네임.trim()) || { 아바타: post.아바타 };
                 return (
                   <article key={post.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
                     <div onClick={() => { setSelectedProfile(post); setActiveTab("profile"); }} style={{ padding: "0.8rem 1.25rem", display: "flex", alignItems: "center", gap: "0.8rem", cursor: "pointer" }}>
