@@ -131,15 +131,18 @@ export default function Home() {
   const [commentInput, setCommentInput] = useState("");
   const [inlineInputs, setInlineInputs] = useState<any>({});
   const [isNavVisible, setIsNavVisible] = useState(true);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { scrollY } = useScroll();
 
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = scrollY.getPrevious() || 0;
-    if (latest > previous && latest > 100) {
-      setIsNavVisible(false);
-    } else {
+  useMotionValueEvent(scrollY, "change", () => {
+    // Hide immediately when any scroll activity starts
+    setIsNavVisible(false);
+    // Clear existing timer
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    // Show again after 1.2s of no scrolling
+    scrollTimerRef.current = setTimeout(() => {
       setIsNavVisible(true);
-    }
+    }, 1200);
   });
 
   const weekInfo = getWeekRange();
