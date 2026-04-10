@@ -765,38 +765,120 @@ export default function Home() {
   // --- AUTH VIEW ---
   if (!currentUser) {
     return (
-      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ width: "100%", maxWidth: "400px", padding: "2.5rem" }}>
-           <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-              <h1 style={{ fontSize: "1.8rem", fontWeight: 900, color: "var(--primary)" }}>SME CLUB</h1>
-              <p style={{ fontSize: "0.85rem", opacity: 0.5, marginTop: "0.5rem" }}>운동 관리의 시작, 에스엠이 클럽</p>
-           </div>
-           <form onSubmit={handleAuth} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-              <div style={{ position: "relative" }}>
-                <Users size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                <input name="nickname" type="text" placeholder="닉네임 (ID)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", fontSize: "16px" }} />
-              </div>
-              <div style={{ position: "relative" }}>
-                <Lock size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                <input name="password" type="password" placeholder="비밀번호" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", fontSize: "16px" }} />
-              </div>
-              {authMode === "login" && (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0 0.2rem" }}>
-                   <input type="checkbox" id="remember" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer" }} />
-                   <label htmlFor="remember" style={{ fontSize: "0.85rem", fontWeight: 700, opacity: 0.6, cursor: "pointer" }}>로그인 상태 유지</label>
-                </div>
-              )}
-              <button type="submit" className="btn-primary" style={{ padding: "1.1rem", borderRadius: "1.2rem", fontWeight: 800, fontSize: "1rem", marginTop: "1rem" }}>
-                {authMode === "login" ? "로그인" : "회원가입"}
-              </button>
-           </form>
-           <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
-              <button onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")} style={{ fontSize: "0.85rem", fontWeight: 700, opacity: 0.6 }}>
-                 {authMode === "login" ? "아직 회원이 아니신가요? 회원가입" : "이미 회원이신가요? 로그인"}
-              </button>
-           </div>
+      <main style={{ 
+        minHeight: "100vh", 
+        display: "flex", 
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "2.5rem 1.8rem",
+        position: "relative",
+        overflow: "hidden",
+        background: "linear-gradient(150deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)"
+      }}>
+        {/* Animated background orbs */}
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          style={{ position: "absolute", top: "-8rem", right: "-6rem", width: "22rem", height: "22rem", borderRadius: "50%", background: "radial-gradient(circle, #38bdf8 0%, transparent 70%)", pointerEvents: "none" }}
+        />
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          style={{ position: "absolute", bottom: "-10rem", left: "-6rem", width: "26rem", height: "26rem", borderRadius: "50%", background: "radial-gradient(circle, #6366f1 0%, transparent 70%)", pointerEvents: "none" }}
+        />
+
+        {/* Hero section */}
+        <motion.div
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          style={{ marginBottom: "3rem" }}
+        >
+          <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>🏋️</div>
+          <h1 style={{ 
+            fontSize: "2.8rem", fontWeight: 900, lineHeight: 1.1, marginBottom: "0.8rem",
+            background: "linear-gradient(135deg, #ffffff 0%, #38bdf8 60%, #6366f1 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"
+          }}>
+            SME<br/>CLUB
+          </h1>
+          <p style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.45)", fontWeight: 600, letterSpacing: "0.05em" }}>
+            운동 관리의 시작
+          </p>
         </motion.div>
-        {/* 로그인 화면 토스트 */}
+
+        {/* Form */}
+        <motion.form
+          onSubmit={handleAuth}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+        >
+          <div style={{ position: "relative" }}>
+            <Users size={18} style={{ position: "absolute", left: "1.1rem", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.35)" }} />
+            <input
+              name="nickname" type="text" placeholder="닉네임 (ID)" required
+              style={{ 
+                width: "100%", padding: "1.1rem 1rem 1.1rem 3rem",
+                borderRadius: "1.2rem", fontSize: "16px",
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "white", outline: "none",
+                backdropFilter: "blur(10px)"
+              }}
+            />
+          </div>
+
+          <div style={{ position: "relative" }}>
+            <Lock size={18} style={{ position: "absolute", left: "1.1rem", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.35)" }} />
+            <input
+              name="password" type="password" placeholder="비밀번호" required
+              style={{ 
+                width: "100%", padding: "1.1rem 1rem 1.1rem 3rem",
+                borderRadius: "1.2rem", fontSize: "16px",
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "white", outline: "none",
+                backdropFilter: "blur(10px)"
+              }}
+            />
+          </div>
+
+          {authMode === "login" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0 0.2rem" }}>
+              <input type="checkbox" id="remember" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer", accentColor: "#38bdf8" }} />
+              <label htmlFor="remember" style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.45)", cursor: "pointer" }}>로그인 상태 유지</label>
+            </div>
+          )}
+
+          <motion.button
+            type="submit"
+            whileTap={{ scale: 0.97 }}
+            style={{ 
+              padding: "1.15rem", borderRadius: "1.2rem",
+              fontWeight: 900, fontSize: "1rem", marginTop: "0.5rem",
+              background: "linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)",
+              color: "white", border: "none",
+              boxShadow: "0 8px 32px rgba(56, 189, 248, 0.35)"
+            }}
+          >
+            {authMode === "login" ? "로그인" : "회원가입"}
+          </motion.button>
+
+          <button
+            type="button"
+            onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}
+            style={{ 
+              marginTop: "0.5rem", fontSize: "0.88rem", fontWeight: 700,
+              color: "rgba(255,255,255,0.4)", textAlign: "center"
+            }}
+          >
+            {authMode === "login" ? "아직 회원이 아니신가요? → 회원가입" : "이미 회원이신가요? → 로그인"}
+          </button>
+        </motion.form>
+
+        {/* Toast */}
         <AnimatePresence>
           {toast && (
             <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} style={{ position: "fixed", bottom: "3rem", left: "50%", background: "rgba(0,0,0,0.9)", color: "white", padding: "1rem 1.5rem", borderRadius: "1.25rem", zIndex: 4000, fontWeight: 800, fontSize: "0.88rem", maxWidth: "90vw", textAlign: "center", lineHeight: 1.5, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>{toast}</motion.div>
