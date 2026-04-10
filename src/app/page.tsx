@@ -59,6 +59,27 @@ const getLastWeekRange = () => {
   return days; // Array of 7 date strings
 };
 
+const getLastWeekRangeInfo = () => {
+  const currentWeek = getWeekRange();
+  const firstDayStr = currentWeek[0].날짜;
+  const firstDay = new Date(firstDayStr);
+  const lastMon = new Date(firstDay);
+  lastMon.setDate(firstDay.getDate() - 7);
+  
+  const days = [];
+  const dayNames = ['월', '화', '수', '목', '금', '토', '일'];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(lastMon);
+    d.setDate(lastMon.getDate() + i);
+    days.push({
+      날짜: d.toISOString().split('T')[0],
+      요일: dayNames[i],
+      일: d.getDate().toString()
+    });
+  }
+  return days;
+};
+
 
 export default function Home() {
   const [isLightMode, setIsLightMode] = useState(true);
@@ -88,6 +109,9 @@ export default function Home() {
   const [penalties, setPenalties] = useState<any[]>([]);
   const [lastWeekWorkoutCount, setLastWeekWorkoutCount] = useState(0);
   const [allMembersLastWeekCounts, setAllMembersLastWeekCounts] = useState<any>({});
+  const [lastWeekAttendance, setLastWeekAttendance] = useState<any[]>([]);
+  const [adminViewUserCalendar, setAdminViewUserCalendar] = useState<any>(null);
+  const [adminViewUserAttendance, setAdminViewUserAttendance] = useState<any[]>([]);
 
   const [toast, setToast] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -245,14 +269,16 @@ export default function Home() {
   // Fetch Last Week workout counts
   useEffect(() => {
     if (!currentUser) return;
-    const lastWeekDays = getLastWeekRange();
+    const lastWeekDaysInfo = getLastWeekRangeInfo();
+    const lastWeekStart = lastWeekDaysInfo[0].날짜;
+    const lastWeekEnd = lastWeekDaysInfo[6].날짜;
     
     if (currentUser.관리자여부) {
       // Admin: Fetch all approved activities for last week to calculate everyone's count
       const q = query(
         collection(db, "활동"),
-        where("날짜", ">=", lastWeekDays[0]),
-        where("날짜", "<=", lastWeekDays[6]),
+        where("날짜", ">=", lastWeekStart),
+        where("날짜", "<=", lastWeekEnd),
         where("상태", "==", "승인")
       );
       getDocs(q).then(snap => {
@@ -267,16 +293,24 @@ export default function Home() {
         setLastWeekWorkoutCount(counts[currentUser.닉네임] || 0);
       });
     } else {
-      // Regular user: Just fetch their own count
+      // Regular user: fetch their own records for calendar
       const q = query(
         collection(db, "활동"),
         where("닉네임", "==", currentUser.닉네임),
-        where("날짜", ">=", lastWeekDays[0]),
-        where("날짜", "<=", lastWeekDays[6]),
-        where("상태", "==", "승인")
+        where("날짜", ">=", lastWeekStart),
+        where("날짜", "<=", lastWeekEnd)
       );
       getDocs(q).then(snap => {
-        setLastWeekWorkoutCount(snap.size);
+        const dataMap: any = {};
+        snap.forEach(doc => { dataMap[doc.data().날짜] = doc.data(); });
+        const combined = lastWeekDaysInfo.map(info => ({
+          day: info.요일,
+          date: info.일,
+          fullDate: info.날짜,
+          상태: dataMap[info.날짜]?.상태 || 'none'
+        }));
+        setLastWeekAttendance(combined);
+        setLastWeekWorkoutCount(combined.filter(d => d.상태 === '승인').length);
       });
     }
   }, [currentUser]);
@@ -300,6 +334,26 @@ export default function Home() {
       }, { merge: true });
       setToast("벌금 납부 확인을 요청했습니다! ✅");
     } catch (err) { console.error(err); }
+  };
+
+  const fetchUserLastWeekCalendar = async (nickname: string) => {
+    const lastWeekDaysInfo = getLastWeekRangeInfo();
+    const q = query(
+      collection(db, "활동"),
+      where("닉네임", "==", nickname),
+      where("날짜", ">=", lastWeekDaysInfo[0].날짜),
+      where("날짜", "<=", lastWeekDaysInfo[6].날짜)
+    );
+    const snap = await getDocs(q);
+    const dataMap: any = {};
+    snap.forEach(doc => { dataMap[doc.data().날짜] = doc.data(); });
+    const attendance = lastWeekDaysInfo.map(info => ({
+      day: info.요일,
+      date: info.일,
+      fullDate: info.날짜,
+      상태: dataMap[info.날짜]?.상태 || 'none'
+    }));
+    setAdminViewUserAttendance(attendance);
   };
 
   const handleConfirmPenalty = async (id: string) => {
@@ -1200,7 +1254,7 @@ export default function Home() {
                       })
                       .map((item: any) => (
                         <div key={item.닉네임} className="card" style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", flex: 1 }}>
                              <div style={{ 
                                width: "2.5rem", height: "2.5rem", borderRadius: "50%", 
                                background: item.배경색 || "var(--secondary)", 
@@ -1215,15 +1269,19 @@ export default function Home() {
                                 <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>{item.count}회 / {item.penaltyAmount.toLocaleString()}원</div>
                              </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                             <div style={{ fontSize: "0.7rem", color: item.status === '완납' ? "var(--success)" : "var(--error)", fontWeight: 800, textAlign: "right", marginRight: "0.4rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                             <button 
+                               onClick={() => { setAdminViewUserCalendar(item); fetchUserLastWeekCalendar(item.닉네임); }}
+                               style={{ padding: "0.4rem 0.6rem", fontSize: "0.65rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontWeight: 800 }}
+                             >기록조회</button>
+                             <div style={{ fontSize: "0.7rem", color: item.status === '완납' ? "var(--success)" : "var(--error)", fontWeight: 800, textAlign: "right", margin: "0 0.4rem" }}>
                                {item.status}
                              </div>
                              {item.status === "납부확인중" && item.recordId && (
-                               <button onClick={() => handleConfirmPenalty(item.recordId)} className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>납부확인</button>
+                               <button onClick={() => handleConfirmPenalty(item.recordId)} className="btn-primary" style={{ padding: "0.5rem 0.8rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>확인</button>
                              )}
                              {item.status === "미납" && (
-                               <button onClick={() => handleAdminManualConfirmPenalty(item)} className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>납부처리</button>
+                               <button onClick={() => handleAdminManualConfirmPenalty(item)} className="btn-primary" style={{ padding: "0.5rem 0.8rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>완납</button>
                              )}
                              {item.status === "완납" && <CheckCircle2 size={24} color="var(--success)" />}
                           </div>
@@ -1288,20 +1346,46 @@ export default function Home() {
                 <h2 style={{ fontWeight: 900, fontSize: "1.2rem" }}>벌금 관리</h2>
              </header>
              <div style={{ padding: "2rem 1.5rem", flex: 1, overflowY: "auto" }}>
-                <section className="card" style={{ padding: "2rem", textAlign: "center", marginBottom: "2rem" }}>
-                   <div style={{ fontSize: "0.9rem", fontWeight: 800, opacity: 0.5, marginBottom: "0.5rem" }}>지난 주 나의 활동 (Goal: 3회)</div>
-                   <div style={{ fontSize: "3rem", fontWeight: 900, color: "var(--primary)" }}>{lastWeekWorkoutCount} <span style={{ fontSize: "1.2rem", color: "inherit" }}>회</span></div>
-                   <div style={{ marginTop: "1rem", padding: "1rem", borderRadius: "1rem", background: "rgba(0,0,0,0.03)", display: "inline-block" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 800 }}>미달 횟수: {Math.max(0, 3 - lastWeekWorkoutCount)}회</span>
-                   </div>
-                </section>
+                 <section className="card" style={{ padding: "2rem", textAlign: "center", marginBottom: "2rem" }}>
+                    <div style={{ fontSize: "0.9rem", fontWeight: 800, opacity: 0.5, marginBottom: "0.5rem" }}>지난 주 나의 활동 (Goal: 3회)</div>
+                    <div style={{ fontSize: "3rem", fontWeight: 900, color: "var(--primary)" }}>{lastWeekWorkoutCount} <span style={{ fontSize: "1.2rem", color: "inherit" }}>회</span></div>
+                    
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.4rem", marginTop: "1.5rem" }}>
+                      {lastWeekAttendance.map((day, i) => (
+                        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3rem", padding: "0.5rem 0", borderRadius: "0.8rem", background: "rgba(0,0,0,0.03)" }}>
+                          <span style={{ fontSize: "0.55rem", fontWeight: 700, opacity: 0.5 }}>{day.day}</span>
+                          {day.상태 === '승인' ? <CheckCircle2 size={14} color="var(--success)" /> : 
+                           day.상태 === '반려' ? <AlertCircle size={14} color="var(--error)" /> : 
+                           day.상태 === '대기' ? <RefreshCw size={14} color="var(--primary)" className="animate-spin" /> :
+                           <span style={{ fontWeight: 800, fontSize: "0.75rem", opacity: 0.2 }}>{day.date}</span>}
+                        </div>
+                      ))}
+                    </div>
 
-                {lastWeekWorkoutCount < 3 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                     <div style={{ textAlign: "center" }}>
-                        <h3 style={{ fontWeight: 900, fontSize: "1.4rem", marginBottom: "0.5rem" }}>납부하실 벌금: <span style={{ color: "var(--error)" }}>{(Math.max(0, 3 - lastWeekWorkoutCount) * 2000).toLocaleString()}원</span></h3>
-                        <p style={{ fontSize: "0.85rem", opacity: 0.6 }}>카카오뱅크 3333-14-1234567 (예금주: 홍길동)<br/>입금 후 아래 버튼을 눌러주세요.</p>
-                     </div>
+                    <div style={{ marginTop: "1.5rem", padding: "0.8rem", borderRadius: "0.8rem", background: "rgba(0,0,0,0.03)", display: "inline-block" }}>
+                       <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>미달 횟수: {Math.max(0, 3 - lastWeekWorkoutCount)}회</span>
+                    </div>
+                 </section>
+
+                 {lastWeekWorkoutCount < 3 ? (
+                   <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                      <div className="card" style={{ textAlign: "center", padding: "1.5rem", background: "rgba(0,0,0,0.02)" }}>
+                         <h3 style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: "0.8rem" }}>납부하실 벌금: <span style={{ color: "var(--error)" }}>{(Math.max(0, 3 - lastWeekWorkoutCount) * 2000).toLocaleString()}원</span></h3>
+                         <div style={{ background: "white", padding: "1rem", borderRadius: "0.8rem", marginBottom: "1rem", position: "relative" }}>
+                            <p style={{ fontSize: "0.8rem", fontWeight: 700, opacity: 0.6, marginBottom: "0.4rem" }}>입금 계좌</p>
+                            <p style={{ fontSize: "0.9rem", fontWeight: 900 }}>카카오뱅크 3333-14-1234567<br/>(예금주: 홍길동)</p>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText("카카오뱅크 3333-14-1234567");
+                                setToast("계좌번호가 복사되었습니다! 📋");
+                              }}
+                              style={{ position: "absolute", top: "50%", right: "1rem", transform: "translateY(-50%)", padding: "0.5rem", borderRadius: "0.5rem", background: "var(--primary)", color: "white" }}
+                            >
+                              <Copy size={16} />
+                            </button>
+                         </div>
+                         <p style={{ fontSize: "0.75rem", opacity: 0.5 }}>입금 후 아래 버튼을 눌러 확인을 요청해 주세요.</p>
+                      </div>
                      
                      {(() => {
                         const myPenalty = penalties.find(p => p.닉네임 === currentUser.닉네임 && p.주차 === getLastWeekRange()[0]);
@@ -1618,6 +1702,38 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+
+      <AnimatePresence>
+        {adminViewUserCalendar && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 8000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+             <div className="card" style={{ width: "100%", maxWidth: "360px", padding: "2rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                   <h3 style={{ fontWeight: 900 }}>{adminViewUserCalendar.닉네임} 활동 기록</h3>
+                   <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => setAdminViewUserCalendar(null)} />
+                </div>
+                
+                <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+                   <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "var(--primary)" }}>{adminViewUserAttendance.filter(d => d.상태 === '승인').length} <span style={{ fontSize: "1rem", color: "inherit" }}>회</span></div>
+                   <div style={{ fontSize: "0.8rem", opacity: 0.5, fontWeight: 700 }}>지난 주 운동 기록</div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", marginBottom: "2rem" }}>
+                   {adminViewUserAttendance.map((day, i) => (
+                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3rem", padding: "0.6rem 0", borderRadius: "0.8rem", background: "rgba(0,0,0,0.03)" }}>
+                         <span style={{ fontSize: "0.6rem", fontWeight: 700, opacity: 0.5 }}>{day.day}</span>
+                         {day.상태 === '승인' ? <CheckCircle2 size={16} color="var(--success)" /> : 
+                          day.상태 === '반려' ? <AlertCircle size={16} color="var(--error)" /> : 
+                          day.상태 === '대기' ? <RefreshCw size={16} color="var(--primary)" /> :
+                          <span style={{ fontWeight: 800, fontSize: "0.8rem", opacity: 0.1 }}>{day.date}</span>}
+                      </div>
+                   ))}
+                </div>
+
+                <button onClick={() => setAdminViewUserCalendar(null)} style={{ width: "100%", padding: "1rem", borderRadius: "1rem", background: "var(--primary)", color: "white", fontWeight: 900 }}>닫기</button>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </main>
   );
