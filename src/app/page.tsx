@@ -505,40 +505,9 @@ export default function Home() {
               <div className="card" style={{ padding: "1.5rem" }}><div style={{ fontSize: "0.75rem", opacity: 0.6 }}>활동 승인</div><div style={{ fontSize: "1.5rem", fontWeight: 900 }}>{workoutCount} / 3</div></div>
             </section>
             
-            <section style={{ textAlign: "center" }}>
-               <motion.button 
-                 whileTap={{ scale: 0.95 }} 
-                 onClick={() => !todayActivity && setShowUpload({ fullDate: new Date().toISOString().split('T')[0], day: '오늘' })} 
-                 style={{ 
-                   width: "130px", height: "130px", borderRadius: "65px", 
-                   background: todayActivity?.상태 === '승인' ? "var(--success)" : 
-                               todayActivity?.상태 === '대기' ? "var(--warning)" :
-                               todayActivity?.상태 === '반려' ? "var(--error)" :
-                               "linear-gradient(135deg, var(--primary), var(--secondary))", 
-                   color: "white", 
-                   boxShadow: "0 10px 40px rgba(56, 189, 248, 0.25)",
-                   display: "flex", alignItems: "center", justifyContent: "center"
-                 }}
-               >
-                 {todayActivity?.상태 === '승인' ? <CheckCircle2 size={50} /> : 
-                  todayActivity?.상태 === '대기' ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2 }}><RefreshCw size={50} /></motion.div> :
-                  todayActivity?.상태 === '반려' ? <AlertCircle size={50} /> :
-                  <Dumbbell size={50} />}
-               </motion.button>
-               <h3 style={{ marginTop: "1rem", fontWeight: 800 }}>
-                 {todayActivity?.상태 === '승인' ? "오늘 활동 완료!" : 
-                  todayActivity?.상태 === '대기' ? "관리자 승인 대기 중..." :
-                  todayActivity?.상태 === '반려' ? "활동 반려됨 (재인증 필요)" :
-                  "오늘 활동 인증하기"}
-               </h3>
-               {todayActivity?.상태 === '반려' && (
-                 <p style={{ fontSize: "0.8rem", color: "var(--error)", marginTop: "0.4rem", opacity: 0.8 }}>
-                    사유: {todayActivity.반려사유}
-                 </p>
-               )}
-            </section>
-
-            <section style={{ padding: "0 1.25rem" }}>
+            {/* 중앙 버튼 제거 후 캘린더를 더 강조하거나 간격을 조정할 수 있습니다. */}
+            <section style={{ padding: "0 1.25rem", marginTop: "-0.5rem" }}>
+               <h3 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: "1rem", opacity: 0.8 }}>요일별 활동 현황</h3>
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
                  {attendance.map((day, i) => (
                    <motion.div key={i} whileTap={{ scale: 0.95 }} onClick={() => setSelectedDay(day)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", padding: "0.75rem 0", borderRadius: "1rem", border: day.상태 === '반려' ? "1px solid var(--error)" : "1px solid var(--glass-border)", background: day.상태 === '반려' ? "rgba(239, 68, 68, 0.05)" : "transparent", cursor: "pointer", opacity: day.상태 === 'none' ? 0.3 : 1 }}>
@@ -750,50 +719,40 @@ export default function Home() {
                 {adminApprovalTab === "사진검토" && (
                   <>
                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").map(item => (
-                      <div key={item.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
-                        {/* 유저 정보 + 상단 버튼 영역 (상단 배치로 가시성 확보) */}
-                        <div style={{ padding: "1rem", borderBottom: "1px solid var(--glass-border)" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1rem" }}>
-                            <div style={{ width: "2.4rem", height: "2.4rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, flexShrink: 0 }}>
+                      <div key={item.id} className="card" style={{ padding: "1.25rem", marginBottom: "1rem" }}>
+                        {/* 최신 UI 구성: 유저 정보와 버튼을 한 줄에 배치 */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                            <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
                               {item.아바타 || item.닉네임?.substring(0, 2).toUpperCase()}
                             </div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 900, fontSize: "0.95rem" }}>{item.닉네임}</div>
-                              <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} · {item.날짜}</div>
+                            <div>
+                               <div style={{ fontWeight: 900, fontSize: "1rem" }}>{item.닉네임}</div>
+                               <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} · {item.날짜}</div>
                             </div>
                           </div>
-
-                          {/* 승인/반려 버튼 - 상단으로 이동 및 색상 강화 */}
-                          <div style={{ display: "flex", gap: "0.6rem" }}>
-                            <button
-                              onClick={() => startReject(item.id)}
-                              style={{ 
-                                flex: 1, padding: "0.75rem", borderRadius: "0.8rem", 
-                                background: "#ef4444", color: "white", fontWeight: 900, fontSize: "0.85rem",
-                                border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem"
-                              }}
-                            >
-                              <X size={16} /> 반려하기
-                            </button>
-                            <button
-                              onClick={() => handleApproveActivity(item.id, item.닉네임)}
-                              style={{ 
-                                flex: 1, padding: "0.75rem", borderRadius: "0.8rem", 
-                                background: "#22c55e", color: "white", fontWeight: 900, fontSize: "0.85rem",
-                                border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem"
-                              }}
-                            >
-                              <Check size={16} /> 승인하기
-                            </button>
+                          
+                          {/* 절대적으로 보일 수 밖에 없는 우측 버튼 영역 */}
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                             <button
+                               onClick={() => startReject(item.id)}
+                               style={{ background: "#ef4444", color: "white", padding: "0.6rem 0.8rem", borderRadius: "0.5rem", fontWeight: 900, fontSize: "0.8rem", border: "none" }}
+                             >반려</button>
+                             <button
+                               onClick={() => handleApproveActivity(item.id, item.닉네임)}
+                               style={{ background: "#22c55e", color: "white", padding: "0.6rem 0.8rem", borderRadius: "0.5rem", fontWeight: 900, fontSize: "0.8rem", border: "none" }}
+                             >승인</button>
                           </div>
                         </div>
 
-                        {/* 이미지 - 버튼 아래에 배치 */}
-                        <img
-                          src={item.이미지URL}
-                          alt="proof"
-                          style={{ width: "100%", maxHeight: "280px", objectFit: "cover", display: "block" }}
-                        />
+                        {/* 이미지 영역 */}
+                        <div style={{ borderRadius: "0.8rem", overflow: "hidden", border: "1px solid var(--glass-border)" }}>
+                          <img
+                            src={item.이미지URL}
+                            alt="proof"
+                            style={{ width: "100%", maxHeight: "300px", objectFit: "cover", display: "block" }}
+                          />
+                        </div>
                       </div>
                     ))}
                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length === 0 && (
