@@ -69,6 +69,8 @@ export default function Home() {
   const [toast, setToast] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState("");
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editBio, setEditBio] = useState("");
   const [rankingPeriod, setRankingPeriod] = useState("monthly");
 
   const weekInfo = getWeekRange();
@@ -219,7 +221,6 @@ export default function Home() {
     const formData = new FormData(e.currentTarget);
     const nickname = (formData.get("nickname") as string).trim();
     const password = formData.get("password") as string;
-    const realName = formData.get("userName") as string;
 
     try {
       const userRef = doc(db, "멤버", nickname);
@@ -260,7 +261,7 @@ export default function Home() {
         const newUser = {
           닉네임: nickname,
           비밀번호: password,
-          이름: realName || nickname,
+          이름: nickname, // 이름도 닉네임과 동일하게 저장 (호환성 유지)
           관리자여부: false,
           아바타: nickname.substring(0, 2).toUpperCase(),
           인사말: "득근에 진심입니다! 💪",
@@ -394,24 +395,75 @@ export default function Home() {
     } catch (err) { console.error(err); }
   };
 
+  const handleUpdateProfile = async (newBio: string, avatarUrl?: string) => {
+    if (!currentUser) return;
+    try {
+      const updateData: any = { 인사말: newBio };
+      if (avatarUrl) updateData.아바타 = avatarUrl;
+      
+      await updateDoc(doc(db, "멤버", currentUser.닉네임), updateData);
+      
+      const updatedUser = { ...currentUser, ...updateData };
+      setCurrentUser(updatedUser);
+      localStorage.setItem("sme_session", JSON.stringify(updatedUser));
+      
+      setIsEditProfileOpen(false);
+      setToast("프로필이 업데이트되었습니다! ✨");
+    } catch (err) {
+      console.error(err);
+      setToast("업데이트 실패 ❌");
+    }
+  };
+
+  const handleProfileImageUpload = async (file: File) => {
+    setToast("사진 업로드 중... ⏳");
+    try {
+      const storageRef = ref(storage, `프로필/${currentUser.닉네임}_${Date.now()}`);
+      const uploadSnap = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(uploadSnap.ref);
+      handleUpdateProfile(editBio, downloadURL);
+    } catch (err) {
+      console.error(err);
+      setToast("이미지 업로드 실패 ❌");
+    }
+  };
+
   const ProfileHeader = ({ name, data }: { name: string, data?: any }) => {
-    const member = members.find(m => m.닉네임 === name) || members[0] || {};
+    const member = members.find(m => m.닉네임 === name) || (name === currentUser?.닉네임 ? currentUser : (members[0] || {}));
     const userPosts = posts.filter(p => p.닉네임 === name);
+    const isMe = name === currentUser?.닉네임;
+
     return (
       <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
             <div style={{ width: "5.5rem", height: "5.5rem", borderRadius: "50%", background: "var(--secondary)", border: "3px solid var(--primary)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", fontWeight: 800, color: "white" }}>
-               {(name === "admin" || name === "관리자") ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.아바타}
+               {member.아바타 && member.아바타.startsWith('http') ? 
+                 <img src={member.아바타} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                 (name === "admin" ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.아바타)}
             </div>
             <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{member.운동횟수 || 0}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div></div>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div></div>
             </div>
          </div>
-         <div style={{ marginTop: "1rem" }}><div style={{ fontWeight: 800 }}>{name}</div><p style={{ fontSize: "0.85rem", opacity: 0.7 }}>{member.인사말}</p></div>
+         <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800 }}>{name}</div>
+              <p style={{ fontSize: "0.85rem", opacity: 0.7 }}>{member.인사말}</p>
+            </div>
+            {isMe && (
+              <button 
+                onClick={() => { setEditBio(member.인사말 || ""); setIsEditProfileOpen(true); }}
+                style={{ padding: "0.5rem 0.8rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.75rem", fontWeight: 800, marginTop: "0.2rem" }}
+              >
+                수정
+              </button>
+            )}
+         </div>
       </div>
     );
   };
+ Riverside
 
   if (isAuthChecking) return null;
 
@@ -425,12 +477,6 @@ export default function Home() {
               <p style={{ fontSize: "0.85rem", opacity: 0.5, marginTop: "0.5rem" }}>운동 관리의 시작, 에스엠이 클럽</p>
            </div>
            <form onSubmit={handleAuth} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-              {authMode === "signup" && (
-                <div style={{ position: "relative" }}>
-                   <User size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
-                   <input name="userName" type="text" placeholder="이름 (실명)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", fontSize: "16px" }} />
-                </div>
-              )}
               <div style={{ position: "relative" }}>
                 <Users size={18} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", opacity: 0.3 }} />
                 <input name="nickname" type="text" placeholder="닉네임 (ID)" required style={{ width: "100%", padding: "1rem 1rem 1rem 3rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", fontSize: "16px" }} />
@@ -870,10 +916,59 @@ export default function Home() {
         </label>
       )}
 
+      {/* --- Profile Edit Modal --- */}
+      <AnimatePresence>
+        {isEditProfileOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 4000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="card" style={{ width: "100%", maxWidth: "380px", padding: "2rem" }}>
+               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                  <h3 style={{ fontWeight: 900, fontSize: "1.2rem" }}>프로필 수정</h3>
+                  <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => setIsEditProfileOpen(false)} />
+               </div>
+               
+               <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                  <div style={{ textAlign: "center" }}>
+                     <label style={{ display: "inline-block", position: "relative", cursor: "pointer" }}>
+                        <div style={{ width: "5rem", height: "5rem", borderRadius: "50%", background: "var(--secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", fontWeight: 800, color: "white", overflow: "hidden", border: "3px solid var(--primary)" }}>
+                           {currentUser.아바타 && currentUser.아바타.startsWith('http') ? 
+                             <img src={currentUser.아바타} alt="curr" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                             currentUser.아바타}
+                        </div>
+                        <div style={{ position: "absolute", bottom: 0, right: 0, background: "var(--primary)", borderRadius: "50%", width: "1.6rem", height: "1.6rem", display: "flex", alignItems: "center", justifyContent: "center", color: "white", border: "2px solid white" }}>
+                           <ImageIcon size={12} />
+                        </div>
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && handleProfileImageUpload(e.target.files[0])} />
+                     </label>
+                     <p style={{ fontSize: "0.7rem", opacity: 0.5, marginTop: "0.5rem" }}>사진 클릭하여 변경</p>
+                  </div>
+
+                  <div>
+                     <label style={{ fontSize: "0.85rem", fontWeight: 800, opacity: 0.6, display: "block", marginBottom: "0.5rem" }}>한줄 소개</label>
+                     <input 
+                       value={editBio} 
+                       onChange={(e) => setEditBio(e.target.value)} 
+                       placeholder="나의 각오를 적어주세요!" 
+                       style={{ width: "100%", padding: "1rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }}
+                     />
+                  </div>
+
+                  <button 
+                    onClick={() => handleUpdateProfile(editBio)}
+                    className="btn-primary" 
+                    style={{ padding: "1rem", borderRadius: "1rem", fontWeight: 800, width: "100%" }}
+                  >
+                    저장하기
+                  </button>
+               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* --- Global UI --- */}
       <AnimatePresence>
         {toast && (
-          <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} style={{ position: "fixed", bottom: "7.5rem", left: "50%", background: "rgba(0,0,0,0.85)", color: "white", padding: "1rem 2rem", borderRadius: "2.5rem", zIndex: 4000, fontWeight: 800, fontSize: "0.95rem" }}>{toast}</motion.div>
+          <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} style={{ position: "fixed", bottom: "7.5rem", left: "50%", background: "rgba(0,0,0,0.85)", color: "white", padding: "1rem 2rem", borderRadius: "2.5rem", zIndex: 5000, fontWeight: 800, fontSize: "0.95rem" }}>{toast}</motion.div>
         )}
       </AnimatePresence>
       <nav className="glass" style={{ position: "fixed", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)", width: "calc(100% - 2.5rem)", maxWidth: "420px", height: "4.8rem", display: "flex", justifyContent: "space-around", alignItems: "center", zIndex: 100, borderRadius: "2.5rem", background: isLightMode ? "rgba(255,255,255,0.92)" : "rgba(15, 23, 42, 0.85)" }}>
