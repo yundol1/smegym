@@ -132,18 +132,22 @@ export default function Home() {
   const [inlineInputs, setInlineInputs] = useState<any>({});
   const [isNavVisible, setIsNavVisible] = useState(true);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { scrollY } = useScroll();
 
-  useMotionValueEvent(scrollY, "change", () => {
-    // Hide immediately when any scroll activity starts
-    setIsNavVisible(false);
-    // Clear existing timer
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-    // Show again after 1.2s of no scrolling
-    scrollTimerRef.current = setTimeout(() => {
-      setIsNavVisible(true);
-    }, 1200);
-  });
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsNavVisible(false);
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(() => setIsNavVisible(true), 1200);
+    };
+    // Listen on both window and document to catch all scroll containers
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("scroll", handleScroll);
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    };
+  }, []);
 
   const weekInfo = getWeekRange();
   const workoutCount = attendance.filter(d => d.상태 === '승인').length;
