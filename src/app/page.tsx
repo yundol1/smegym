@@ -1653,18 +1653,25 @@ export default function Home() {
                 
                 <div style={{ flex: 1, overflowY: "auto" }}>
                    {/* Post Info Header */}
-                   <div style={{ padding: "0 1.5rem 1.5rem 1.5rem", borderBottom: "4px solid rgba(0,0,0,0.02)" }}>
-                      <div style={{ borderRadius: "1rem", overflow: "hidden", background: "#f8fafc", marginBottom: "1rem", border: "1px solid var(--glass-border)" }}>
+                   <div style={{ padding: "1.5rem", borderBottom: "4px solid var(--glass-border)", background: isLightMode ? "rgba(0,0,0,0.01)" : "rgba(255,255,255,0.02)" }}>
+                      <div style={{ borderRadius: "1.25rem", overflow: "hidden", background: "#f8fafc", marginBottom: "1.25rem", border: "1px solid var(--glass-border)", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>
                          <img src={showComments.이미지URL} alt="post" style={{ width: "100%", height: "auto", display: "block" }} />
                       </div>
-                      <div style={{ display: "flex", gap: "0.8rem", alignItems: "flex-start" }}>
-                         <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
-                            {members.find(m => m.닉네임 === showComments.닉네임)?.아바타?.startsWith('http') ? <img src={members.find(m => m.닉네임 === showComments.닉네임).아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, color: "white" }}>{showComments.닉네임.substring(0,2)}</div>}
+                      <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+                         <div style={{ width: "2.4rem", height: "2.4rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0, border: "2px solid var(--primary)" }}>
+                            {members.find(m => m.닉네임 === showComments.닉네임)?.아바타?.startsWith('http') ? <img src={members.find(m => m.닉네임 === showComments.닉네임).아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", fontWeight: 800, color: "white" }}>{showComments.닉네임.substring(0,2)}</div>}
                          </div>
                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: "0.9rem", fontWeight: 900 }}>{showComments.닉네임}</div>
-                            <p style={{ fontSize: "0.95rem", lineHeight: 1.5, marginTop: "0.2rem", opacity: 0.9 }}>{showComments.내용}</p>
-                            <div style={{ fontSize: "0.75rem", opacity: 0.4, marginTop: "0.4rem" }}>{new Date(showComments.생성시간).toLocaleString()}</div>
+                            <div style={{ fontSize: "1rem", fontWeight: 900 }}>{showComments.닉네임}</div>
+                            <p style={{ fontSize: "0.95rem", lineHeight: 1.6, marginTop: "0.4rem", opacity: 0.9, whiteSpace: "pre-wrap" }}>{showComments.내용}</p>
+                            
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1.2rem", paddingTop: "1rem", borderTop: "1px solid var(--glass-border)" }}>
+                               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--error)" }}>
+                                  <Heart size={20} fill="var(--error)" />
+                                  <span style={{ fontWeight: 900, fontSize: "0.9rem" }}>{(showComments.좋아요유저 || []).length}</span>
+                               </div>
+                               <div style={{ fontSize: "0.75rem", opacity: 0.4, fontWeight: 700 }}>{new Date(showComments.생성시간).toLocaleString()}</div>
+                            </div>
                          </div>
                       </div>
                    </div>
