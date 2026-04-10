@@ -928,17 +928,32 @@ export default function Home() {
                         <div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: "0.4rem" }}>좋아요 {(post.좋아요유저 || []).length}개</div>
                         <p style={{ fontSize: "0.95rem", lineHeight: 1.5, marginBottom: (post.댓글 || []).length > 0 ? "1rem" : "0" }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
                         
-                        {/* Inline Comments Area */}
-                        {(post.댓글 || []).length > 0 && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", padding: "0.8rem 0", borderTop: "1px solid rgba(0,0,0,0.03)" }}>
-                             {(post.댓글 || []).map((cmt: any, i: number) => (
-                               <div key={i} style={{ fontSize: "0.85rem", lineHeight: 1.4 }}>
-                                  <span style={{ fontWeight: 800, marginRight: "0.5rem" }}>{cmt.닉네임}</span>
-                                  <span style={{ opacity: 0.8 }}>{cmt.내용}</span>
-                               </div>
-                             ))}
-                          </div>
-                        )}
+                         {/* Inline Comments Area */}
+                         {(post.댓글 || []).length > 0 && (
+                           <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", padding: "0.8rem 0", borderTop: "1px solid rgba(0,0,0,0.03)" }}>
+                              {(post.댓글 || []).map((cmt: any, i: number) => (
+                                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", fontSize: "0.85rem", lineHeight: 1.4 }}>
+                                   <div style={{ flex: 1 }}>
+                                      <span 
+                                        onClick={() => {
+                                          const target = members.find(m => m.닉네임 === cmt.닉네임) || { 닉네임: cmt.닉네임 };
+                                          setSelectedProfile(target);
+                                          setActiveTab("profile");
+                                          window.scrollTo(0,0);
+                                        }}
+                                        style={{ fontWeight: 800, marginRight: "0.5rem", cursor: "pointer" }}
+                                      >
+                                        {cmt.닉네임}
+                                      </span>
+                                      <span style={{ opacity: 0.8 }}>{cmt.내용}</span>
+                                   </div>
+                                   <span style={{ fontSize: "0.65rem", opacity: 0.4, marginLeft: "0.5rem", whiteSpace: "nowrap" }}>
+                                      {new Date(cmt.생성시간).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                   </span>
+                                </div>
+                              ))}
+                           </div>
+                         )}
 
                         {/* Inline Comment Input */}
                         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: (post.댓글 || []).length > 0 ? "0.5rem" : "1rem" }}>
@@ -973,7 +988,13 @@ export default function Home() {
               <ProfileHeader name={currentUser?.닉네임} />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
                  {posts.filter(p => p.닉네임 === currentUser?.닉네임).map(p => (
-                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.이미지URL} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+                    <div 
+                      key={p.id} 
+                      onClick={() => { setShowComments(p); setCommentInput(""); }}
+                      style={{ aspectRatio: "1/1", background: "#f0f0f0", cursor: "pointer" }}
+                    >
+                      <img src={p.이미지URL} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </div>
                  ))}
                  {posts.filter(p => p.닉네임 === currentUser?.닉네임).length === 0 && (
                    <div style={{ gridColumn: "span 3", textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>첫 인증을 남겨주세요😊</div>
@@ -993,7 +1014,11 @@ export default function Home() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)", padding: "2px" }}>
                  {posts.filter(p => p.닉네임 === selectedProfile?.닉네임).map(p => (
-                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f1f5f9", overflow: "hidden" }}>
+                    <div 
+                      key={p.id} 
+                      onClick={() => { setShowComments(p); setCommentInput(""); }}
+                      style={{ aspectRatio: "1/1", background: "#f1f5f9", overflow: "hidden", cursor: "pointer" }}
+                    >
                        <img src={p.이미지URL} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </div>
                  ))}
@@ -1626,25 +1651,65 @@ export default function Home() {
                    <X size={24} style={{ cursor: "pointer", opacity: 0.5 }} onClick={() => setShowComments(null)} />
                 </div>
                 
-                <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem" }}>
-                   {(showComments.댓글 || []).map((cmt: any, idx: number) => (
-                     <div key={idx} style={{ display: "flex", gap: "0.8rem", marginBottom: "1.5rem" }}>
-                        <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
-                           {cmt.아바타 && cmt.아바타.startsWith('http') ? <img src={cmt.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, color: "white" }}>{cmt.아바타}</div>}
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                   {/* Post Info Header */}
+                   <div style={{ padding: "0 1.5rem 1.5rem 1.5rem", borderBottom: "4px solid rgba(0,0,0,0.02)" }}>
+                      <div style={{ borderRadius: "1rem", overflow: "hidden", background: "#f8fafc", marginBottom: "1rem", border: "1px solid var(--glass-border)" }}>
+                         <img src={showComments.이미지URL} alt="post" style={{ width: "100%", height: "auto", display: "block" }} />
+                      </div>
+                      <div style={{ display: "flex", gap: "0.8rem", alignItems: "flex-start" }}>
+                         <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
+                            {members.find(m => m.닉네임 === showComments.닉네임)?.아바타?.startsWith('http') ? <img src={members.find(m => m.닉네임 === showComments.닉네임).아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, color: "white" }}>{showComments.닉네임.substring(0,2)}</div>}
+                         </div>
+                         <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: "0.9rem", fontWeight: 900 }}>{showComments.닉네임}</div>
+                            <p style={{ fontSize: "0.95rem", lineHeight: 1.5, marginTop: "0.2rem", opacity: 0.9 }}>{showComments.내용}</p>
+                            <div style={{ fontSize: "0.75rem", opacity: 0.4, marginTop: "0.4rem" }}>{new Date(showComments.생성시간).toLocaleString()}</div>
+                         </div>
+                      </div>
+                   </div>
+
+                   {/* Comments List */}
+                   <div style={{ padding: "1.5rem" }}>
+                      {(showComments.댓글 || []).map((cmt: any, idx: number) => (
+                        <div key={idx} style={{ display: "flex", gap: "0.8rem", marginBottom: "1.5rem" }}>
+                           <div 
+                             onClick={() => {
+                               const target = members.find(m => m.닉네임 === cmt.닉네임) || { 닉네임: cmt.닉네임 };
+                               setSelectedProfile(target);
+                               setActiveTab("profile");
+                               setShowComments(null);
+                               window.scrollTo(0,0);
+                             }}
+                             style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0, cursor: "pointer" }}
+                           >
+                              {cmt.아바타 && cmt.아바타.startsWith('http') ? <img src={cmt.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, color: "white" }}>{cmt.아바타}</div>}
+                           </div>
+                           <div style={{ flex: 1 }}>
+                              <div 
+                                onClick={() => {
+                                  const target = members.find(m => m.닉네임 === cmt.닉네임) || { 닉네임: cmt.닉네임 };
+                                  setSelectedProfile(target);
+                                  setActiveTab("profile");
+                                  setShowComments(null);
+                                  window.scrollTo(0,0);
+                                }}
+                                style={{ fontSize: "0.85rem", fontWeight: 800, marginBottom: "0.2rem", cursor: "pointer" }}
+                              >
+                                {cmt.닉네임}
+                              </div>
+                              <p style={{ fontSize: "0.9rem", lineHeight: 1.4, opacity: 0.8 }}>{cmt.내용}</p>
+                              <div style={{ fontSize: "0.7rem", opacity: 0.7, marginTop: "0.4rem" }}>{new Date(cmt.생성시간).toLocaleString()}</div>
+                           </div>
                         </div>
-                        <div style={{ flex: 1 }}>
-                           <div style={{ fontSize: "0.85rem", fontWeight: 800, marginBottom: "0.2rem" }}>{cmt.닉네임}</div>
-                           <p style={{ fontSize: "0.9rem", lineHeight: 1.4, opacity: 0.8 }}>{cmt.내용}</p>
-                           <div style={{ fontSize: "0.7rem", opacity: 0.7, marginTop: "0.4rem" }}>{new Date(cmt.생성시간).toLocaleString()}</div>
+                      ))}
+                      {(showComments.댓글 || []).length === 0 && (
+                        <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
+                           <MessageCircle size={40} style={{ margin: "0 auto 1rem" }} />
+                           <p style={{ fontWeight: 800 }}>첫 댓글을 남겨보세요! 😊</p>
                         </div>
-                     </div>
-                   ))}
-                   {(showComments.댓글 || []).length === 0 && (
-                     <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
-                        <MessageCircle size={40} style={{ margin: "0 auto 1rem" }} />
-                        <p style={{ fontWeight: 800 }}>첫 댓글을 남겨보세요! 😊</p>
-                     </div>
-                   )}
+                      )}
+                   </div>
                 </div>
 
                 <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--glass-border)", display: "flex", gap: "0.8rem", alignItems: "center" }}>
