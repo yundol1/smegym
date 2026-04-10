@@ -464,7 +464,6 @@ export default function Home() {
       </div>
     );
   };
- Riverside
 
   if (isAuthChecking) return null;
 
