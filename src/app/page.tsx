@@ -870,8 +870,7 @@ export default function Home() {
                         width: "2.2rem", height: "2.2rem", borderRadius: "50%", 
                         background: m.배경색 || "var(--secondary)", 
                         color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
-                        fontSize: "0.75rem", fontWeight: 800, overflow: "hidden", 
-                        border: `1.5px solid ${m.테두리색 || "rgba(0,0,0,0.05)"}` 
+                        fontSize: "0.75rem", fontWeight: 800, overflow: "hidden" 
                       }}>
                         {m.아바타 && m.아바타.startsWith('http') ? 
                           <img src={m.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${m.아바타줌 || 1})` }} /> : 
@@ -986,7 +985,7 @@ export default function Home() {
 
                         {/* Inline Comment Input */}
                         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: (post.댓글 || []).length > 0 ? "0.5rem" : "1rem" }}>
-                           <div style={{ width: "1.8rem", height: "1.8rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
+                           <div style={{ width: "1.8rem", height: "1.8rem", borderRadius: "50%", background: currentUser.배경색 || "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
                                {currentUser.아바타 && currentUser.아바타.startsWith('http') ? 
                                  <img src={currentUser.아바타} alt="me" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${currentUser.아바타줌 || 1})` }} /> : 
                                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 800, color: "white" }}>{currentUser.아바타}</div>}
@@ -1346,8 +1345,7 @@ export default function Home() {
                                width: "2.5rem", height: "2.5rem", borderRadius: "50%", 
                                background: item.배경색 || "var(--secondary)", 
                                color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
-                               fontWeight: 800, fontSize: "0.85rem", overflow: "hidden",
-                               border: `2px solid ${item.테두리색 || "var(--primary)"}`
+                               fontWeight: 800, fontSize: "0.85rem", overflow: "hidden" 
                              }}>
                                 {item.아바타 && item.아바타.startsWith('http') ? <img src={item.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : item.아바타}
                              </div>
@@ -1755,7 +1753,7 @@ export default function Home() {
                 </div>
 
                 <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--glass-border)", display: "flex", gap: "0.8rem", alignItems: "center" }}>
-                   <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
+                   <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: currentUser.배경색 || "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
                        {currentUser.아바타 && currentUser.아바타.startsWith('http') ? 
                          <img src={currentUser.아바타} alt="me" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${currentUser.아바타줌 || 1})` }} /> : 
                          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800, color: "white" }}>{currentUser.아바타}</div>}
