@@ -21,9 +21,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <div className="container">
-          {children}
-        </div>
+        {children}
       </body>
     </html>
   );

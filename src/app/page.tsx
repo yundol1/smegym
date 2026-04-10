@@ -907,7 +907,7 @@ export default function Home() {
 
   // --- MAIN APP RENDER ---
   return (
-    <main style={{ padding: "1.5rem 0 7.5rem 0", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <main className="container" style={{ padding: "1.5rem 0 7.5rem 0", display: "flex", flexDirection: "column", gap: "2rem" }}>
       
       {/* Top Header */}
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1.25rem" }}>
