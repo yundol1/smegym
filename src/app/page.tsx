@@ -43,6 +43,23 @@ const getWeekRange = () => {
   return days;
 };
 
+const getLastWeekRange = () => {
+  const currentWeek = getWeekRange();
+  const firstDayStr = currentWeek[0].날짜;
+  const firstDay = new Date(firstDayStr);
+  const lastMon = new Date(firstDay);
+  lastMon.setDate(firstDay.getDate() - 7);
+  
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(lastMon);
+    d.setDate(lastMon.getDate() + i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  return days; // Array of 7 date strings
+};
+
+
 export default function Home() {
   const [isLightMode, setIsLightMode] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -67,7 +84,11 @@ export default function Home() {
   const [isNoticeOpen, setIsNoticeOpen] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<string | null>(null);
-  const [adminApprovalTab, setAdminApprovalTab] = useState<"가입검토" | "사진검토" | "면제검토">("가입검토");
+  const [adminApprovalTab, setAdminApprovalTab] = useState<"가입검토" | "사진검토" | "면제검토" | "벌금확인">("가입검토");
+  const [penalties, setPenalties] = useState<any[]>([]);
+  const [lastWeekWorkoutCount, setLastWeekWorkoutCount] = useState(0);
+  const [allMembersLastWeekCounts, setAllMembersLastWeekCounts] = useState<any>({});
+
   const [toast, setToast] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState("");
@@ -191,7 +212,6 @@ export default function Home() {
 
     // 4. Admin-only Listeners
     if (currentUser.관리자여부) {
-      // Pending Activities
       const qPendingA = query(collection(db, "활동"), where("상태", "==", "대기"));
       unsubPendingA = onSnapshot(qPendingA, (snap) => {
         const list: any[] = [];
@@ -199,7 +219,6 @@ export default function Home() {
         setPendingApprovals(list);
       });
 
-      // Pending Members (New Registration Approval)
       const qPendingM = query(collection(db, "멤버"), where("승인상태", "==", "대기"));
       unsubPendingM = onSnapshot(qPendingM, (snap) => {
         const list: any[] = [];
@@ -208,14 +227,109 @@ export default function Home() {
       });
     }
 
+    // 5. Listen for All Penalties
+    const unsubPenalties = onSnapshot(collection(db, "벌금"), (snap) => {
+      setPenalties(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
-      unsubActivities(); unsubMembers(); unsubPosts();
+      unsubActivities(); unsubMembers(); unsubPosts(); unsubPenalties();
       if (currentUser.관리자여부) {
         if (unsubPendingA) unsubPendingA();
         if (unsubPendingM) unsubPendingM();
       }
     };
   }, [currentUser]);
+
+
+  // Fetch Last Week workout counts
+  useEffect(() => {
+    if (!currentUser) return;
+    const lastWeekDays = getLastWeekRange();
+    
+    if (currentUser.관리자여부) {
+      // Admin: Fetch all approved activities for last week to calculate everyone's count
+      const q = query(
+        collection(db, "활동"),
+        where("날짜", ">=", lastWeekDays[0]),
+        where("날짜", "<=", lastWeekDays[6]),
+        where("상태", "==", "승인")
+      );
+      getDocs(q).then(snap => {
+        const counts: any = {};
+        snap.forEach(doc => {
+          const data = doc.data();
+          counts[data.닉네임] = (counts[data.닉네임] || 0) + 1;
+        });
+        setAllMembersLastWeekCounts(counts);
+        
+        // Also set lastWeekWorkoutCount for the current admin user
+        setLastWeekWorkoutCount(counts[currentUser.닉네임] || 0);
+      });
+    } else {
+      // Regular user: Just fetch their own count
+      const q = query(
+        collection(db, "활동"),
+        where("닉네임", "==", currentUser.닉네임),
+        where("날짜", ">=", lastWeekDays[0]),
+        where("날짜", "<=", lastWeekDays[6]),
+        where("상태", "==", "승인")
+      );
+      getDocs(q).then(snap => {
+        setLastWeekWorkoutCount(snap.size);
+      });
+    }
+  }, [currentUser]);
+
+  const handlePenaltyPaymentRequest = async () => {
+    if (!currentUser) return;
+    const lastWeekDays = getLastWeekRange();
+    const weekId = lastWeekDays[0].substring(0, 10);
+    const penaltyId = `${currentUser.닉네임}_${weekId}`;
+    
+    try {
+      await setDoc(doc(db, "벌금", penaltyId), {
+        닉네임: currentUser.닉네임,
+        이름: currentUser.이름,
+        아바타: currentUser.아바타,
+        주차: weekId,
+        운동횟수: lastWeekWorkoutCount,
+        금액: Math.max(0, 3 - lastWeekWorkoutCount) * 2000,
+        상태: "납부확인중",
+        생성시간: serverTimestamp()
+      }, { merge: true });
+      setToast("벌금 납부 확인을 요청했습니다! ✅");
+    } catch (err) { console.error(err); }
+  };
+
+  const handleConfirmPenalty = async (id: string) => {
+    try {
+      await updateDoc(doc(db, "벌금", id), { 상태: "완납" });
+      setToast("납부가 확인되었습니다. ✨");
+    } catch (err) { console.error(err); }
+  };
+
+  const handleAdminManualConfirmPenalty = async (item: any) => {
+    if (!confirm(`[${item.닉네임}]님의 벌금(${(item.penaltyAmount).toLocaleString()}원)을 완납 처리하시겠습니까?`)) return;
+    const lastWeekDays = getLastWeekRange();
+    const weekId = lastWeekDays[0];
+    const penaltyId = `${item.닉네임}_${weekId}`;
+    
+    try {
+      await setDoc(doc(db, "벌금", penaltyId), {
+        닉네임: item.닉네임,
+        이름: item.이름,
+        아바타: item.아바타,
+        주차: weekId,
+        운동횟수: item.count,
+        금액: item.penaltyAmount,
+        상태: "완납",
+        생성시간: serverTimestamp()
+      }, { merge: true });
+      setToast(`${item.닉네임}님의 벌금이 완납 처리되었습니다. ✨`);
+    } catch (err) { console.error(err); }
+  };
+
 
   useEffect(() => {
     if (isLightMode) document.body.classList.add("light");
@@ -873,37 +987,41 @@ export default function Home() {
                 )}
               </div>
 
-              {/* 탭 */}
-              <div style={{
-                display: "flex", background: "var(--background)",
-                borderBottom: "1px solid var(--glass-border)",
-                flexShrink: 0
-              }}>
-                {["가입검토", "사진검토", "면제검토"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setAdminApprovalTab(tab as any)}
-                    style={{
-                      flex: 1, padding: "0.8rem 0", fontWeight: 800, fontSize: "0.8rem",
-                      color: adminApprovalTab === tab ? "var(--primary)" : "inherit",
-                      opacity: adminApprovalTab === tab ? 1 : 0.45,
-                      borderBottom: adminApprovalTab === tab ? "2.5px solid var(--primary)" : "2.5px solid transparent",
-                      transition: "0.2s", background: "none"
-                    }}
-                  >
-                    {tab}
-                    {tab === "가입검토" && pendingMembers.length > 0 && (
-                      <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingMembers.length}</span>
-                    )}
-                    {tab === "사진검토" && pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length > 0 && (
-                      <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length}</span>
-                    )}
-                    {tab === "면제검토" && pendingApprovals.filter(p => p.유형 === "면제").length > 0 && (
-                      <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingApprovals.filter(p => p.유형 === "면제").length}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+                <div style={{
+                  display: "flex", background: "var(--background)",
+                  borderBottom: "1px solid var(--glass-border)",
+                  flexShrink: 0
+                }}>
+                  {["가입검토", "사진검토", "면제검토", "벌금확인"].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setAdminApprovalTab(tab as any)}
+                      style={{
+                        flex: 1, padding: "0.8rem 0", fontWeight: 800, fontSize: "0.8rem",
+                        color: adminApprovalTab === tab ? "var(--primary)" : "inherit",
+                        opacity: adminApprovalTab === tab ? 1 : 0.45,
+                        borderBottom: adminApprovalTab === tab ? "2.5px solid var(--primary)" : "2.5px solid transparent",
+                        transition: "0.2s", background: "none"
+                      }}
+                    >
+                      {tab === "벌금확인" ? "벌금" : tab.replace("검토","")}
+                      {tab === "가입검토" && pendingMembers.length > 0 && (
+                        <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingMembers.length}</span>
+                      )}
+                      {tab === "사진검토" && pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length > 0 && (
+                        <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length}</span>
+                      )}
+                      {tab === "면제검토" && pendingApprovals.filter(p => p.유형 === "면제").length > 0 && (
+                        <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingApprovals.filter(p => p.유형 === "면제").length}</span>
+                      )}
+                      {tab === "벌금확인" && penalties.filter(p => p.상태 === "납부확인중").length > 0 && (
+                        <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{penalties.filter(p => p.상태 === "납부확인중").length}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+
 
               {/* 콘텐츠 스크롤 영역 */}
               <div style={{
@@ -1050,6 +1168,78 @@ export default function Home() {
                   </>
                 )}
 
+                {/* 벌금확인 탭 */}
+                {adminApprovalTab === "벌금확인" && (
+                  <>
+                    <div style={{ background: "var(--secondary)", padding: "1rem", borderRadius: "1rem", marginBottom: "1rem" }}>
+                      <p style={{ fontSize: "0.75rem", opacity: 0.6, fontWeight: 800 }}>지난주 기준 목표 미달자(3회 미만)들의 벌금 납부 현황입니다.</p>
+                    </div>
+                    {members
+                      .map(m => {
+                        const count = allMembersLastWeekCounts[m.닉네임] || 0;
+                        const penaltyAmount = Math.max(0, 3 - count) * 2000;
+                        if (penaltyAmount === 0) return null;
+
+                        const lastWeekDays = getLastWeekRange();
+                        const weekId = lastWeekDays[0];
+                        const penaltyRecord = penalties.find(p => p.닉네임 === m.닉네임 && p.주차 === weekId);
+                        
+                        return {
+                          ...m,
+                          count,
+                          penaltyAmount,
+                          status: penaltyRecord?.상태 || "미납",
+                          recordId: penaltyRecord?.id
+                        };
+                      })
+                      .filter(Boolean)
+                      .sort((a: any, b: any) => {
+                        // Sort by status: 납부확인중 > 미납 > 완납
+                        const order: any = { "납부확인중": 0, "미납": 1, "완납": 2 };
+                        return order[a.status] - order[b.status];
+                      })
+                      .map((item: any) => (
+                        <div key={item.닉네임} className="card" style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                             <div style={{ 
+                               width: "2.5rem", height: "2.5rem", borderRadius: "50%", 
+                               background: item.배경색 || "var(--secondary)", 
+                               color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
+                               fontWeight: 800, fontSize: "0.85rem", overflow: "hidden",
+                               border: `2px solid ${item.테두리색 || "var(--primary)"}`
+                             }}>
+                                {item.아바타 && item.아바타.startsWith('http') ? <img src={item.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : item.아바타}
+                             </div>
+                             <div>
+                                <div style={{ fontWeight: 900, fontSize: "0.9rem" }}>{item.닉네임}</div>
+                                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>{item.count}회 / {item.penaltyAmount.toLocaleString()}원</div>
+                             </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                             <div style={{ fontSize: "0.7rem", color: item.status === '완납' ? "var(--success)" : "var(--error)", fontWeight: 800, textAlign: "right", marginRight: "0.4rem" }}>
+                               {item.status}
+                             </div>
+                             {item.status === "납부확인중" && item.recordId && (
+                               <button onClick={() => handleConfirmPenalty(item.recordId)} className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>납부확인</button>
+                             )}
+                             {item.status === "미납" && (
+                               <button onClick={() => handleAdminManualConfirmPenalty(item)} className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>납부처리</button>
+                             )}
+                             {item.status === "완납" && <CheckCircle2 size={24} color="var(--success)" />}
+                          </div>
+                        </div>
+                      ))
+                    }
+                    {members.filter(m => (allMembersLastWeekCounts[m.닉네임] || 0) < 3).length === 0 && (
+                      <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
+                         <Trophy size={40} style={{ margin: "0 auto 0.8rem" }} />
+                         <p style={{ fontSize: "0.85rem" }}>지난주 목표를 모두 달성했습니다! 👏</p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+
               </div>
            </motion.div>
         )}
@@ -1091,7 +1281,54 @@ export default function Home() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {menuView === "penalty" && (
+          <motion.div initial={{ opacity: 0, x: "100%" }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: "100%" }} style={{ position: "fixed", inset: 0, background: "var(--background)", zIndex: 3000, display: "flex", flexDirection: "column" }}>
+             <header style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", alignItems: "center", gap: "1rem" }}>
+                <ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} />
+                <h2 style={{ fontWeight: 900, fontSize: "1.2rem" }}>벌금 관리</h2>
+             </header>
+             <div style={{ padding: "2rem 1.5rem", flex: 1, overflowY: "auto" }}>
+                <section className="card" style={{ padding: "2rem", textAlign: "center", marginBottom: "2rem" }}>
+                   <div style={{ fontSize: "0.9rem", fontWeight: 800, opacity: 0.5, marginBottom: "0.5rem" }}>지난 주 나의 활동 (Goal: 3회)</div>
+                   <div style={{ fontSize: "3rem", fontWeight: 900, color: "var(--primary)" }}>{lastWeekWorkoutCount} <span style={{ fontSize: "1.2rem", color: "inherit" }}>회</span></div>
+                   <div style={{ marginTop: "1rem", padding: "1rem", borderRadius: "1rem", background: "rgba(0,0,0,0.03)", display: "inline-block" }}>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 800 }}>미달 횟수: {Math.max(0, 3 - lastWeekWorkoutCount)}회</span>
+                   </div>
+                </section>
+
+                {lastWeekWorkoutCount < 3 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                     <div style={{ textAlign: "center" }}>
+                        <h3 style={{ fontWeight: 900, fontSize: "1.4rem", marginBottom: "0.5rem" }}>납부하실 벌금: <span style={{ color: "var(--error)" }}>{(Math.max(0, 3 - lastWeekWorkoutCount) * 2000).toLocaleString()}원</span></h3>
+                        <p style={{ fontSize: "0.85rem", opacity: 0.6 }}>카카오뱅크 3333-14-1234567 (예금주: 홍길동)<br/>입금 후 아래 버튼을 눌러주세요.</p>
+                     </div>
+                     
+                     {(() => {
+                        const myPenalty = penalties.find(p => p.닉네임 === currentUser.닉네임 && p.주차 === getLastWeekRange()[0]);
+                        if (!myPenalty) {
+                           return <button onClick={handlePenaltyPaymentRequest} className="btn-primary" style={{ padding: "1.25rem", borderRadius: "1.25rem", fontWeight: 900, fontSize: "1rem" }}>납부 완료 및 확인 요청</button>;
+                        }
+                        if (myPenalty.상태 === "납부확인중") {
+                           return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--secondary)", color: "white", fontWeight: 900, textAlign: "center" }}>관리자 확인 대기 중... ⏳</div>;
+                        }
+                        return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--success)", color: "white", fontWeight: 900, textAlign: "center" }}>납부 완료! 고생하셨습니다 ✨</div>;
+                     })()}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "4rem 0" }}>
+                     <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🏆</div>
+                     <h3 style={{ fontWeight: 900, fontSize: "1.2rem" }}>완벽합니다!</h3>
+                     <p style={{ opacity: 0.6, marginTop: "0.5rem" }}>지난 주 목표를 달성하셨습니다.<br/>벌금 납부 대상자가 아닙니다.</p>
+                  </div>
+                )}
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showUpload && (
+
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}>
              <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="card" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1318,6 +1555,53 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {menuView === "penalty" && (
+          <motion.div initial={{ opacity: 0, x: "100%" }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: "100%" }} style={{ position: "fixed", inset: 0, background: "var(--background)", zIndex: 3000, display: "flex", flexDirection: "column" }}>
+             <header style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", alignItems: "center", gap: "1rem" }}>
+                <ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} />
+                <h2 style={{ fontWeight: 900, fontSize: "1.2rem" }}>벌금 관리</h2>
+             </header>
+             <div style={{ padding: "2rem 1.5rem", flex: 1, overflowY: "auto" }}>
+                <section className="card" style={{ padding: "2rem", textAlign: "center", marginBottom: "2rem" }}>
+                   <div style={{ fontSize: "0.9rem", fontWeight: 800, opacity: 0.5, marginBottom: "0.5rem" }}>지난 주 나의 활동 (Goal: 3회)</div>
+                   <div style={{ fontSize: "3rem", fontWeight: 900, color: "var(--primary)" }}>{lastWeekWorkoutCount} <span style={{ fontSize: "1.2rem", color: "inherit" }}>회</span></div>
+                   <div style={{ marginTop: "1rem", padding: "1rem", borderRadius: "1rem", background: "rgba(0,0,0,0.03)", display: "inline-block" }}>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 800 }}>미달 횟수: {Math.max(0, 3 - lastWeekWorkoutCount)}회</span>
+                   </div>
+                </section>
+
+                {lastWeekWorkoutCount < 3 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                     <div style={{ textAlign: "center" }}>
+                        <h3 style={{ fontWeight: 900, fontSize: "1.4rem", marginBottom: "0.5rem" }}>납부하실 벌금: <span style={{ color: "var(--error)" }}>{(Math.max(0, 3 - lastWeekWorkoutCount) * 2000).toLocaleString()}원</span></h3>
+                        <p style={{ fontSize: "0.85rem", opacity: 0.6 }}>카카오뱅크 3333-14-1234567 (예금주: 홍길동)<br/>입금 후 아래 버튼을 눌러주세요.</p>
+                     </div>
+                     
+                     {(() => {
+                        const myPenalty = penalties.find(p => p.닉네임 === currentUser.닉네임 && p.주차 === getLastWeekRange()[0]);
+                        if (!myPenalty) {
+                           return <button onClick={handlePenaltyPaymentRequest} className="btn-primary" style={{ padding: "1.25rem", borderRadius: "1.25rem", fontWeight: 900, fontSize: "1rem" }}>납부 완료 및 확인 요청</button>;
+                        }
+                        if (myPenalty.상태 === "납부확인중") {
+                           return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--secondary)", color: "white", fontWeight: 900, textAlign: "center" }}>관리자 확인 대기 중... ⏳</div>;
+                        }
+                        return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--success)", color: "white", fontWeight: 900, textAlign: "center" }}>납부 완료! 고생하셨습니다 ✨</div>;
+                     })()}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "4rem 0" }}>
+                     <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🏆</div>
+                     <h3 style={{ fontWeight: 900, fontSize: "1.2rem" }}>완벽합니다!</h3>
+                     <p style={{ opacity: 0.6, marginTop: "0.5rem" }}>지난 주 목표를 달성하셨습니다.<br/>벌금 납부 대상자가 아닙니다.</p>
+                  </div>
+                )}
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       <AnimatePresence>
         {rejectId && (
