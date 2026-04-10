@@ -79,6 +79,10 @@ export default function Home() {
   const [rankingPeriod, setRankingPeriod] = useState("monthly");
   const [editBgColor, setEditBgColor] = useState("var(--secondary)");
   const [editBorderColor, setEditBorderColor] = useState("var(--primary)");
+  const [uploadText, setUploadText] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+
 
   const weekInfo = getWeekRange();
   const workoutCount = attendance.filter(d => d.상태 === '승인').length;
@@ -301,15 +305,15 @@ export default function Home() {
     setRejectReasonInput("");
   };
 
-  const handleUpload = async (file: File) => {
-    if (!currentUser) return;
+  const handleUpload = async () => {
+    if (!currentUser || !uploadFile) return;
     const targetDay = showUpload?.fullDate || new Date().toISOString().split('T')[0];
     const targetDayName = showUpload?.day || '목'; 
     
     setToast("업로드 중... ⏳");
     try {
       const storageRef = ref(storage, `활동/${currentUser.닉네임}_${Date.now()}`);
-      const uploadSnap = await uploadBytes(storageRef, file);
+      const uploadSnap = await uploadBytes(storageRef, uploadFile);
       const downloadURL = await getDownloadURL(uploadSnap.ref);
 
       const activityId = `${currentUser.닉네임}_${targetDay}`;
@@ -322,18 +326,23 @@ export default function Home() {
         상태: "대기",
         유형: "인증샷", 
         이미지URL: downloadURL,
+        내용: uploadText || `[${targetDay}] 오늘도 득근! 💪`,
         반려사유: "",
         제출시간: serverTimestamp()
       });
 
       setToast("인증샷 제출 완료! 관리자 승인을 기다려주세요. ⏳");
       setShowUpload(null);
+      setUploadFile(null);
+      setUploadPreview(null);
+      setUploadText("");
       setSelectedDay(null);
     } catch (err) {
       console.error(err);
       setToast("업로드 실패 ❌");
     }
   };
+
 
   const handleApproveActivity = async (id: string, userNickname: string) => {
     try {
@@ -359,11 +368,12 @@ export default function Home() {
           이름: activityData.이름 || activityData.닉네임,
           아바타: activityData.아바타 || activityData.닉네임.substring(0, 2).toUpperCase(),
           이미지URL: activityData.이미지URL,
-          내용: `[${activityData.날짜}] 오늘도 득근! 💪`,
+          내용: activityData.내용 || `[${activityData.날짜}] 오늘도 득근! 💪`,
           생성시간: serverTimestamp(),
           좋아요: 0
         });
       }
+
 
       setToast("활동이 승인되었습니다! ✅");
     } catch (err) { console.error(err); }
@@ -460,54 +470,63 @@ export default function Home() {
   };
 
 
-  const ProfileHeader = ({ name, data }: { name: string, data?: any }) => {
-    const member = members.find(m => m.닉네임 === name) || (name === currentUser?.닉네임 ? currentUser : (members[0] || {}));
+  const ProfileHeader = ({ name }: { name: string }) => {
+    const member = members.find(m => m.닉네임 === name) || (name === currentUser?.닉네임 ? currentUser : (members[0] || { 닉네임: name }));
     const userPosts = posts.filter(p => p.닉네임 === name);
     const isMe = name === currentUser?.닉네임;
 
     return (
-      <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
-         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
+      <div style={{ padding: "0 1.25rem", marginBottom: "1rem" }}>
+         <div style={{ display: "flex", alignItems: "center", gap: "2rem", marginBottom: "1.25rem" }}>
             <div style={{ 
               width: "5.5rem", height: "5.5rem", borderRadius: "50%", 
               background: member.배경색 || "var(--secondary)", 
               border: `3px solid ${member.테두리색 || "var(--primary)"}`, 
               overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", 
-              fontSize: "1.8rem", fontWeight: 800, color: "white" 
+              fontSize: "1.8rem", fontWeight: 800, color: "white", flexShrink: 0
             }}>
                {member.아바타 && member.아바타.startsWith('http') ? 
                  <img src={member.아바타} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${member.아바타줌 || 1})` }} /> : 
                  (name === "admin" ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.아바타)}
             </div>
-            <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
-
-               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{member.운동횟수 || 0}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div></div>
-               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div></div>
+            <div style={{ flex: 1, display: "flex", justifyContent: "space-between", paddingRight: "0.5rem" }}>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>게시물</div></div>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{member.운동횟수 || 0}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>운동횟수</div></div>
+               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{Math.floor(Math.random() * 100) + 50}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>팔로워</div></div>
             </div>
          </div>
-         <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800 }}>{name}</div>
-              <p style={{ fontSize: "0.85rem", opacity: 0.7 }}>{member.인사말}</p>
-            </div>
-            {isMe && (
-              <button 
-                onClick={() => { 
-                  setEditBio(member.인사말 || ""); 
-                  setEditBgColor(member.배경색 || "var(--secondary)");
-                  setEditBorderColor(member.테두리색 || "var(--primary)");
-                  setProfileZoom(member.아바타줌 || 1);
-                  setIsEditProfileOpen(true); 
-                }}
-                style={{ padding: "0.5rem 0.8rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.75rem", fontWeight: 800, marginTop: "0.2rem" }}
-              >
-                수정
-              </button>
+         <div style={{ marginBottom: "1.25rem" }}>
+            <div style={{ fontWeight: 900, fontSize: "0.95rem", marginBottom: "0.2rem" }}>{name}</div>
+            <p style={{ fontSize: "0.85rem", opacity: 0.8, lineHeight: 1.4, whiteSpace: "pre-wrap" }}>{member.인사말 || "안녕하세요! 득근 중입니다. 💪"}</p>
+         </div>
+         <div style={{ display: "flex", gap: "0.6rem" }}>
+            {isMe ? (
+              <>
+                <button 
+                  onClick={() => { 
+                    setEditBio(member.인사말 || ""); 
+                    setEditBgColor(member.배경색 || "var(--secondary)");
+                    setEditBorderColor(member.테두리색 || "var(--primary)");
+                    setProfileZoom(member.아바타줌 || 1);
+                    setIsEditProfileOpen(true); 
+                  }}
+                  style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.85rem", fontWeight: 800 }}
+                >
+                  프로필 편집
+                </button>
+                <button style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.85rem", fontWeight: 800 }}>프로필 공유</button>
+              </>
+            ) : (
+              <>
+                <button style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "var(--primary)", color: "white", fontSize: "0.85rem", fontWeight: 800 }}>팔로우</button>
+                <button style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.85rem", fontWeight: 800 }}>메시지</button>
+              </>
             )}
          </div>
       </div>
     );
   };
+
 
   if (isAuthChecking) return null;
 
@@ -695,24 +714,30 @@ export default function Home() {
         )}
 
         {activeTab === "profile" && (
-           <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column" }}>
-              <button 
-                onClick={() => { setActiveTab("social"); setSelectedProfile(null); }}
-                style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "1rem 1.25rem", opacity: 0.5, fontWeight: 800, background: "none", border: "none", width: "fit-content" }}
-              >
-                <ArrowLeft size={20} /> 뒤로가기
-              </button>
-              <ProfileHeader name={selectedProfile?.닉네임} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
+           <motion.div key="profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-color)" }}>
+              <header style={{ display: "flex", alignItems: "center", padding: "0.75rem 1.25rem", borderBottom: "1px solid var(--glass-border)", position: "sticky", top: 0, background: "var(--bg-color)", zIndex: 10 }}>
+                 <ArrowLeft size={24} onClick={() => { setActiveTab("social"); setSelectedProfile(null); }} style={{ cursor: "pointer" }} />
+                 <span style={{ flex: 1, textAlign: "center", fontWeight: 900, marginRight: "24px" }}>{selectedProfile?.닉네임}</span>
+              </header>
+              <div style={{ padding: "1.5rem 0" }}>
+                 <ProfileHeader name={selectedProfile?.닉네임} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)", padding: "2px" }}>
                  {posts.filter(p => p.닉네임 === selectedProfile?.닉네임).map(p => (
-                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.이미지URL} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f1f5f9", overflow: "hidden" }}>
+                       <img src={p.이미지URL} alt="post" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </div>
                  ))}
                  {posts.filter(p => p.닉네임 === selectedProfile?.닉네임).length === 0 && (
-                   <div style={{ gridColumn: "span 3", textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>게시물이 없습니다.</div>
+                   <div style={{ gridColumn: "span 3", textAlign: "center", padding: "6rem 0", opacity: 0.2 }}>
+                      <ImageIcon size={48} style={{ margin: "0 auto 1rem" }} />
+                      <p style={{ fontWeight: 800 }}>게시물이 없습니다.</p>
+                   </div>
                  )}
               </div>
            </motion.div>
         )}
+
 
       </AnimatePresence>
 
@@ -995,17 +1020,62 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {showUpload && (
-        <label style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem", cursor: "pointer" }}>
-           <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-           <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "380px", textAlign: "center", padding: "3rem 2rem" }}>
-              <ImageIcon size={48} style={{ opacity: 0.2, margin: "0 auto 1.5rem" }} />
-              <h3 style={{ fontWeight: 900 }}>[{showUpload.day}] 사진 업로드</h3>
-              <p style={{ opacity: 0.5, marginTop: "0.5rem", fontSize: "0.9rem" }}>여기를 클릭하여 활동 사진을 선택하세요.</p>
-              <button onClick={() => setShowUpload(null)} style={{ marginTop: "2rem", opacity: 0.4 }}>취소</button>
-           </div>
-        </label>
-      )}
+      <AnimatePresence>
+        {showUpload && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}>
+             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="card" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                   <h3 style={{ fontWeight: 900, fontSize: "1.1rem" }}>활동 인증 게시글 작성</h3>
+                   <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => { setShowUpload(null); setUploadFile(null); setUploadPreview(null); }} />
+                </div>
+
+                {!uploadPreview ? (
+                  <label style={{ width: "100%", height: "200px", borderRadius: "1rem", border: "2px dashed var(--glass-border)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.8rem", cursor: "pointer", background: "rgba(0,0,0,0.02)" }}>
+                    <ImageIcon size={40} style={{ opacity: 0.15 }} />
+                    <span style={{ fontSize: "0.85rem", opacity: 0.5, fontWeight: 700 }}>사진을 선택해주세요</span>
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setUploadFile(file);
+                        setUploadPreview(URL.createObjectURL(file));
+                      }
+                    }} />
+                  </label>
+                ) : (
+                  <div style={{ position: "relative", width: "100%", borderRadius: "1rem", overflow: "hidden", aspectRatio: "1/1", background: "#f8fafc" }}>
+                    <img src={uploadPreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button onClick={() => { setUploadFile(null); setUploadPreview(null); }} style={{ position: "absolute", top: "0.75rem", right: "0.75rem", background: "rgba(0,0,0,0.6)", color: "white", padding: "0.4rem", borderRadius: "50%" }}>
+                       <X size={16} />
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                   <label style={{ fontSize: "0.75rem", fontWeight: 800, opacity: 0.6 }}>피드에 올릴 내용</label>
+                   <textarea 
+                     value={uploadText}
+                     onChange={(e) => setUploadText(e.target.value)}
+                     placeholder="오늘의 운동 완료! 소감을 남겨주세요... 💪"
+                     style={{ width: "100%", height: "100px", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", padding: "1rem", outline: "none", fontSize: "0.9rem", resize: "none" }}
+                   />
+                </div>
+
+                <div style={{ display: "flex", gap: "0.8rem", marginTop: "0.5rem" }}>
+                   <button onClick={() => { setShowUpload(null); setUploadFile(null); setUploadPreview(null); }} style={{ flex: 1, padding: "1rem", borderRadius: "1rem", fontWeight: 800, opacity: 0.5, background: "rgba(0,0,0,0.05)" }}>취소</button>
+                   <button 
+                     onClick={handleUpload}
+                     disabled={!uploadFile}
+                     className="btn-primary" 
+                     style={{ flex: 2, padding: "1rem", borderRadius: "1rem", fontWeight: 800, opacity: !uploadFile ? 0.3 : 1 }}
+                   >
+                     인증샷 제출하기
+                   </button>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {/* --- Profile Edit Modal --- */}
       <AnimatePresence>
