@@ -130,6 +130,23 @@ export default function Home() {
   const [showComments, setShowComments] = useState<any>(null);
   const [commentInput, setCommentInput] = useState("");
   const [inlineInputs, setInlineInputs] = useState<any>({});
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      // Hide check: scrolling down and scrolled at least 100px
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        setIsNavVisible(false);
+      } else {
+        setIsNavVisible(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
 
 
 
@@ -1819,6 +1836,20 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <motion.nav 
+        className="glass" 
+        initial={{ y: 0, x: "-50%" }}
+        animate={{ y: isNavVisible ? 0 : 100, x: "-50%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        style={{ position: "fixed", bottom: "1.5rem", left: "50%", width: "calc(100% - 2.5rem)", maxWidth: "420px", height: "4.8rem", display: "flex", justifyContent: "space-around", alignItems: "center", zIndex: 100, borderRadius: "2.5rem", background: isLightMode ? "rgba(255,255,255,0.92)" : "rgba(15, 23, 42, 0.85)" }}
+      >
+        {[ { id: "home", icon: <HomeIcon size={24} />, label: "홈" }, { id: "social", icon: <Users size={24} />, label: "피드" }, { id: "my", icon: <User size={24} />, label: "마이" } ].map(it => (
+          <button key={it.id} onClick={() => {setActiveTab(it.id); setSelectedProfile(null); window.scrollTo(0,0); setMenuView(null);}} style={{ display: "flex", flexDirection: "column", alignItems: "center", color: (activeTab === it.id || (it.id === 'social' && activeTab === 'profile')) ? "var(--primary)" : "rgba(128,128,128,0.5)" }}>
+            {it.icon} <span style={{ fontSize: "0.65rem", fontWeight: 800 }}>{it.label}</span>
+          </button>
+        ))}
+      </motion.nav>
 
     </main>
   );
