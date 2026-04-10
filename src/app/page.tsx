@@ -1655,13 +1655,7 @@ export default function Home() {
           <motion.div initial={{ y: 100, x: "-50%", opacity: 0 }} animate={{ y: 0, x: "-50%", opacity: 1 }} exit={{ y: 100, x: "-50%", opacity: 0 }} style={{ position: "fixed", bottom: "7.5rem", left: "50%", background: "rgba(0,0,0,0.85)", color: "white", padding: "1rem 2rem", borderRadius: "2.5rem", zIndex: 5000, fontWeight: 800, fontSize: "0.95rem" }}>{toast}</motion.div>
         )}
       </AnimatePresence>
-      <nav className="glass" style={{ position: "fixed", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)", width: "calc(100% - 2.5rem)", maxWidth: "420px", height: "4.8rem", display: "flex", justifyContent: "space-around", alignItems: "center", zIndex: 100, borderRadius: "2.5rem", background: isLightMode ? "rgba(255,255,255,0.92)" : "rgba(15, 23, 42, 0.85)" }}>
-        {[ { id: "home", icon: <HomeIcon size={24} />, label: "홈" }, { id: "social", icon: <Users size={24} />, label: "피드" }, { id: "my", icon: <User size={24} />, label: "마이" } ].map(it => (
-          <button key={it.id} onClick={() => {setActiveTab(it.id); setSelectedProfile(null); window.scrollTo(0,0); setMenuView(null);}} style={{ display: "flex", flexDirection: "column", alignItems: "center", color: (activeTab === it.id || (it.id === 'social' && activeTab === 'profile')) ? "var(--primary)" : "rgba(128,128,128,0.5)" }}>
-            {it.icon} <span style={{ fontSize: "0.65rem", fontWeight: 800 }}>{it.label}</span>
-          </button>
-        ))}
-      </nav>
+
 
       {/* --- Admin Reject UI --- */}
       <AnimatePresence>
