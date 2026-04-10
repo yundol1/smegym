@@ -15,9 +15,10 @@ import {
 // --- Firebase Imports ---
 import { db, storage } from "@/lib/firebase";
 import { 
-  collection, doc, getDoc, setDoc, updateDoc, query, where, 
+  collection, doc, getDoc, setDoc, updateDoc, deleteDoc, query, where, 
   onSnapshot, serverTimestamp, getDocs, addDoc, orderBy, limit 
 } from "firebase/firestore";
+
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // --- Date Helpers ---
@@ -371,16 +372,12 @@ export default function Home() {
   const handleRejectMember = async (nickname: string) => {
     if (!confirm(`[${nickname}] 사용자의 가입을 반려하고 계정을 삭제하시겠습니까?`)) return;
     try {
-      await updateDoc(doc(db, "멤버", nickname), { 승인상태: "삭제됨" }); // Optional: mark it first
-      // The user requested to delete it entirely
-      // However, deleting from doc(db, "멤버", nickname) is sufficient
       const userRef = doc(db, "멤버", nickname);
-      // Wait, let's just delete it
-      const { deleteDoc } = await import("firebase/firestore");
       await deleteDoc(userRef);
       setToast(`[${nickname}]님의 가입이 반려(삭제)되었습니다.`);
     } catch (err) { console.error(err); }
   };
+
 
   const confirmRejectActivity = async () => {
     if (!rejectId) return;
@@ -401,11 +398,38 @@ export default function Home() {
     } catch (err) { console.error(err); }
   };
 
-  const handleUpdateProfile = async (newBio: string, avatarUrl?: string) => {
+  const handleDeleteProfileImage = async () => {
+    if (!currentUser) return;
+    try {
+      const defaultAvatar = currentUser.닉네임.substring(0, 2).toUpperCase();
+      const updateData = { 
+        아바타: defaultAvatar,
+        아바타줌: 1
+      };
+      await updateDoc(doc(db, "멤버", currentUser.닉네임), updateData);
+      
+      const updatedUser = { ...currentUser, ...updateData };
+      setCurrentUser(updatedUser);
+      localStorage.setItem("sme_session", JSON.stringify(updatedUser));
+      
+      setTempProfileImg(null);
+      setTempProfileFile(null);
+      setProfileZoom(1);
+      setToast("프로필 사진이 삭제되었습니다.");
+    } catch (err) {
+      console.error(err);
+      setToast("삭제 실패 ❌");
+    }
+  };
+
+  const handleUpdateProfile = async (newBio: string, avatarUrl?: string, bgColor?: string, borderColor?: string) => {
     if (!currentUser) return;
     try {
       const updateData: any = { 인사말: newBio };
-      if (avatarUrl) updateData.아바타 = avatarUrl;
+      if (avatarUrl !== undefined) updateData.아바타 = avatarUrl;
+      if (bgColor) updateData.배경색 = bgColor;
+      if (borderColor) updateData.테두리색 = borderColor;
+      updateData.아바타줌 = profileZoom;
       
       await updateDoc(doc(db, "멤버", currentUser.닉네임), updateData);
       
@@ -427,12 +451,14 @@ export default function Home() {
       const storageRef = ref(storage, `프로필/${currentUser.닉네임}_${Date.now()}`);
       const uploadSnap = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(uploadSnap.ref);
-      handleUpdateProfile(editBio, downloadURL);
+      // Pass the current color states as well
+      handleUpdateProfile(editBio, downloadURL, editBgColor, editBorderColor);
     } catch (err) {
       console.error(err);
       setToast("이미지 업로드 실패 ❌");
     }
   };
+
 
   const ProfileHeader = ({ name, data }: { name: string, data?: any }) => {
     const member = members.find(m => m.닉네임 === name) || (name === currentUser?.닉네임 ? currentUser : (members[0] || {}));
@@ -442,12 +468,19 @@ export default function Home() {
     return (
       <div style={{ padding: "0 1.25rem", marginBottom: "1.5rem" }}>
          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
-            <div style={{ width: "5.5rem", height: "5.5rem", borderRadius: "50%", background: "var(--secondary)", border: "3px solid var(--primary)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", fontWeight: 800, color: "white" }}>
+            <div style={{ 
+              width: "5.5rem", height: "5.5rem", borderRadius: "50%", 
+              background: member.배경색 || "var(--secondary)", 
+              border: `3px solid ${member.테두리색 || "var(--primary)"}`, 
+              overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", 
+              fontSize: "1.8rem", fontWeight: 800, color: "white" 
+            }}>
                {member.아바타 && member.아바타.startsWith('http') ? 
-                 <img src={member.아바타} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                 <img src={member.아바타} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${member.아바타줌 || 1})` }} /> : 
                  (name === "admin" ? <img src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop" alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : member.아바타)}
             </div>
             <div style={{ flex: 1, display: "flex", justifyContent: "space-around" }}>
+
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{member.운동횟수 || 0}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>운동횟수</div></div>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.75rem", opacity: 0.5 }}>게시물</div></div>
             </div>
@@ -459,7 +492,13 @@ export default function Home() {
             </div>
             {isMe && (
               <button 
-                onClick={() => { setEditBio(member.인사말 || ""); setIsEditProfileOpen(true); }}
+                onClick={() => { 
+                  setEditBio(member.인사말 || ""); 
+                  setEditBgColor(member.배경색 || "var(--secondary)");
+                  setEditBorderColor(member.테두리색 || "var(--primary)");
+                  setProfileZoom(member.아바타줌 || 1);
+                  setIsEditProfileOpen(true); 
+                }}
                 style={{ padding: "0.5rem 0.8rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.75rem", fontWeight: 800, marginTop: "0.2rem" }}
               >
                 수정
@@ -583,10 +622,16 @@ export default function Home() {
                {[...members].sort((a,b) => (b.운동횟수 || 0) - (a.운동횟수 || 0)).map((m, i) => (
                   <div key={m.닉네임} style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
                      <span style={{ width: "1.2rem", fontWeight: 900 }}>{i < 3 ? ["🥇","🥈","🥉"][i] : i+1}</span>
-                     <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800, overflow: "hidden", border: "1.5px solid rgba(0,0,0,0.05)" }}>
-                       {m.아바타 && m.아바타.startsWith('http') ? 
-                         <img src={m.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
-                         m.아바타}
+                     <div style={{ 
+                        width: "2.2rem", height: "2.2rem", borderRadius: "50%", 
+                        background: m.배경색 || "var(--secondary)", 
+                        color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
+                        fontSize: "0.75rem", fontWeight: 800, overflow: "hidden", 
+                        border: `1.5px solid ${m.테두리색 || "rgba(0,0,0,0.05)"}` 
+                      }}>
+                        {m.아바타 && m.아바타.startsWith('http') ? 
+                          <img src={m.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${m.아바타줌 || 1})` }} /> : 
+                          m.아바타}
                      </div>
                      <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", fontWeight: 800 }}><span>{m.닉네임}</span><span>{m.운동횟수 || 0}회</span></div>
@@ -603,13 +648,21 @@ export default function Home() {
            <motion.div key="social" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
               <h2 style={{ padding: "0 1.25rem", fontSize: "1.6rem", fontWeight: 900 }}>활동 피드</h2>
               {posts.map(post => {
-                const postMember = members.find(m => m.닉네임.trim() === post.닉네임.trim()) || { 아바타: post.아바타 };
+                const postMember = members.find(m => m.닉네임.trim() === post.닉네임.trim()) || 
+                  { 아바타: post.아바타, 배경색: "var(--secondary)", 테두리색: "var(--primary)", 아바타줌: 1 };
+
                 return (
                   <article key={post.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
                     <div onClick={() => { setSelectedProfile(post); setActiveTab("profile"); }} style={{ padding: "0.8rem 1.25rem", display: "flex", alignItems: "center", gap: "0.8rem", cursor: "pointer" }}>
-                      <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", border: "2px solid var(--primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 900, overflow: "hidden" }}>
+                      <div style={{ 
+                        width: "2rem", height: "2rem", borderRadius: "50%", 
+                        background: postMember.배경색 || "var(--secondary)", 
+                        border: `2px solid ${postMember.테두리색 || "var(--primary)"}`, 
+                        color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
+                        fontSize: "0.75rem", fontWeight: 900, overflow: "hidden" 
+                      }}>
                         {postMember.아바타 && postMember.아바타.startsWith('http') ? 
-                          <img src={postMember.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                          <img src={postMember.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${postMember.아바타줌 || 1})` }} /> : 
                           postMember.아바타}
                       </div>
                       <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{post.닉네임}</span>
@@ -640,6 +693,27 @@ export default function Home() {
               </div>
            </motion.div>
         )}
+
+        {activeTab === "profile" && (
+           <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column" }}>
+              <button 
+                onClick={() => { setActiveTab("social"); setSelectedProfile(null); }}
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "1rem 1.25rem", opacity: 0.5, fontWeight: 800, background: "none", border: "none", width: "fit-content" }}
+              >
+                <ArrowLeft size={20} /> 뒤로가기
+              </button>
+              <ProfileHeader name={selectedProfile?.닉네임} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2px", borderTop: "1px solid var(--glass-border)" }}>
+                 {posts.filter(p => p.닉네임 === selectedProfile?.닉네임).map(p => (
+                    <div key={p.id} style={{ aspectRatio: "1/1", background: "#f0f0f0" }}><img src={p.이미지URL} alt="gal" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>
+                 ))}
+                 {posts.filter(p => p.닉네임 === selectedProfile?.닉네임).length === 0 && (
+                   <div style={{ gridColumn: "span 3", textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>게시물이 없습니다.</div>
+                 )}
+              </div>
+           </motion.div>
+        )}
+
       </AnimatePresence>
 
       {/* --- Modals & Overlays --- */}
@@ -946,11 +1020,18 @@ export default function Home() {
                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                   <div style={{ textAlign: "center" }}>
                      <label style={{ display: "inline-block", position: "relative", cursor: "pointer" }}>
-                        <div style={{ width: "8rem", height: "8rem", borderRadius: "50%", background: "var(--secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", fontWeight: 800, color: "white", overflow: "hidden", border: "4px solid var(--primary)" }}>
+                        <div style={{ 
+                          width: "8rem", height: "8rem", borderRadius: "50%", 
+                          background: editBgColor, 
+                          display: "flex", alignItems: "center", justifyContent: "center", 
+                          fontSize: "2rem", fontWeight: 800, color: "white", 
+                          overflow: "hidden", 
+                          border: `4px solid ${editBorderColor}` 
+                        }}>
                            {tempProfileImg ? 
                              <img src={tempProfileImg} alt="temp" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${profileZoom})` }} /> : 
                              (currentUser.아바타 && currentUser.아바타.startsWith('http') ? 
-                               <img src={currentUser.아바타} alt="curr" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                               <img src={currentUser.아바타} alt="curr" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${profileZoom})` }} /> : 
                                currentUser.아바타)}
                         </div>
                         <div style={{ position: "absolute", bottom: "0.5rem", right: "0.5rem", background: "var(--primary)", borderRadius: "50%", width: "2rem", height: "2rem", display: "flex", alignItems: "center", justifyContent: "center", color: "white", border: "2px solid white", boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>
