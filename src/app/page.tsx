@@ -967,7 +967,7 @@ export default function Home() {
                        <div style={{ marginTop: "1rem" }}>
                          <label style={{ fontSize: "0.75rem", fontWeight: 800, opacity: 0.5, display: "block", marginBottom: "0.5rem" }}>크기 조절 (Zoom)</label>
                          <input 
-                           type="range" min="1" max="3" step="0.1" 
+                           type="range" min="0.5" max="4" step="0.1" 
                            value={profileZoom} 
                            onChange={(e) => setProfileZoom(parseFloat(e.target.value))}
                            style={{ width: "100%", height: "4px", accentColor: "var(--primary)" }}
