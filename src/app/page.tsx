@@ -129,6 +129,7 @@ export default function Home() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [showComments, setShowComments] = useState<any>(null);
   const [commentInput, setCommentInput] = useState("");
+  const [inlineInputs, setInlineInputs] = useState<any>({});
 
 
 
@@ -651,8 +652,8 @@ export default function Home() {
     } catch (err) { console.error(err); }
   };
 
-  const handleAddComment = async (postId: string) => {
-    if (!currentUser || !commentInput.trim()) return;
+  const handleAddComment = async (postId: string, text: string) => {
+    if (!currentUser || !text.trim()) return;
     try {
       const postRef = doc(db, "게시글", postId);
       const postSnap = await getDoc(postRef);
@@ -661,14 +662,19 @@ export default function Home() {
       const newComment = {
         닉네임: currentUser.닉네임,
         아바타: currentUser.아바타,
-        내용: commentInput,
+        내용: text,
         생성시간: Date.now()
       };
 
       await updateDoc(postRef, {
         댓글: [...(postSnap.data().댓글 || []), newComment]
       });
-      setCommentInput("");
+      
+      // If global input was used, clear it
+      if (text === commentInput) setCommentInput("");
+      // If inline input was used, clear it
+      setInlineInputs({ ...inlineInputs, [postId]: "" });
+      
     } catch (err) { console.error(err); }
   };
 
@@ -900,36 +906,69 @@ export default function Home() {
                     <div style={{ background: isLightMode ? "#f8fafc" : "#0f172a", textAlign: "center", borderBottom: "1px solid var(--glass-border)" }}>
                        <img src={post.이미지URL} alt="feed" style={{ width: "100%", height: "auto", display: "block" }} />
                     </div>
-                    <div style={{ padding: "1.25rem" }}>
-                       <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.8rem" }}>
-                          <motion.div whileTap={{ scale: 1.2 }} onClick={() => handleLike(post.id)}>
-                             <Heart 
-                               size={26} 
-                               style={{ 
-                                 cursor: "pointer", 
-                                 fill: (post.좋아요유저 || []).includes(currentUser.닉네임) ? "var(--error)" : "none",
-                                 color: (post.좋아요유저 || []).includes(currentUser.닉네임) ? "var(--error)" : "inherit"
-                               }} 
-                             />
-                          </motion.div>
-                          <MessageCircle 
-                            size={26} 
-                            style={{ cursor: "pointer" }} 
-                            onClick={() => setShowComments(post)} 
-                          />
-                          <Share2 size={26} style={{ marginLeft: "auto", opacity: 0.5 }} />
-                       </div>
-                       <div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: "0.4rem" }}>좋아요 {(post.좋아요유저 || []).length}개</div>
-                       <p style={{ fontSize: "0.95rem", lineHeight: 1.5 }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
-                       {(post.댓글 || []).length > 0 && (
-                         <div 
-                           onClick={() => setShowComments(post)}
-                           style={{ fontSize: "0.85rem", opacity: 0.5, marginTop: "0.6rem", cursor: "pointer", fontWeight: 700 }}
-                         >
-                            댓글 {(post.댓글 || []).length}개 모두 보기
-                         </div>
-                       )}
-                    </div>
+                     <div style={{ padding: "1.25rem" }}>
+                        <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.8rem" }}>
+                           <motion.div whileTap={{ scale: 1.2 }} onClick={() => handleLike(post.id)}>
+                              <Heart 
+                                size={26} 
+                                style={{ 
+                                  cursor: "pointer", 
+                                  fill: (post.좋아요유저 || []).includes(currentUser.닉네임) ? "var(--error)" : "none",
+                                  color: (post.좋아요유저 || []).includes(currentUser.닉네임) ? "var(--error)" : "inherit"
+                                }} 
+                              />
+                           </motion.div>
+                           <MessageCircle 
+                             size={26} 
+                             style={{ cursor: "pointer" }} 
+                             onClick={() => setShowComments(post)} 
+                           />
+                           <Share2 size={26} style={{ marginLeft: "auto", opacity: 0.5 }} />
+                        </div>
+                        <div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: "0.4rem" }}>좋아요 {(post.좋아요유저 || []).length}개</div>
+                        <p style={{ fontSize: "0.95rem", lineHeight: 1.5, marginBottom: (post.댓글 || []).length > 0 ? "1rem" : "0" }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
+                        
+                        {/* Inline Comments Area */}
+                        {(post.댓글 || []).length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", padding: "0.8rem 0", borderTop: "1px solid rgba(0,0,0,0.03)" }}>
+                             {(post.댓글 || []).slice(-3).map((cmt: any, i: number) => (
+                               <div key={i} style={{ fontSize: "0.85rem", lineHeight: 1.4 }}>
+                                  <span style={{ fontWeight: 800, marginRight: "0.5rem" }}>{cmt.닉네임}</span>
+                                  <span style={{ opacity: 0.8 }}>{cmt.내용}</span>
+                               </div>
+                             ))}
+                             {(post.댓글 || []).length > 3 && (
+                               <div 
+                                 onClick={() => setShowComments(post)}
+                                 style={{ fontSize: "0.75rem", opacity: 0.5, fontWeight: 800, cursor: "pointer", marginTop: "0.2rem" }}
+                               >
+                                  댓글 {(post.댓글 || []).length}개 모두 보기...
+                               </div>
+                             )}
+                          </div>
+                        )}
+
+                        {/* Inline Comment Input */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: (post.댓글 || []).length > 0 ? "0.5rem" : "1rem" }}>
+                           <div style={{ width: "1.8rem", height: "1.8rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
+                              {currentUser.아바타 && currentUser.아바타.startsWith('http') ? <img src={currentUser.아바타} alt="me" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", fontWeight: 800, color: "white" }}>{currentUser.아바타}</div>}
+                           </div>
+                           <input 
+                             value={inlineInputs[post.id] || ""}
+                             onChange={(e) => setInlineInputs({ ...inlineInputs, [post.id]: e.target.value })}
+                             onKeyPress={(e) => e.key === 'Enter' && handleAddComment(post.id, inlineInputs[post.id])}
+                             placeholder="댓글 달기..." 
+                             style={{ flex: 1, height: "2.2rem", borderRadius: "1.1rem", border: "1px solid var(--glass-border)", padding: "0 1rem", outline: "none", fontSize: "0.85rem", background: "rgba(0,0,0,0.02)" }} 
+                           />
+                           <button 
+                             onClick={() => handleAddComment(post.id, inlineInputs[post.id])}
+                             disabled={!(inlineInputs[post.id] || "").trim()}
+                             style={{ color: "var(--primary)", fontWeight: 900, fontSize: "0.85rem", opacity: (inlineInputs[post.id] || "").trim() ? 1 : 0.2 }}
+                           >
+                             게시
+                           </button>
+                        </div>
+                     </div>
 
                   </article>
                 );
