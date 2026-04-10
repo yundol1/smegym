@@ -58,7 +58,7 @@ export default function Home() {
   const [ledger, setLedger] = useState<any[]>([]);
 
   // UI State
-  const [checkedIn, setCheckedIn] = useState(false);
+  const [todayActivity, setTodayActivity] = useState<any>(null);
   const [showUpload, setShowUpload] = useState<any>(null); 
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [selectedDay, setSelectedDay] = useState<any>(null);
@@ -150,8 +150,8 @@ export default function Home() {
       setAttendance(combined);
       
       const todayShort = new Date().toISOString().split('T')[0];
-      if (dataMap[todayShort]) setCheckedIn(true);
-      else setCheckedIn(false);
+      if (dataMap[todayShort]) setTodayActivity(dataMap[todayShort]);
+      else setTodayActivity(null);
     });
 
     // 2. Listen for All Active Members (for Rankings)
@@ -307,23 +307,15 @@ export default function Home() {
       const activityId = `${currentUser.닉네임}_${targetDay}`;
       await setDoc(doc(db, "활동", activityId), {
         닉네임: currentUser.닉네임,
+        이름: currentUser.이름,
+        아바타: currentUser.아바타,
         날짜: targetDay,
         요일: targetDayName,
         상태: "대기",
-        유형: "인증샷", // Distinguish from '면제' (exemption)
+        유형: "인증샷", 
         이미지URL: downloadURL,
         반려사유: "",
         제출시간: serverTimestamp()
-      });
-
-      await addDoc(collection(db, "게시글"), {
-        닉네임: currentUser.닉네임,
-        이름: currentUser.이름,
-        아바타: currentUser.아바타,
-        이미지URL: downloadURL,
-        내용: `[${targetDay}] 오늘도 득근! 💪`,
-        생성시간: serverTimestamp(),
-        좋아요: 0
       });
 
       setToast("인증샷 제출 완료! 관리자 승인을 기다려주세요. ⏳");
@@ -337,13 +329,49 @@ export default function Home() {
 
   const handleApproveActivity = async (id: string, userNickname: string) => {
     try {
-      await updateDoc(doc(db, "활동", id), { 상태: "승인" });
+      const activityRef = doc(db, "활동", id);
+      const activitySnap = await getDoc(activityRef);
+      if (!activitySnap.exists()) return;
+      const activityData = activitySnap.data();
+
+      // 1. Update activity status
+      await updateDoc(activityRef, { 상태: "승인" });
+
+      // 2. Increment user workout count
       const userRef = doc(db, "멤버", userNickname);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         await updateDoc(userRef, { 운동횟수: (userSnap.data().운동횟수 || 0) + 1 });
       }
+
+      // 3. Add to Public Feed ONLY after approval
+      if (activityData.유형 === "인증샷") {
+        await addDoc(collection(db, "게시글"), {
+          닉네임: activityData.닉네임,
+          이름: activityData.이름 || activityData.닉네임,
+          아바타: activityData.아바타 || activityData.닉네임.substring(0, 2).toUpperCase(),
+          이미지URL: activityData.이미지URL,
+          내용: `[${activityData.날짜}] 오늘도 득근! 💪`,
+          생성시간: serverTimestamp(),
+          좋아요: 0
+        });
+      }
+
       setToast("활동이 승인되었습니다! ✅");
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRejectMember = async (nickname: string) => {
+    if (!confirm(`[${nickname}] 사용자의 가입을 반려하고 계정을 삭제하시겠습니까?`)) return;
+    try {
+      await updateDoc(doc(db, "멤버", nickname), { 승인상태: "삭제됨" }); // Optional: mark it first
+      // The user requested to delete it entirely
+      // However, deleting from doc(db, "멤버", nickname) is sufficient
+      const userRef = doc(db, "멤버", nickname);
+      // Wait, let's just delete it
+      const { deleteDoc } = await import("firebase/firestore");
+      await deleteDoc(userRef);
+      setToast(`[${nickname}]님의 가입이 반려(삭제)되었습니다.`);
     } catch (err) { console.error(err); }
   };
 
@@ -478,10 +506,36 @@ export default function Home() {
             </section>
             
             <section style={{ textAlign: "center" }}>
-               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowUpload({ fullDate: new Date().toISOString().split('T')[0], day: '오늘' })} style={{ width: "130px", height: "130px", borderRadius: "65px", background: checkedIn ? "var(--success)" : "linear-gradient(135deg, var(--primary), var(--secondary))", color: "white", boxShadow: "0 10px 40px rgba(56, 189, 248, 0.25)" }}>
-                 {checkedIn ? <CheckCircle2 size={50} /> : <Dumbbell size={50} />}
+               <motion.button 
+                 whileTap={{ scale: 0.95 }} 
+                 onClick={() => !todayActivity && setShowUpload({ fullDate: new Date().toISOString().split('T')[0], day: '오늘' })} 
+                 style={{ 
+                   width: "130px", height: "130px", borderRadius: "65px", 
+                   background: todayActivity?.상태 === '승인' ? "var(--success)" : 
+                               todayActivity?.상태 === '대기' ? "var(--warning)" :
+                               todayActivity?.상태 === '반려' ? "var(--error)" :
+                               "linear-gradient(135deg, var(--primary), var(--secondary))", 
+                   color: "white", 
+                   boxShadow: "0 10px 40px rgba(56, 189, 248, 0.25)",
+                   display: "flex", alignItems: "center", justifyContent: "center"
+                 }}
+               >
+                 {todayActivity?.상태 === '승인' ? <CheckCircle2 size={50} /> : 
+                  todayActivity?.상태 === '대기' ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2 }}><RefreshCw size={50} /></motion.div> :
+                  todayActivity?.상태 === '반려' ? <AlertCircle size={50} /> :
+                  <Dumbbell size={50} />}
                </motion.button>
-               <h3 style={{ marginTop: "1rem", fontWeight: 800 }}>{checkedIn ? "오늘 활동 완료!" : "오늘 활동 인증하기"}</h3>
+               <h3 style={{ marginTop: "1rem", fontWeight: 800 }}>
+                 {todayActivity?.상태 === '승인' ? "오늘 활동 완료!" : 
+                  todayActivity?.상태 === '대기' ? "관리자 승인 대기 중..." :
+                  todayActivity?.상태 === '반려' ? "활동 반려됨 (재인증 필요)" :
+                  "오늘 활동 인증하기"}
+               </h3>
+               {todayActivity?.상태 === '반려' && (
+                 <p style={{ fontSize: "0.8rem", color: "var(--error)", marginTop: "0.4rem", opacity: 0.8 }}>
+                    사유: {todayActivity.반려사유}
+                 </p>
+               )}
             </section>
 
             <section style={{ padding: "0 1.25rem" }}>
@@ -670,11 +724,17 @@ export default function Home() {
                             <div style={{ fontSize: "0.72rem", opacity: 0.5 }}>{item.이름}</div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleApproveMember(item.닉네임)}
-                          className="btn-primary"
-                          style={{ padding: "0.5rem 1rem", borderRadius: "0.7rem", fontWeight: 800, fontSize: "0.8rem", flexShrink: 0 }}
-                        >승인</button>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexShrink: 0 }}>
+                          <button
+                            onClick={() => handleRejectMember(item.닉네임)}
+                            style={{ padding: "0.5rem 0.8rem", borderRadius: "0.7rem", fontWeight: 800, fontSize: "0.75rem", border: "1.5px solid var(--error)", color: "var(--error)" }}
+                          >반려</button>
+                          <button
+                            onClick={() => handleApproveMember(item.닉네임)}
+                            className="btn-primary"
+                            style={{ padding: "0.5rem 1rem", borderRadius: "0.7rem", fontWeight: 800, fontSize: "0.75rem" }}
+                          >승인</button>
+                        </div>
                       </div>
                     ))}
                     {pendingMembers.length === 0 && (
@@ -691,33 +751,49 @@ export default function Home() {
                   <>
                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").map(item => (
                       <div key={item.id} className="card" style={{ padding: "0", overflow: "hidden" }}>
-                        {/* 유저 정보 */}
-                        <div style={{ padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                          <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, flexShrink: 0 }}>
-                            {item.아바타 || item.닉네임?.substring(0, 2).toUpperCase()}
+                        {/* 유저 정보 + 상단 버튼 영역 (상단 배치로 가시성 확보) */}
+                        <div style={{ padding: "1rem", borderBottom: "1px solid var(--glass-border)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1rem" }}>
+                            <div style={{ width: "2.4rem", height: "2.4rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, flexShrink: 0 }}>
+                              {item.아바타 || item.닉네임?.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 900, fontSize: "0.95rem" }}>{item.닉네임}</div>
+                              <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} · {item.날짜}</div>
+                            </div>
                           </div>
-                          <div>
-                            <span style={{ fontWeight: 900, fontSize: "0.88rem" }}>{item.닉네임}</span>
-                            <span style={{ fontSize: "0.72rem", opacity: 0.5, marginLeft: "0.5rem" }}>{item.요일} · {item.날짜}</span>
+
+                          {/* 승인/반려 버튼 - 상단으로 이동 및 색상 강화 */}
+                          <div style={{ display: "flex", gap: "0.6rem" }}>
+                            <button
+                              onClick={() => startReject(item.id)}
+                              style={{ 
+                                flex: 1, padding: "0.75rem", borderRadius: "0.8rem", 
+                                background: "#ef4444", color: "white", fontWeight: 900, fontSize: "0.85rem",
+                                border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem"
+                              }}
+                            >
+                              <X size={16} /> 반려하기
+                            </button>
+                            <button
+                              onClick={() => handleApproveActivity(item.id, item.닉네임)}
+                              style={{ 
+                                flex: 1, padding: "0.75rem", borderRadius: "0.8rem", 
+                                background: "#22c55e", color: "white", fontWeight: 900, fontSize: "0.85rem",
+                                border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem"
+                              }}
+                            >
+                              <Check size={16} /> 승인하기
+                            </button>
                           </div>
                         </div>
-                        {/* 이미지 - 모바일 최적화된 높이 */}
+
+                        {/* 이미지 - 버튼 아래에 배치 */}
                         <img
                           src={item.이미지URL}
                           alt="proof"
-                          style={{ width: "100%", maxHeight: "220px", objectFit: "cover", display: "block" }}
+                          style={{ width: "100%", maxHeight: "280px", objectFit: "cover", display: "block" }}
                         />
-                        {/* 버튼 */}
-                        <div style={{ padding: "0.75rem", display: "flex", gap: "0.6rem" }}>
-                          <button
-                            onClick={() => startReject(item.id)}
-                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", border: "1.5px solid var(--error)", color: "var(--error)", fontWeight: 800, fontSize: "0.82rem", background: "none" }}
-                          >❌ 반려</button>
-                          <button
-                            onClick={() => handleApproveActivity(item.id, item.닉네임)}
-                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", background: "var(--primary)", color: "white", fontWeight: 800, fontSize: "0.82rem", border: "none" }}
-                          >✅ 승인</button>
-                        </div>
                       </div>
                     ))}
                     {pendingApprovals.filter(p => !p.유형 || p.유형 === "인증샷").length === 0 && (
@@ -733,32 +809,44 @@ export default function Home() {
                 {adminApprovalTab === "면제검토" && (
                   <>
                     {pendingApprovals.filter(p => p.유형 === "면제").map(item => (
-                      <div key={item.id} className="card" style={{ padding: "1rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.75rem" }}>
-                          <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, flexShrink: 0 }}>
+                      <div key={item.id} className="card" style={{ padding: "1.25rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
+                          <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, flexShrink: 0 }}>
                             {item.아바타 || item.닉네임?.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <span style={{ fontWeight: 900, fontSize: "0.88rem" }}>{item.닉네임}</span>
-                            <span style={{ fontSize: "0.72rem", opacity: 0.5, marginLeft: "0.5rem" }}>{item.요일} · {item.날짜}</span>
+                            <span style={{ fontWeight: 900, fontSize: "0.95rem" }}>{item.닉네임}</span>
+                            <div style={{ fontSize: "0.75rem", opacity: 0.5 }}>{item.요일} · {item.날짜}</div>
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: "0.6rem", color: "var(--primary)", marginBottom: "0.75rem", background: "rgba(56, 189, 248, 0.08)", padding: "0.8rem", borderRadius: "0.8rem", alignItems: "flex-start" }}>
-                          <FileText size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+                        <div style={{ display: "flex", gap: "0.6rem", color: "var(--primary)", marginBottom: "1.25rem", background: "rgba(56, 189, 248, 0.08)", padding: "1rem", borderRadius: "1rem", alignItems: "flex-start" }}>
+                          <FileText size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
                           <div>
-                            <div style={{ fontWeight: 800, fontSize: "0.8rem", marginBottom: "0.2rem" }}>면제 사유서</div>
-                            <p style={{ fontSize: "0.82rem", opacity: 0.8, lineHeight: 1.5, color: "inherit" }}>{item.내용}</p>
+                            <div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: "0.3rem" }}>면제 사유서</div>
+                            <p style={{ fontSize: "0.88rem", opacity: 0.8, lineHeight: 1.5, color: "inherit" }}>{item.내용}</p>
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: "0.6rem" }}>
+                        <div style={{ display: "flex", gap: "0.8rem" }}>
                           <button
                             onClick={() => startReject(item.id)}
-                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", border: "1.5px solid var(--error)", color: "var(--error)", fontWeight: 800, fontSize: "0.82rem", background: "none" }}
-                          >❌ 거절</button>
+                            style={{ 
+                              flex: 1, padding: "0.85rem", borderRadius: "0.8rem", 
+                              background: "#ef4444", color: "white", fontWeight: 900, fontSize: "0.9rem",
+                              border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem"
+                            }}
+                          >
+                            <X size={18} /> 면제 거절
+                          </button>
                           <button
                             onClick={() => handleApproveActivity(item.id, item.닉네임)}
-                            style={{ flex: 1, padding: "0.65rem", borderRadius: "0.7rem", background: "var(--primary)", color: "white", fontWeight: 800, fontSize: "0.82rem", border: "none" }}
-                          >✅ 면제 승인</button>
+                            style={{ 
+                              flex: 1, padding: "0.85rem", borderRadius: "0.8rem", 
+                              background: "#22c55e", color: "white", fontWeight: 900, fontSize: "0.9rem",
+                              border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem"
+                            }}
+                          >
+                            <Check size={18} /> 면제 승인
+                          </button>
                         </div>
                       </div>
                     ))}
