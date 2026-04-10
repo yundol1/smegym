@@ -931,20 +931,12 @@ export default function Home() {
                         {/* Inline Comments Area */}
                         {(post.댓글 || []).length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", padding: "0.8rem 0", borderTop: "1px solid rgba(0,0,0,0.03)" }}>
-                             {(post.댓글 || []).slice(-3).map((cmt: any, i: number) => (
+                             {(post.댓글 || []).map((cmt: any, i: number) => (
                                <div key={i} style={{ fontSize: "0.85rem", lineHeight: 1.4 }}>
                                   <span style={{ fontWeight: 800, marginRight: "0.5rem" }}>{cmt.닉네임}</span>
                                   <span style={{ opacity: 0.8 }}>{cmt.내용}</span>
                                </div>
                              ))}
-                             {(post.댓글 || []).length > 3 && (
-                               <div 
-                                 onClick={() => setShowComments(post)}
-                                 style={{ fontSize: "0.75rem", opacity: 0.5, fontWeight: 800, cursor: "pointer", marginTop: "0.2rem" }}
-                               >
-                                  댓글 {(post.댓글 || []).length}개 모두 보기...
-                               </div>
-                             )}
                           </div>
                         )}
 
@@ -1662,12 +1654,12 @@ export default function Home() {
                    <input 
                      value={commentInput}
                      onChange={(e) => setCommentInput(e.target.value)}
-                     onKeyPress={(e) => e.key === 'Enter' && handleAddComment(showComments.id)}
+                     onKeyPress={(e) => e.key === 'Enter' && handleAddComment(showComments.id, commentInput)}
                      placeholder="댓글 달기..." 
                      style={{ flex: 1, height: "2.5rem", borderRadius: "1.25rem", border: "1px solid var(--glass-border)", padding: "0 1.25rem", outline: "none", fontSize: "0.9rem", background: "rgba(0,0,0,0.02)" }} 
                    />
                    <button 
-                     onClick={() => handleAddComment(showComments.id)}
+                     onClick={() => handleAddComment(showComments.id, commentInput)}
                      disabled={!commentInput.trim()}
                      style={{ color: "var(--primary)", fontWeight: 900, fontSize: "0.9rem", opacity: commentInput.trim() ? 1 : 0.3 }}
                    >
@@ -1679,51 +1671,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {menuView === "penalty" && (
-          <motion.div initial={{ opacity: 0, x: "100%" }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: "100%" }} style={{ position: "fixed", inset: 0, background: "var(--background)", zIndex: 3000, display: "flex", flexDirection: "column" }}>
-             <header style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", alignItems: "center", gap: "1rem" }}>
-                <ArrowLeft onClick={() => setMenuView(null)} style={{ cursor: "pointer" }} />
-                <h2 style={{ fontWeight: 900, fontSize: "1.2rem" }}>벌금 관리</h2>
-             </header>
-             <div style={{ padding: "2rem 1.5rem", flex: 1, overflowY: "auto" }}>
-                <section className="card" style={{ padding: "2rem", textAlign: "center", marginBottom: "2rem" }}>
-                   <div style={{ fontSize: "0.9rem", fontWeight: 800, opacity: 0.5, marginBottom: "0.5rem" }}>지난 주 나의 활동 (Goal: 3회)</div>
-                   <div style={{ fontSize: "3rem", fontWeight: 900, color: "var(--primary)" }}>{lastWeekWorkoutCount} <span style={{ fontSize: "1.2rem", color: "inherit" }}>회</span></div>
-                   <div style={{ marginTop: "1rem", padding: "1rem", borderRadius: "1rem", background: "rgba(0,0,0,0.03)", display: "inline-block" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 800 }}>미달 횟수: {Math.max(0, 3 - lastWeekWorkoutCount)}회</span>
-                   </div>
-                </section>
-
-                {lastWeekWorkoutCount < 3 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                     <div style={{ textAlign: "center" }}>
-                        <h3 style={{ fontWeight: 900, fontSize: "1.4rem", marginBottom: "0.5rem" }}>납부하실 벌금: <span style={{ color: "var(--error)" }}>{(Math.max(0, 3 - lastWeekWorkoutCount) * 2000).toLocaleString()}원</span></h3>
-                        <p style={{ fontSize: "0.85rem", opacity: 0.6 }}>카카오뱅크 3333-14-1234567 (예금주: 홍길동)<br/>입금 후 아래 버튼을 눌러주세요.</p>
-                     </div>
-                     
-                     {(() => {
-                        const myPenalty = penalties.find(p => p.닉네임 === currentUser.닉네임 && p.주차 === getLastWeekRange()[0]);
-                        if (!myPenalty) {
-                           return <button onClick={handlePenaltyPaymentRequest} className="btn-primary" style={{ padding: "1.25rem", borderRadius: "1.25rem", fontWeight: 900, fontSize: "1rem" }}>납부 완료 및 확인 요청</button>;
-                        }
-                        if (myPenalty.상태 === "납부확인중") {
-                           return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--secondary)", color: "white", fontWeight: 900, textAlign: "center" }}>관리자 확인 대기 중... ⏳</div>;
-                        }
-                        return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--success)", color: "white", fontWeight: 900, textAlign: "center" }}>납부 완료! 고생하셨습니다 ✨</div>;
-                     })()}
-                  </div>
-                ) : (
-                  <div style={{ textAlign: "center", padding: "4rem 0" }}>
-                     <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🏆</div>
-                     <h3 style={{ fontWeight: 900, fontSize: "1.2rem" }}>완벽합니다!</h3>
-                     <p style={{ opacity: 0.6, marginTop: "0.5rem" }}>지난 주 목표를 달성하셨습니다.<br/>벌금 납부 대상자가 아닙니다.</p>
-                  </div>
-                )}
-             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      
 
 
       <AnimatePresence>
