@@ -72,6 +72,8 @@ export default function Home() {
   const [rejectReasonInput, setRejectReasonInput] = useState("");
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [editBio, setEditBio] = useState("");
+  const [tempProfileImg, setTempProfileImg] = useState<string | null>(null);
+  const [tempProfileFile, setTempProfileFile] = useState<File | null>(null);
   const [rankingPeriod, setRankingPeriod] = useState("monthly");
 
   const weekInfo = getWeekRange();
@@ -600,7 +602,10 @@ export default function Home() {
                     <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 900 }}>{post.아바타}</div>
                     <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>{post.닉네임}</span>
                   </div>
-                  <img src={post.이미지URL} alt="feed" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover" }} />
+                  {/* 사진 전체 노출을 위한 컨테이너 추가 */}
+                  <div style={{ background: isLightMode ? "#f8fafc" : "#0f172a", textAlign: "center", borderBottom: "1px solid var(--glass-border)" }}>
+                     <img src={post.이미지URL} alt="feed" style={{ width: "100%", height: "auto", display: "block" }} />
+                  </div>
                   <div style={{ padding: "1.25rem" }}>
                      <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.7rem" }}><Heart size={24} /> <MessageCircle size={24} /> <Share2 size={24} style={{ marginLeft: "auto" }} /></div>
                      <p style={{ fontSize: "0.95rem", lineHeight: 1.5 }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
@@ -929,17 +934,27 @@ export default function Home() {
                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                   <div style={{ textAlign: "center" }}>
                      <label style={{ display: "inline-block", position: "relative", cursor: "pointer" }}>
-                        <div style={{ width: "5rem", height: "5rem", borderRadius: "50%", background: "var(--secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", fontWeight: 800, color: "white", overflow: "hidden", border: "3px solid var(--primary)" }}>
-                           {currentUser.아바타 && currentUser.아바타.startsWith('http') ? 
-                             <img src={currentUser.아바타} alt="curr" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
-                             currentUser.아바타}
+                        <div style={{ width: "6rem", height: "6rem", borderRadius: "50%", background: "var(--secondary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", fontWeight: 800, color: "white", overflow: "hidden", border: "3px solid var(--primary)" }}>
+                           {tempProfileImg ? 
+                             <img src={tempProfileImg} alt="temp" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                             (currentUser.아바타 && currentUser.아바타.startsWith('http') ? 
+                               <img src={currentUser.아바타} alt="curr" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : 
+                               currentUser.아바타)}
                         </div>
-                        <div style={{ position: "absolute", bottom: 0, right: 0, background: "var(--primary)", borderRadius: "50%", width: "1.6rem", height: "1.6rem", display: "flex", alignItems: "center", justifyContent: "center", color: "white", border: "2px solid white" }}>
-                           <ImageIcon size={12} />
+                        <div style={{ position: "absolute", bottom: 0, right: 0, background: "var(--primary)", borderRadius: "50%", width: "1.8rem", height: "1.8rem", display: "flex", alignItems: "center", justifyContent: "center", color: "white", border: "2px solid white" }}>
+                           <ImageIcon size={14} />
                         </div>
-                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && handleProfileImageUpload(e.target.files[0])} />
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setTempProfileFile(file);
+                            setTempProfileImg(URL.createObjectURL(file));
+                          }
+                        }} />
                      </label>
-                     <p style={{ fontSize: "0.7rem", opacity: 0.5, marginTop: "0.5rem" }}>사진 클릭하여 변경</p>
+                     <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.6rem" }}>
+                        {tempProfileImg ? "✅ 선택됨 (아래 저장을 눌러주세요)" : "사진 클릭하여 변경"}
+                     </p>
                   </div>
 
                   <div>
@@ -953,11 +968,17 @@ export default function Home() {
                   </div>
 
                   <button 
-                    onClick={() => handleUpdateProfile(editBio)}
+                    onClick={() => {
+                      if (tempProfileFile) {
+                        handleProfileImageUpload(tempProfileFile);
+                      } else {
+                        handleUpdateProfile(editBio);
+                      }
+                    }}
                     className="btn-primary" 
                     style={{ padding: "1rem", borderRadius: "1rem", fontWeight: 800, width: "100%" }}
                   >
-                    저장하기
+                    {tempProfileFile ? "사진 업로드 및 저장" : "변경사항 저장하기"}
                   </button>
                </div>
             </motion.div>
