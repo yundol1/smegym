@@ -82,6 +82,9 @@ export default function Home() {
   const [uploadText, setUploadText] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [showComments, setShowComments] = useState<any>(null);
+  const [commentInput, setCommentInput] = useState("");
+
 
 
   const weekInfo = getWeekRange();
@@ -370,8 +373,10 @@ export default function Home() {
           이미지URL: activityData.이미지URL,
           내용: activityData.내용 || `[${activityData.날짜}] 오늘도 득근! 💪`,
           생성시간: serverTimestamp(),
-          좋아요: 0
+          좋아요유저: [],
+          댓글: []
         });
+
       }
 
 
@@ -455,6 +460,51 @@ export default function Home() {
     }
   };
 
+  const handleLike = async (postId: string) => {
+    if (!currentUser) return;
+    try {
+      const postRef = doc(db, "게시글", postId);
+      const postSnap = await getDoc(postRef);
+      if (!postSnap.exists()) return;
+
+      const data = postSnap.data();
+      const likes = data.좋아요유저 || [];
+      const hasLiked = likes.includes(currentUser.닉네임);
+
+      if (hasLiked) {
+        await updateDoc(postRef, {
+          좋아요유저: likes.filter((n: string) => n !== currentUser.닉네임)
+        });
+      } else {
+        await updateDoc(postRef, {
+          좋아요유저: [...likes, currentUser.닉네임]
+        });
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleAddComment = async (postId: string) => {
+    if (!currentUser || !commentInput.trim()) return;
+    try {
+      const postRef = doc(db, "게시글", postId);
+      const postSnap = await getDoc(postRef);
+      if (!postSnap.exists()) return;
+
+      const newComment = {
+        닉네임: currentUser.닉네임,
+        아바타: currentUser.아바타,
+        내용: commentInput,
+        생성시간: Date.now()
+      };
+
+      await updateDoc(postRef, {
+        댓글: [...(postSnap.data().댓글 || []), newComment]
+      });
+      setCommentInput("");
+    } catch (err) { console.error(err); }
+  };
+
+
   const handleProfileImageUpload = async (file: File) => {
     setToast("사진 업로드 중... ⏳");
     try {
@@ -500,29 +550,22 @@ export default function Home() {
             <p style={{ fontSize: "0.85rem", opacity: 0.8, lineHeight: 1.4, whiteSpace: "pre-wrap" }}>{member.인사말 || "안녕하세요! 득근 중입니다. 💪"}</p>
          </div>
          <div style={{ display: "flex", gap: "0.6rem" }}>
-            {isMe ? (
-              <>
-                <button 
-                  onClick={() => { 
-                    setEditBio(member.인사말 || ""); 
-                    setEditBgColor(member.배경색 || "var(--secondary)");
-                    setEditBorderColor(member.테두리색 || "var(--primary)");
-                    setProfileZoom(member.아바타줌 || 1);
-                    setIsEditProfileOpen(true); 
-                  }}
-                  style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.85rem", fontWeight: 800 }}
-                >
-                  프로필 편집
-                </button>
-                <button style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.85rem", fontWeight: 800 }}>프로필 공유</button>
-              </>
-            ) : (
-              <>
-                <button style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "var(--primary)", color: "white", fontSize: "0.85rem", fontWeight: 800 }}>팔로우</button>
-                <button style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.85rem", fontWeight: 800 }}>메시지</button>
-              </>
+            {isMe && (
+              <button 
+                onClick={() => { 
+                  setEditBio(member.인사말 || ""); 
+                  setEditBgColor(member.배경색 || "var(--secondary)");
+                  setEditBorderColor(member.테두리색 || "var(--primary)");
+                  setProfileZoom(member.아바타줌 || 1);
+                  setIsEditProfileOpen(true); 
+                }}
+                style={{ flex: 1, padding: "0.6rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontSize: "0.85rem", fontWeight: 800 }}
+              >
+                프로필 편집
+              </button>
             )}
          </div>
+
       </div>
     );
   };
@@ -690,9 +733,36 @@ export default function Home() {
                        <img src={post.이미지URL} alt="feed" style={{ width: "100%", height: "auto", display: "block" }} />
                     </div>
                     <div style={{ padding: "1.25rem" }}>
-                       <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.7rem" }}><Heart size={24} /> <MessageCircle size={24} /> <Share2 size={24} style={{ marginLeft: "auto" }} /></div>
+                       <div style={{ display: "flex", gap: "1.25rem", marginBottom: "0.8rem" }}>
+                          <motion.div whileTap={{ scale: 1.2 }} onClick={() => handleLike(post.id)}>
+                             <Heart 
+                               size={26} 
+                               style={{ 
+                                 cursor: "pointer", 
+                                 fill: (post.좋아요유저 || []).includes(currentUser.닉네임) ? "var(--error)" : "none",
+                                 color: (post.좋아요유저 || []).includes(currentUser.닉네임) ? "var(--error)" : "inherit"
+                               }} 
+                             />
+                          </motion.div>
+                          <MessageCircle 
+                            size={26} 
+                            style={{ cursor: "pointer" }} 
+                            onClick={() => setShowComments(post)} 
+                          />
+                          <Share2 size={26} style={{ marginLeft: "auto", opacity: 0.5 }} />
+                       </div>
+                       <div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: "0.4rem" }}>좋아요 {(post.좋아요유저 || []).length}개</div>
                        <p style={{ fontSize: "0.95rem", lineHeight: 1.5 }}><span style={{ fontWeight: 900, marginRight: "0.5rem" }}>{post.닉네임}</span>{post.내용}</p>
+                       {(post.댓글 || []).length > 0 && (
+                         <div 
+                           onClick={() => setShowComments(post)}
+                           style={{ fontSize: "0.85rem", opacity: 0.5, marginTop: "0.6rem", cursor: "pointer", fontWeight: 700 }}
+                         >
+                            댓글 {(post.댓글 || []).length}개 모두 보기
+                         </div>
+                       )}
                     </div>
+
                   </article>
                 );
               })}
@@ -1192,8 +1262,66 @@ export default function Home() {
 
       {/* --- Admin Reject UI --- */}
       <AnimatePresence>
+        {showComments && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 6000, display: "flex", alignItems: "flex-end" }}>
+             <motion.div 
+               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+               style={{ width: "100%", maxHeight: "85vh", background: "var(--bg-color)", borderTopLeftRadius: "1.5rem", borderTopRightRadius: "1.5rem", display: "flex", flexDirection: "column", padding: "1.5rem 0" }}
+             >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1.5rem 1rem 1.5rem", borderBottom: "1px solid var(--glass-border)" }}>
+                   <div style={{ width: 40 }} />
+                   <h3 style={{ fontWeight: 900, fontSize: "1rem" }}>댓글</h3>
+                   <X size={24} style={{ cursor: "pointer", opacity: 0.5 }} onClick={() => setShowComments(null)} />
+                </div>
+                
+                <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem" }}>
+                   {(showComments.댓글 || []).map((cmt: any, idx: number) => (
+                     <div key={idx} style={{ display: "flex", gap: "0.8rem", marginBottom: "1.5rem" }}>
+                        <div style={{ width: "2rem", height: "2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
+                           {cmt.아바타 && cmt.아바타.startsWith('http') ? <img src={cmt.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 800, color: "white" }}>{cmt.아바타}</div>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                           <div style={{ fontSize: "0.85rem", fontWeight: 800, marginBottom: "0.2rem" }}>{cmt.닉네임}</div>
+                           <p style={{ fontSize: "0.9rem", lineHeight: 1.4, opacity: 0.8 }}>{cmt.내용}</p>
+                           <div style={{ fontSize: "0.7rem", opacity: 0.7, marginTop: "0.4rem" }}>{new Date(cmt.생성시간).toLocaleString()}</div>
+                        </div>
+                     </div>
+                   ))}
+                   {(showComments.댓글 || []).length === 0 && (
+                     <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
+                        <MessageCircle size={40} style={{ margin: "0 auto 1rem" }} />
+                        <p style={{ fontWeight: 800 }}>첫 댓글을 남겨보세요! 😊</p>
+                     </div>
+                   )}
+                </div>
+
+                <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--glass-border)", display: "flex", gap: "0.8rem", alignItems: "center" }}>
+                   <div style={{ width: "2.2rem", height: "2.2rem", borderRadius: "50%", background: "var(--secondary)", overflow: "hidden", flexShrink: 0 }}>
+                      {currentUser.아바타 && currentUser.아바타.startsWith('http') ? <img src={currentUser.아바타} alt="me" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800, color: "white" }}>{currentUser.아바타}</div>}
+                   </div>
+                   <input 
+                     value={commentInput}
+                     onChange={(e) => setCommentInput(e.target.value)}
+                     onKeyPress={(e) => e.key === 'Enter' && handleAddComment(showComments.id)}
+                     placeholder="댓글 달기..." 
+                     style={{ flex: 1, height: "2.5rem", borderRadius: "1.25rem", border: "1px solid var(--glass-border)", padding: "0 1.25rem", outline: "none", fontSize: "0.9rem", background: "rgba(0,0,0,0.02)" }} 
+                   />
+                   <button 
+                     onClick={() => handleAddComment(showComments.id)}
+                     disabled={!commentInput.trim()}
+                     style={{ color: "var(--primary)", fontWeight: 900, fontSize: "0.9rem", opacity: commentInput.trim() ? 1 : 0.3 }}
+                   >
+                     게시
+                   </button>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {rejectId && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 7000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
             <div className="card" style={{ width: "100%", maxWidth: "360px", padding: "2rem" }}>
                <h3 style={{ fontWeight: 900, marginBottom: "1rem" }}>반려 사유 입력</h3>
                <textarea value={rejectReasonInput} onChange={(e) => setRejectReasonInput(e.target.value)} placeholder="반려 사유를 작성해 주세요." style={{ width: "100%", height: "120px", background: "rgba(0,0,0,0.03)", borderRadius: "1rem", padding: "1rem", border: "none", marginBottom: "1.5rem" }} />
@@ -1205,6 +1333,8 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+
     </main>
   );
 }
