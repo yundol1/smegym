@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@/types/database";
 
 type Step = "nickname" | "security" | "reset";
 
@@ -49,7 +48,6 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [userId, setUserId] = useState("");
-  const [storedAnswer, setStoredAnswer] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,27 +58,29 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      const { data: user, error: fetchError } = await supabase
-        .from("users")
-        .select("id, security_question, security_answer")
-        .eq("nickname", nickname)
-        .single<Pick<User, "id" | "security_question" | "security_answer">>();
+      // 서버 API를 통해 유저 조회 (RLS 우회, security_answer 미반환)
+      const res = await fetch("/api/auth/lookup-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname }),
+      });
 
-      if (fetchError || !user) {
-        setError("해당 닉네임의 사용자를 찾을 수 없습니다.");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "사용자를 찾을 수 없습니다.");
         setIsLoading(false);
         return;
       }
 
-      if (!user.security_question || !user.security_answer) {
+      if (!data.securityQuestion) {
         setError("보안 질문이 설정되지 않은 계정입니다. 관리자에게 문의해주세요.");
         setIsLoading(false);
         return;
       }
 
-      setUserId(user.id);
-      setSecurityQuestion(user.security_question);
-      setStoredAnswer(user.security_answer);
+      setUserId(data.userId);
+      setSecurityQuestion(data.securityQuestion);
       setStep("security");
     } catch {
       setError("사용자 조회 중 오류가 발생했습니다.");
@@ -89,16 +89,33 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  function handleSecuritySubmit(e: React.FormEvent) {
+  async function handleSecuritySubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    if (securityAnswer.trim().toLowerCase() !== storedAnswer.trim().toLowerCase()) {
-      setError("보안 답변이 일치하지 않습니다.");
-      return;
+    try {
+      // 서버 사이드에서 보안 답변 검증
+      const res = await fetch("/api/auth/verify-security-answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, securityAnswer: securityAnswer.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "보안 답변이 일치하지 않습니다.");
+        setIsLoading(false);
+        return;
+      }
+
+      setStep("reset");
+    } catch {
+      setError("검증 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
     }
-
-    setStep("reset");
   }
 
   async function handleResetSubmit(e: React.FormEvent) {
