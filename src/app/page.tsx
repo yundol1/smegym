@@ -396,6 +396,27 @@ export default function Home() {
     setAdminViewUserAttendance(attendance);
   };
 
+  const handleAdminManualConfirmPenalty = async (item: any) => {
+    if (!confirm(`[${item.닉네임}]님의 벌금(${(item.penaltyAmount).toLocaleString()}원)을 완납 처리하시겠습니까?`)) return;
+    const lastWeekDays = getLastWeekRange(mockNow);
+    const weekId = lastWeekDays[0];
+    const penaltyId = `${item.닉네임}_${weekId}`;
+    
+    try {
+      await setDoc(doc(db, "벌금", penaltyId), {
+        닉네임: item.닉네임,
+        이름: item.이름,
+        아바타: item.아바타,
+        주차: weekId,
+        운동횟수: item.count,
+        금액: item.penaltyAmount,
+        상태: "완납",
+        생성시간: serverTimestamp()
+      }, { merge: true });
+      setToast(`${item.닉네임}님의 벌금이 완납 처리되었습니다. ✨`);
+    } catch (err) { console.error(err); }
+  };
+
   const handleConfirmPenalty = async (id: string) => {
     try {
       await updateDoc(doc(db, "벌금", id), { 상태: "완납" });
