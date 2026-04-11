@@ -334,7 +334,7 @@ export default function Home() {
         if (unsubPendingM) unsubPendingM();
       }
     };
-  }, [currentUser]);
+  }, [currentUser, globalBaseDate]);
 
 
   // Fetch Last Week workout counts (Admin real-time snapshot)
@@ -1123,7 +1123,7 @@ export default function Home() {
 
                {/* --- Month Calendar Grid --- */}
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", textAlign: "center", marginBottom: "0.5rem" }}>
-                 {['M','T','W','T','F','S','S'].map((d, i) => (
+                 {['월','화','수','목','금','토','일'].map((d, i) => (
                    <span key={i} style={{ fontSize: "0.6rem", fontWeight: 800, opacity: 0.3 }}>{d}</span>
                  ))}
                </div>
