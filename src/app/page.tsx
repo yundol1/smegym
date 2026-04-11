@@ -59,6 +59,16 @@ const getLastWeekRange = (targetDate: Date = new Date()) => {
   return days; // Array of 7 date strings
 };
 
+const getPassionLevel = (count: number) => {
+  if (count >= 151) return { lv: "MAX", label: "고고보이", color: "#f59e0b" };
+  if (count >= 101) return { lv: "6", label: "퀸", color: "#3b82f6" };
+  if (count >= 61) return { lv: "5", label: "역대", color: "#ef4444" };
+  if (count >= 31) return { lv: "4", label: "훈훈", color: "#fbbf24" };
+  if (count >= 16) return { lv: "3", label: "평범", color: "#10b981" };
+  if (count >= 6) return { lv: "2", label: "그냥못", color: "#64748b" };
+  return { lv: "1", label: "존못", color: "#94a3b8" };
+};
+
 const getMonthDays = (targetDate: Date = new Date()) => {
   const year = targetDate.getFullYear();
   const month = targetDate.getMonth();
@@ -894,7 +904,19 @@ export default function Home() {
             <div style={{ flex: 1, display: "flex", justifyContent: "space-between", paddingRight: "0.5rem" }}>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>게시물</div></div>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{member.운동횟수 || 0}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>운동횟수</div></div>
-               <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{Math.floor(Math.random() * 100) + 50}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>팔로워</div></div>
+               <div style={{ textAlign: "center" }}>
+                  {(() => {
+                    const level = getPassionLevel(member.운동횟수 || 0);
+                    return (
+                      <>
+                        <div style={{ fontWeight: 900, fontSize: "1.1rem", color: level.color }}>
+                          <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>LV.</span>{level.lv}
+                        </div>
+                        <div style={{ fontSize: "0.7rem", fontWeight: 800, color: level.color }}>{level.label}</div>
+                      </>
+                    );
+                  })()}
+               </div>
             </div>
          </div>
          <div style={{ marginBottom: "1.25rem" }}>
