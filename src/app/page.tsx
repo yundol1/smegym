@@ -752,6 +752,39 @@ export default function Home() {
   };
 
 
+  const handleGeneralPostUpload = async () => {
+    if (!currentUser || !uploadFile) return;
+    
+    setToast("게시글 업로드 중... ⏳");
+    try {
+      const storageRef = ref(storage, `게시글/${currentUser.닉네임}_${Date.now()}`);
+      const uploadSnap = await uploadBytes(storageRef, uploadFile);
+      const downloadURL = await getDownloadURL(uploadSnap.ref);
+
+      await addDoc(collection(db, "게시글"), {
+        닉네임: currentUser.닉네임,
+        이름: currentUser.이름 || currentUser.닉네임,
+        아바타: currentUser.아바타 || currentUser.닉네임.substring(0, 2).toUpperCase(),
+        이미지URL: downloadURL,
+        내용: uploadText || "오늘의 소소한 일상... ✨",
+        생성시간: serverTimestamp(),
+        좋아요유저: [],
+        댓글: [],
+        유형: "일반" 
+      });
+
+      setToast("게시글이 성공적으로 공유되었습니다! ✨");
+      setShowUpload(null);
+      setUploadFile(null);
+      setUploadPreview(null);
+      setUploadText("");
+    } catch (err) {
+      console.error(err);
+      setToast("업로드 실패 ❌");
+    }
+  };
+
+
   const handleApproveActivity = async (id: string, userNickname: string) => {
     try {
       const activityRef = doc(db, "활동", id);
@@ -1431,7 +1464,21 @@ export default function Home() {
         {/* --- Tabs: 피드, 마이 --- */}
         {activeTab === "social" && (
            <motion.div key="social" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <h2 style={{ padding: "0 1.25rem", fontSize: "1.6rem", fontWeight: 900 }}>활동 피드</h2>
+            <div style={{ padding: "0 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ fontSize: "1.6rem", fontWeight: 900 }}>활동 피드</h2>
+              <motion.button 
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowUpload({ isGeneral: true })}
+                style={{ 
+                  width: "2.8rem", height: "2.8rem", borderRadius: "50%", 
+                  background: "var(--primary)", color: "white", 
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  border: "none", cursor: "pointer", boxShadow: "0 4px 12px rgba(56, 189, 248, 0.3)"
+                }}
+              >
+                <Plus size={24} />
+              </motion.button>
+            </div>
               {posts.map(post => {
                 const postMember = members.find(m => m.닉네임.trim() === post.닉네임.trim()) || 
                   { 아바타: post.아바타, 배경색: "var(--secondary)",  아바타줌: 1 };
@@ -2103,7 +2150,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}>
              <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="card" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "420px", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                   <h3 style={{ fontWeight: 900, fontSize: "1.1rem" }}>활동 인증 게시글 작성</h3>
+                   <h3 style={{ fontWeight: 900, fontSize: "1.1rem" }}>{showUpload.isGeneral ? "새 게시물 작성" : "활동 인증 게시글 작성"}</h3>
                    <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => { setShowUpload(null); setUploadFile(null); setUploadPreview(null); }} />
                 </div>
 
@@ -2133,20 +2180,20 @@ export default function Home() {
                    <textarea 
                      value={uploadText}
                      onChange={(e) => setUploadText(e.target.value)}
-                     placeholder="오늘의 운동 완료! 소감을 남겨주세요... 💪"
+                     placeholder={showUpload.isGeneral ? "무슨 생각을 하고 계신가요? ✨" : "오늘의 운동 완료! 소감을 남겨주세요... 💪"}
                      style={{ width: "100%", height: "100px", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", padding: "1rem", outline: "none", fontSize: "0.9rem", resize: "none" }}
                    />
                 </div>
 
                 <div style={{ display: "flex", gap: "0.8rem", marginTop: "0.5rem" }}>
                    <button onClick={() => { setShowUpload(null); setUploadFile(null); setUploadPreview(null); }} style={{ flex: 1, padding: "1rem", borderRadius: "1rem", fontWeight: 800, opacity: 0.5, background: "rgba(0,0,0,0.05)" }}>취소</button>
-                   <button 
-                     onClick={handleUpload}
+                    <button 
+                     onClick={showUpload.isGeneral ? handleGeneralPostUpload : handleUpload}
                      disabled={!uploadFile}
                      className="btn-primary" 
                      style={{ flex: 2, padding: "1rem", borderRadius: "1rem", fontWeight: 800, opacity: !uploadFile ? 0.3 : 1 }}
                    >
-                     인증샷 제출하기
+                     {showUpload.isGeneral ? "공유하기" : "인증샷 제출하기"}
                    </button>
                 </div>
              </motion.div>
