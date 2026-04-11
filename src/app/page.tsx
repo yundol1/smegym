@@ -457,21 +457,26 @@ export default function Home() {
       const startDate = currentWeekDays[0].날짜;
       const endDate = currentWeekDays[6].날짜;
 
-      // 4. Batch Process Penalties (For each member)
+      // 4. Fetch ALL approved activities for this week once (to avoid composite index issues per user)
+      const allActSnap = await getDocs(query(
+        collection(db, "활동"),
+        where("날짜", ">=", startDate),
+        where("날짜", "<=", endDate),
+        where("상태", "==", "승인")
+      ));
+      
+      const countMap: any = {};
+      allActSnap.forEach(doc => {
+        const d = doc.data();
+        countMap[d.닉네임] = (countMap[d.닉네임] || 0) + 1;
+      });
+
+      // 5. Process Penalties
       for (const mDoc of membersSnap.docs) {
         const mData = mDoc.data();
         if (mData.닉네임 === 'admin') continue;
 
-        // Count approved activities for this member in this week
-        const actQuery = query(
-          collection(db, "활동"),
-          where("닉네임", "==", mData.닉네임),
-          where("날짜", ">=", startDate),
-          where("날짜", "<=", endDate),
-          where("상태", "==", "승인")
-        );
-        const actSnap = await getDocs(actQuery);
-        const count = actSnap.size;
+        const count = countMap[mData.닉네임] || 0;
 
         // If less than 3, create penalty record
         if (count < 3) {
@@ -490,7 +495,7 @@ export default function Home() {
         }
       }
 
-      // 5. Advance Global Week
+      // 6. Advance Global Week
       const currentBase = new Date(globalBaseDate);
       currentBase.setDate(currentBase.getDate() + 7);
       const nextMondayStr = currentBase.toISOString().split('T')[0];
