@@ -1174,13 +1174,50 @@ export default function Home() {
         {activeTab === "home" && (
           <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
             <section style={{ padding: "0 1.25rem" }}>
-               <div onClick={() => setIsNoticeOpen(!isNoticeOpen)} style={{ padding: "1rem 1.25rem", borderRadius: "1rem", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.1)", cursor: "pointer" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                     <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}><Megaphone size={16} color="var(--primary)" /><span style={{ fontSize: "0.8rem", fontWeight: 800 }}>[공지] 이번 주 활동 우수자 발표</span></div>
-                     <ChevronDown size={16} style={{ transform: isNoticeOpen ? "rotate(180deg)" : "none", transition: "0.3s" }} />
-                  </div>
-                  <AnimatePresence>{isNoticeOpen && (<motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.8rem", lineHeight: 1.5 }}>꾸준히 3회 이상을 지켜주신 멤버분들께 감사의 말씀을 전합니다. 카페 기프티콘이 발송될 예정입니다! 🎁</motion.p>)}</AnimatePresence>
-               </div>
+                <div style={{ padding: "1rem 1.25rem", borderRadius: "1rem", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.1)" }}>
+                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div 
+                        onClick={() => setIsNoticeOpen(!isNoticeOpen)}
+                        style={{ display: "flex", alignItems: "center", gap: "0.6rem", flex: 1, cursor: "pointer" }}
+                      >
+                         <Megaphone size={16} color="var(--primary)" />
+                         <span style={{ fontSize: "0.8rem", fontWeight: 800 }}>
+                           {notices.length > 0 ? `[공지] ${notices[0].제목}` : "[공지] 등록된 공지가 없습니다."}
+                         </span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                        {currentUser?.관리자여부 && (
+                          <Plus 
+                            size={18} 
+                            style={{ cursor: "pointer", color: "var(--primary)" }} 
+                            onClick={(e) => { e.stopPropagation(); setIsNoticeRegOpen(true); }} 
+                          />
+                        )}
+                        <ChevronDown 
+                          size={16} 
+                          style={{ cursor: "pointer", transform: isNoticeOpen ? "rotate(180deg)" : "none", transition: "0.3s", opacity: 0.3 }} 
+                          onClick={() => setIsNoticeOpen(!isNoticeOpen)}
+                        />
+                      </div>
+                   </div>
+                   <AnimatePresence>
+                      {isNoticeOpen && notices.length > 0 && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
+                           <p style={{ fontSize: "0.75rem", opacity: 0.7, marginTop: "1rem", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                             {notices[0].내용}
+                           </p>
+                           <div style={{ marginTop: "1.2rem", display: "flex", justifyContent: "flex-end" }}>
+                              <button 
+                                onClick={() => setIsNoticeHistoryOpen(true)}
+                                style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--primary)", background: "rgba(56, 189, 248, 0.1)", padding: "0.4rem 0.8rem", borderRadius: "2rem" }}
+                              >
+                                전체 공지 기록 보기
+                              </button>
+                           </div>
+                        </motion.div>
+                      )}
+                   </AnimatePresence>
+                </div>
             </section>
 
             <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", padding: "0 1.25rem" }}>
