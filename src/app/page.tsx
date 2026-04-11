@@ -129,6 +129,7 @@ export default function Home() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [showComments, setShowComments] = useState<any>(null);
   const [commentInput, setCommentInput] = useState("");
+  const [inlineInputs, setInlineInputs] = useState<any>({});
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
