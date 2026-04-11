@@ -9,7 +9,7 @@ import {
   Home as HomeIcon, Users, Check, Heart, MessageCircle, Share2, Send,
   Dumbbell, Plus, ArrowLeft, X, Copy, CreditCard, History, BookOpen, 
   Calendar, ShieldCheck, Mail, Lock, LogOut, Bell, AlertCircle, Trash2,
-  FileText, ShieldAlert
+  FileText, ShieldAlert, FastForward
 } from "lucide-react";
 
 // --- Firebase Imports ---
@@ -22,8 +22,8 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // --- Date Helpers ---
-const getWeekRange = () => {
-  const now = new Date();
+const getWeekRange = (targetDate: Date = new Date()) => {
+  const now = new Date(targetDate);
   const day = now.getDay(); // 0: Sun, 1: Mon, ..., 6: Sat
   const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
   const monday = new Date(now.setDate(diff));
@@ -43,8 +43,8 @@ const getWeekRange = () => {
   return days;
 };
 
-const getLastWeekRange = () => {
-  const currentWeek = getWeekRange();
+const getLastWeekRange = (targetDate: Date = new Date()) => {
+  const currentWeek = getWeekRange(targetDate);
   const firstDayStr = currentWeek[0].날짜;
   const firstDay = new Date(firstDayStr);
   const lastMon = new Date(firstDay);
@@ -59,8 +59,8 @@ const getLastWeekRange = () => {
   return days; // Array of 7 date strings
 };
 
-const getLastWeekRangeInfo = () => {
-  const currentWeek = getWeekRange();
+const getLastWeekRangeInfo = (targetDate: Date = new Date()) => {
+  const currentWeek = getWeekRange(targetDate);
   const firstDayStr = currentWeek[0].날짜;
   const firstDay = new Date(firstDayStr);
   const lastMon = new Date(firstDay);
@@ -131,7 +131,11 @@ export default function Home() {
   const [commentInput, setCommentInput] = useState("");
   const [inlineInputs, setInlineInputs] = useState<any>({});
   const [isNavVisible, setIsNavVisible] = useState(true);
+  const [isTestMode, setIsTestMode] = useState(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const mockNow = isTestMode ? new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000) : new Date();
+  const weekInfo = getWeekRange(mockNow);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -149,7 +153,6 @@ export default function Home() {
     };
   }, []);
 
-  const weekInfo = getWeekRange();
   const workoutCount = attendance.filter(d => d.상태 === '승인').length;
   const penalty = Math.max(0, 3 - workoutCount) * 2000;
   const hasRejection = attendance.some(d => d.상태 === '반려');
@@ -227,7 +230,7 @@ export default function Home() {
       }));
       setAttendance(combined);
       
-      const todayShort = new Date().toISOString().split('T')[0];
+      const todayShort = mockNow.toISOString().split('T')[0];
       if (dataMap[todayShort]) setTodayActivity(dataMap[todayShort]);
       else setTodayActivity(null);
     });
@@ -286,7 +289,7 @@ export default function Home() {
   // Fetch Last Week workout counts
   useEffect(() => {
     if (!currentUser) return;
-    const lastWeekDaysInfo = getLastWeekRangeInfo();
+    const lastWeekDaysInfo = getLastWeekRangeInfo(mockNow);
     const lastWeekStart = lastWeekDaysInfo[0].날짜;
     const lastWeekEnd = lastWeekDaysInfo[6].날짜;
     
@@ -334,7 +337,7 @@ export default function Home() {
 
   const handlePenaltyPaymentRequest = async () => {
     if (!currentUser) return;
-    const lastWeekDays = getLastWeekRange();
+    const lastWeekDays = getLastWeekRange(mockNow);
     const weekId = lastWeekDays[0].substring(0, 10);
     const penaltyId = `${currentUser.닉네임}_${weekId}`;
     
@@ -354,7 +357,7 @@ export default function Home() {
   };
 
   const fetchUserLastWeekCalendar = async (nickname: string) => {
-    const lastWeekDaysInfo = getLastWeekRangeInfo();
+    const lastWeekDaysInfo = getLastWeekRangeInfo(mockNow);
     const q = query(
       collection(db, "활동"),
       where("닉네임", "==", nickname),
@@ -382,7 +385,7 @@ export default function Home() {
 
   const handleAdminManualConfirmPenalty = async (item: any) => {
     if (!confirm(`[${item.닉네임}]님의 벌금(${(item.penaltyAmount).toLocaleString()}원)을 완납 처리하시겠습니까?`)) return;
-    const lastWeekDays = getLastWeekRange();
+    const lastWeekDays = getLastWeekRange(mockNow);
     const weekId = lastWeekDays[0];
     const penaltyId = `${item.닉네임}_${weekId}`;
     
@@ -495,7 +498,7 @@ export default function Home() {
 
   const handleUpload = async () => {
     if (!currentUser || !uploadFile) return;
-    const targetDay = showUpload?.fullDate || new Date().toISOString().split('T')[0];
+    const targetDay = showUpload?.fullDate || mockNow.toISOString().split('T')[0];
     const targetDayName = showUpload?.day || '목'; 
     
     setToast("업로드 중... ⏳");
@@ -916,6 +919,26 @@ export default function Home() {
            <span style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>이번 주 활동 ({weekInfo[0].일}일 ~ {weekInfo[6].일}일)</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+           {currentUser?.관리자여부 && (
+             <motion.div 
+               whileTap={{ scale: 0.9 }}
+               onClick={() => {
+                 setIsTestMode(!isTestMode);
+                 setToast(!isTestMode ? "테스트 모드 활성화 (+1주일) 🚀" : "테스트 모드 비활성화 (현재 시간) 🏠");
+               }}
+               style={{ 
+                 display: "flex", alignItems: "center", gap: "0.4rem",
+                 padding: "0.4rem 0.8rem", borderRadius: "1rem",
+                 background: isTestMode ? "var(--warning)" : "rgba(0,0,0,0.05)",
+                 cursor: "pointer", transition: "0.3s"
+               }}
+             >
+               <FastForward size={18} color={isTestMode ? "white" : "inherit"} />
+               <span style={{ fontSize: "0.75rem", fontWeight: 800, color: isTestMode ? "white" : "inherit" }}>
+                 {isTestMode ? "다음 주차" : "테스트"}
+               </span>
+             </motion.div>
+           )}
            <div onClick={() => setIsLightMode(!isLightMode)} style={{ width: "36px", height: "18px", borderRadius: "9px", background: isLightMode ? "#e0e7ff" : "#334155", position: "relative", cursor: "pointer" }}>
               <motion.div animate={{ x: isLightMode ? 2 : 20 }} style={{ width: "14px", height: "14px", borderRadius: "50%", background: "white", position: "absolute", top: "2px" }} />
            </div>
@@ -1431,7 +1454,7 @@ export default function Home() {
                         const penaltyAmount = Math.max(0, 3 - count) * 2000;
                         if (penaltyAmount === 0) return null;
 
-                        const lastWeekDays = getLastWeekRange();
+                        const lastWeekDays = getLastWeekRange(mockNow);
                         const weekId = lastWeekDays[0];
                         const penaltyRecord = penalties.find(p => p.닉네임 === m.닉네임 && p.주차 === weekId);
                         
