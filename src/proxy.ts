@@ -33,13 +33,14 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 로그인하지 않은 상태에서 보호된 페이지 접근 시 로그인으로 리다이렉트
+  // 인증이 필요 없는 페이지 (로그인, 회원가입, 비밀번호 찾기, API 라우트)
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register") ||
     request.nextUrl.pathname.startsWith("/forgot-password");
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
 
-  if (!user && !isAuthPage) {
+  if (!user && !isAuthPage && !isApiRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
