@@ -45,6 +45,8 @@ export default function WorkoutPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
+  const [signedUrls, setSignedUrls] = useState<Record<number, string>>({});
+
   // Upload modal state
   const [selectedDay, setSelectedDay] = useState<DayCard | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -90,7 +92,22 @@ export default function WorkoutPage() {
             data: CheckIn[] | null;
           };
 
-          if (weekCheckIns) setCheckIns(weekCheckIns);
+          if (weekCheckIns) {
+            setCheckIns(weekCheckIns);
+            // Generate signed URLs for check-ins with images
+            const urls: Record<number, string> = {};
+            for (const ci of weekCheckIns) {
+              if (ci.image_url) {
+                const { data } = await supabase.storage
+                  .from("workout-photos")
+                  .createSignedUrl(ci.image_url, 3600);
+                if (data?.signedUrl) {
+                  urls[ci.day_of_week] = data.signedUrl;
+                }
+              }
+            }
+            setSignedUrls(urls);
+          }
         }
       } catch (err) {
         console.error("Workout load error:", err);
@@ -152,16 +169,12 @@ export default function WorkoutPage() {
 
       if (uploadError) throw uploadError;
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("workout-photos").getPublicUrl(filePath);
-
       const { error: insertError } = await supabase.from("check_ins").insert({
         user_id: user.id,
         week_id: currentWeek.id,
         day_of_week: selectedDay.dayOfWeek,
         status: "△",
-        image_url: publicUrl,
+        image_url: filePath,
         is_public: isPublic,
         post_content: postContent.trim() || null,
       } as any);
@@ -178,7 +191,22 @@ export default function WorkoutPage() {
         data: CheckIn[] | null;
       };
 
-      if (updatedCheckIns) setCheckIns(updatedCheckIns);
+      if (updatedCheckIns) {
+        setCheckIns(updatedCheckIns);
+        // Generate signed URLs for updated check-ins
+        const urls: Record<number, string> = {};
+        for (const ci of updatedCheckIns) {
+          if (ci.image_url) {
+            const { data } = await supabase.storage
+              .from("workout-photos")
+              .createSignedUrl(ci.image_url, 3600);
+            if (data?.signedUrl) {
+              urls[ci.day_of_week] = data.signedUrl;
+            }
+          }
+        }
+        setSignedUrls(urls);
+      }
 
       setShowModal(false);
     } catch (err) {
@@ -317,7 +345,7 @@ export default function WorkoutPage() {
               }}
             >
               {/* Photo thumbnail as background if available */}
-              {hasImage && (
+              {hasImage && signedUrls[day.dayOfWeek] && (
                 <div
                   style={{
                     position: "absolute",
@@ -325,7 +353,7 @@ export default function WorkoutPage() {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    backgroundImage: `url(${day.checkIn!.image_url})`,
+                    backgroundImage: `url(${signedUrls[day.dayOfWeek]})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                     opacity: 0.15,

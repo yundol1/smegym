@@ -12,10 +12,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        { error: "서버 설정 오류입니다." },
+        { status: 500 }
+      );
+    }
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlaG1rbWZpa3N1eXJtcXZkaWZ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTcxNzk1MywiZXhwIjoyMDkxMjkzOTUzfQ.jBvQ9heWyNJ4nKnih03pMEj8KTtRTJyzw1iFFa4llc8"
+      serviceRoleKey
     );
 
     const { data: user, error } = await supabaseAdmin

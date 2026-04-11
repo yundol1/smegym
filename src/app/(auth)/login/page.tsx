@@ -6,6 +6,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@/types/database";
 
+const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣_-]+$/;
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "0.875rem 1rem",
@@ -42,6 +44,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
+
+    if (!NICKNAME_REGEX.test(nickname)) {
+      setError("닉네임은 영문, 한글, 숫자, -, _ 만 사용할 수 있습니다.");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const email = `${nickname}@smegym.noreply.com`;

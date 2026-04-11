@@ -21,9 +21,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Use service role key for admin operations
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        { error: "서버 설정 오류입니다." },
+        { status: 500 },
+      );
+    }
     const supabaseAdmin = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      serviceRoleKey,
     );
 
     // Verify security answer server-side as well

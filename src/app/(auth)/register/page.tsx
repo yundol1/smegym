@@ -13,6 +13,8 @@ const SECURITY_QUESTIONS = [
   "가장 친한 친구의 이름은?",
 ];
 
+const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣_-]+$/;
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "0.875rem 1rem",
@@ -72,6 +74,12 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
+
+    if (!NICKNAME_REGEX.test(nickname)) {
+      setError("닉네임은 영문, 한글, 숫자, -, _ 만 사용할 수 있습니다.");
+      setIsLoading(false);
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("비밀번호가 일치하지 않습니다.");
@@ -156,7 +164,7 @@ export default function RegisterPage() {
         role: "pending",
         profile_image_url: profileImageUrl,
         security_question: securityQuestion,
-        security_answer: securityAnswer.trim(),
+        security_answer: securityAnswer.trim().toLowerCase(),
       } as never);
 
       if (insertError) {
