@@ -337,7 +337,7 @@ export default function Home() {
   }, [currentUser]);
 
 
-  // Fetch Last Week workout counts
+  // Fetch Last Week workout counts (Admin real-time snapshot)
   useEffect(() => {
     if (!currentUser || !globalBaseDate) return;
     const baseDate = new Date(globalBaseDate);
@@ -345,24 +345,28 @@ export default function Home() {
     const lastWeekStart = lastWeekDaysInfo[0].날짜;
     const lastWeekEnd = lastWeekDaysInfo[6].날짜;
     
+    let unsubAdminCounts: (() => void) | null = null;
+
     if (currentUser.관리자여부) {
-      // Admin: Fetch all approved activities for last week to calculate everyone's count
+      // Admin: Real-time Snapshot for all activities in the target week
+      // We query ONLY by date range to avoid indexing requirements for (date + status)
       const q = query(
         collection(db, "활동"),
         where("날짜", ">=", lastWeekStart),
-        where("날짜", "<=", lastWeekEnd),
-        where("상태", "==", "승인")
+        where("날짜", "<=", lastWeekEnd)
       );
-      getDocs(q).then(snap => {
+      
+      unsubAdminCounts = onSnapshot(q, (snap) => {
         const counts: any = {};
         snap.forEach(doc => {
-          const data = doc.data();
-          counts[data.닉네임] = (counts[data.닉네임] || 0) + 1;
+          const d = doc.data();
+          if (d.상태 === "승인") {
+            const nickname = (d.닉네임 || "").trim();
+            counts[nickname] = (counts[nickname] || 0) + 1;
+          }
         });
         setAllMembersLastWeekCounts(counts);
-        
-        // Also set lastWeekWorkoutCount for the current admin user
-        setLastWeekWorkoutCount(counts[currentUser.닉네임] || 0);
+        setLastWeekWorkoutCount(counts[(currentUser.닉네임 || "").trim()] || 0);
       });
     } else {
       // Regular user: fetch their own records for calendar
@@ -385,6 +389,10 @@ export default function Home() {
         setLastWeekWorkoutCount(combined.filter(d => d.상태 === '승인').length);
       });
     }
+
+    return () => {
+      if (unsubAdminCounts) unsubAdminCounts();
+    };
   }, [currentUser, globalBaseDate]);
 
   const handlePenaltyPaymentRequest = async () => {
