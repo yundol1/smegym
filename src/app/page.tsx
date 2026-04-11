@@ -395,26 +395,7 @@ export default function Home() {
     };
   }, [currentUser, globalBaseDate]);
 
-  const handlePenaltyPaymentRequest = async () => {
-    if (!currentUser) return;
-    const lastWeekDays = getLastWeekRange(mockNow);
-    const weekId = lastWeekDays[0].substring(0, 10);
-    const penaltyId = `${currentUser.닉네임}_${weekId}`;
-    
-    try {
-      await setDoc(doc(db, "벌금", penaltyId), {
-        닉네임: currentUser.닉네임,
-        이름: currentUser.이름,
-        아바타: currentUser.아바타,
-        주차: weekId,
-        운동횟수: lastWeekWorkoutCount,
-        금액: Math.max(0, 3 - lastWeekWorkoutCount) * 2000,
-        상태: "납부확인중",
-        생성시간: serverTimestamp()
-      }, { merge: true });
-      setToast("벌금 납부 확인을 요청했습니다! ✅");
-    } catch (err) { console.error(err); }
-  };
+
 
   const fetchUserLastWeekCalendar = async (nickname: string) => {
     const lastWeekDaysInfo = getLastWeekRangeInfo(mockNow);
