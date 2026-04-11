@@ -1,0 +1,4921 @@
+<script>
+  let currentUser = null;
+  let isAutoLogin = false;
+  let selectedFile = null;
+  let regProfileFile = null;
+  let editProfileFile = null;
+
+  let targetRejectRow = null;
+  let targetRejectCol = null;
+  let selectedExemptDates = [];
+  let allGalleryPhotos = [];
+
+  let currentWeekData = {};
+  let nextWeekData = {};
+  let currentStartDateObj = new Date(); // 현재 주 시작일 저장용
+  let showingWeek = 'this';
+
+  const GUIDE_KEY = 'SME_SHOW_GUIDE_V8';
+  const ADMIN_GUIDE_KEY = 'SME_ADMIN_GUIDE_V2';
+  let currentTutoType = 'user';
+
+  let animationInterval1 = null;
+  let animationInterval2 = null;
+  let tooltipTimeout = null;
+  let chatHistory = [];
+
+  let cheerList = [];
+  let cheerIndex = 0;
+  let cheerInterval = null;
+  let currentPhotoIndex = -1;
+
+  function showSysModal(title, msg, type, callback) {
+    document.getElementById('sysTitle').innerText = title;
+    document.getElementById('sysMsg').innerText = msg;
+    const btnGroup = document.getElementById('sysBtnGroup');
+    btnGroup.innerHTML = '';
+    if (type === 'confirm') {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn btn-secondary';
+      cancelBtn.innerText = '취소';
+      cancelBtn.onclick = () => closeModal('sysModal');
+      const okBtn = document.createElement('button');
+      okBtn.className = 'btn btn-primary';
+      okBtn.innerText = '확인';
+      okBtn.onclick = () => {
+        closeModal('sysModal');
+        if (callback) callback();
+      };
+      btnGroup.appendChild(cancelBtn);
+      btnGroup.appendChild(okBtn);
+    } else {
+      const okBtn = document.createElement('button');
+      okBtn.className = 'btn btn-primary';
+      okBtn.innerText = '확인';
+      okBtn.onclick = () => closeModal('sysModal');
+      btnGroup.appendChild(okBtn);
+    }
+    document.getElementById('sysModal').style.display = 'flex';
+  }
+
+  function showAlert(msg) {
+    showSysModal('알림', msg, 'alert');
+  }
+
+  function showConfirm(msg, yesCallback) {
+    showSysModal('확인', msg, 'confirm', yesCallback);
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+  }
+
+  function setCookie(name, value, days) {
+    try {
+      let expires = "";
+      if (days) {
+        const date = new Date();
+        // 365일 뒤 만료
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = "; expires=" + date.toUTCString();
+      }
+      // [수정] SameSite=None; Secure 속성 필수 (아이폰 iframe 허용)
+      document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=None; Secure";
+    } catch (e) {
+      console.log("Cookie error");
+    }
+  }
+
+  function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  }
+
+  function eraseCookie(name) {
+    document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=None; Secure';
+  }
+
+  window.onload = function() {
+    loadSavedTheme();
+    
+    // ❌ [삭제됨] 아래 두 줄이 범인이었습니다! 이제 지웠으니 순서가 저장됩니다.
+    // localStorage.removeItem('SME_MENU_ORDER');
+    // localStorage.removeItem('SME_ADMIN_ORDER');
+
+    let saved = null;
+
+    // 1. 쿠키를 먼저 시도
+    try {
+      const cookieSaved = getCookie('SME_USER');
+      if (cookieSaved) saved = decodeURIComponent(cookieSaved);
+    } catch (e) {}
+
+    // 2. 로컬 스토리지 시도
+    if (!saved) {
+      try {
+        saved = localStorage.getItem('SME_USER');
+      } catch (e) {}
+    }
+
+    if (saved) {
+      try {
+        const user = JSON.parse(saved);
+        if (user.auto || (user.nick && user.pw)) {
+          document.getElementById('loginId').value = user.nick;
+          document.getElementById('loginPw').value = user.pw;
+
+          isAutoLogin = true;
+          document.getElementById('autoLoginCheck').classList.add('active');
+
+          document.getElementById('dashboardScreen').style.display = 'none';
+          document.getElementById('loginScreen').style.display = 'none';
+          showLoad(`${user.nick}님, 자동 접속 중...`);
+
+          tryLogin(true);
+        } else {
+          showLoginScreen();
+        }
+      } catch (e) {
+        localStorage.removeItem('SME_USER');
+        eraseCookie('SME_USER');
+        showLoginScreen();
+      }
+    } else {
+      showLoginScreen();
+    }
+
+    setTodayInSelect();
+    startLoginTextAnimation();
+    enableSwipeGestures();
+    enablePullToRefresh();
+    
+    // 메뉴 드래그 기능 활성화
+    initMenuSortable();
+  };
+
+  function createRollingInterval(elementId, words) {
+    let wordIndex = 0;
+    const span = document.getElementById(elementId);
+
+    return setInterval(() => {
+      if (span) {
+        span.classList.add('slide-out');
+
+        setTimeout(() => {
+          wordIndex = (wordIndex + 1) % words.length;
+          span.innerText = words[wordIndex];
+
+          span.classList.remove('slide-out');
+          span.classList.add('slide-ready');
+
+          setTimeout(() => {
+            span.classList.remove('slide-ready');
+          }, 50);
+
+        }, 500);
+      }
+    }, 2500);
+  }
+
+  function startLoginTextAnimation() {
+    const words = ["득근", "행복", "건강", "안전", "SME", "돌콩"];
+    if (animationInterval1) clearInterval(animationInterval1);
+    animationInterval1 = createRollingInterval('changingText', words);
+  }
+
+  function startGreetingAnimation() {
+    const words = ["SME", "심만운", "득근해", "웃자", "행복해", "신나게", "활기차게", "행운이", "화이팅", "돌콩해"];
+    if (animationInterval2) clearInterval(animationInterval2);
+    animationInterval2 = createRollingInterval('changingGreeting', words);
+  }
+
+  function playNewWeekAnimation(newTitle) {
+    const overlay = document.getElementById('newWeekOverlay');
+    const content = document.getElementById('newWeekContent');
+    const titleEl = document.getElementById('newWeekTitleLarge');
+
+    titleEl.innerText = newTitle;
+    overlay.style.display = 'flex';
+
+    setTimeout(() => {
+      content.classList.add('minimize-to-badge');
+      overlay.style.background = 'rgba(255,255,255,0)';
+
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        content.classList.remove('minimize-to-badge');
+        overlay.style.background = 'rgba(255,255,255,0.95)';
+      }, 800);
+    }, 2000);
+  }
+
+  function showLoginScreen() {
+    document.getElementById('dashboardScreen').style.display = 'none';
+    const login = document.getElementById('loginScreen');
+    login.style.display = 'flex';
+    document.getElementById('adminWatermark').classList.remove('active');
+  }
+
+  function setTodayInSelect() {
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    const d = days[new Date().getDay()];
+    // 기존 select box 제어 코드 삭제하고 아래 한 줄로 대체
+    selectDay(d, true);
+  }
+
+  function toggleCheckbox() {
+    isAutoLogin = !isAutoLogin;
+    const el = document.getElementById('autoLoginCheck');
+    if (isAutoLogin) el.classList.add('active');
+    else el.classList.remove('active');
+  }
+
+  function tryLogin(isAuto = false) {
+    const nick = document.getElementById('loginId').value;
+    const pw = document.getElementById('loginPw').value;
+
+    if (!nick || !pw) {
+      if (isAuto) showLoginScreen();
+      else showAlert('정보를 입력해주세요');
+      hideLoad();
+      return;
+    }
+
+    if (!isAuto) showLoad('로그인 중...');
+
+    google.script.run.withSuccessHandler(res => {
+      // 1. 로그인 성공 (SUCCESS)
+      if (res.status === 'SUCCESS') {
+        currentUser = nick;
+        const userData = {
+          nick: nick,
+          pw: pw,
+          auto: isAutoLogin || isAuto,
+          isAdmin: res.isAdmin,
+          isTest: res.isTest
+        };
+
+        if (res.isAdmin) {
+          showLoad('⚠️ 관리자 권한으로 접속 중');
+          const msgEl = document.getElementById('loadMsg');
+          if(msgEl) msgEl.style.color = "#FF3B30";
+          
+          setTimeout(() => {
+             finishLogin(isAuto, userData, res.isAdmin, res.preloadedData);
+          }, 1000);
+        } else if (res.isTest) {
+          showLoad('🧪 테스트 계정 접속...');
+          const msgEl = document.getElementById('loadMsg');
+          if(msgEl) msgEl.style.color = "#3182F6";
+          
+          setTimeout(() => {
+            hideLoad();
+            if (isAuto) {
+              finishLogin(isAuto, userData, res.isAdmin, res.preloadedData);
+            } else {
+              showConfirm('[테스트 계정] 접속하시겠습니까?', 
+                () => finishLogin(isAuto, userData, res.isAdmin, res.preloadedData)
+              );
+            }
+          }, 500);
+        } else {
+          // 일반 사용자
+          finishLogin(isAuto, userData, res.isAdmin, res.preloadedData);
+        }
+      }
+      // 2. 승인 대기 중 (PENDING_APPROVAL)
+      else if (res.status === 'PENDING_APPROVAL') {
+        hideLoad();
+        localStorage.removeItem('SME_USER'); 
+        eraseCookie('SME_USER');
+        showAlert('⏳ 가입 승인 대기 중입니다.\n관리자가 승인하면 로그인할 수 있습니다.'); 
+      }
+      // 3. 비밀번호 틀림 (WRONG_PW)
+      else if (res.status === 'WRONG_PW') {
+        hideLoad();
+        localStorage.removeItem('SME_USER');
+        eraseCookie('SME_USER');
+        if (isAuto) {
+          showAlert('비밀번호가 변경되었습니다. 다시 로그인해주세요.');
+          showLoginScreen();
+        } else {
+          showAlert('비밀번호가 틀렸습니다.');
+        }
+      }
+      else if (res.status === 'WITHDRAWN') {
+        hideLoad();
+        localStorage.removeItem('SME_USER');
+        eraseCookie('SME_USER');
+        showAlert('탈퇴 처리된 계정입니다.\n재가입은 관리자에게 문의하세요.');
+      }
+      // 4. 사용자 없음 (NOT_FOUND)
+      else {
+        hideLoad();
+        localStorage.removeItem('SME_USER');
+        eraseCookie('SME_USER');
+        if (isAuto) showLoginScreen();
+        else showAlert('가입되지 않은 회원입니다.');
+      }
+    }).withFailureHandler(e => {
+      hideLoad();
+      if (isAuto) {
+        showLoginScreen();
+      } else {
+        showAlert('접속 오류: 인터넷 연결을 확인해주세요.');
+      }
+    }).checkUser(nick, pw);
+  }
+
+  function finishLogin(isAuto, userData, isAdmin, preloadedData) {
+    if (isAutoLogin || isAuto) {
+      const jsonStr = JSON.stringify(userData);
+      try { localStorage.setItem('SME_USER', jsonStr); } catch (e) {}
+      setCookie('SME_USER', encodeURIComponent(jsonStr), 365);
+    } else {
+      localStorage.removeItem('SME_USER');
+      eraseCookie('SME_USER');
+    }
+    // [핵심] 데이터를 들고 대시보드로 이동!
+    loadDashboard(isAdmin, preloadedData);
+  }
+
+  function loadDashboard(isAdmin, preloadedData) {
+    if (isAdmin === undefined) {
+        let saved = localStorage.getItem('SME_USER');
+        if (!saved) {
+            const cookieSaved = getCookie('SME_USER');
+            if (cookieSaved) saved = decodeURIComponent(cookieSaved);
+        }
+        const parsed = JSON.parse(saved || '{}');
+        isAdmin = parsed.isAdmin;
+    }
+
+    const saved = JSON.parse(localStorage.getItem('SME_USER') || '{}');
+    saved.isAdmin = isAdmin;
+    const jsonStr = JSON.stringify(saved);
+    localStorage.setItem('SME_USER', jsonStr);
+    setCookie('SME_USER', encodeURIComponent(jsonStr), 365);
+
+    showLoad('데이터 불러오는 중...');
+    const msgEl = document.getElementById('loadMsg');
+    if (msgEl) msgEl.style.color = "#555";
+
+    const renderScreen = function(data) {
+        if (!data) {
+            hideLoad();
+            showAlert("데이터를 불러오지 못했습니다.");
+            return;
+        }
+
+        hideLoad();
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('dashboardScreen').style.display = 'block';
+        
+        document.getElementById('userName').innerText = data.nickname;
+        document.getElementById('weekBadge').innerText = data.weekTitle;
+        document.getElementById('uCount').innerText = data.totalCount;
+
+        const fineAmount = parseInt(data.fine);
+        const fineEl = document.getElementById('uFine');
+        fineEl.innerText = fineAmount.toLocaleString() + '원';
+        if (fineAmount === 0) fineEl.style.color = '#3182F6';
+        else if (fineAmount <= 2000) fineEl.style.color = '#FF9500';
+        else fineEl.style.color = '#FF3B30';
+
+        // ⭐⭐⭐ [핵심 수정] 여기가 바뀌어야 합니다! ⭐⭐⭐
+        // 사진이 있으면 -> 사진 ON / 아이콘 OFF
+        // 사진이 없으면 -> 사진 OFF / 아이콘 ON
+        const dashImg = document.getElementById('dashProfileImg');
+        const menuImg = document.getElementById('menuProfileImg');
+        const menuDef = document.getElementById('menuDefaultIcon'); // 기본 아이콘 요소
+        const editPreview = document.getElementById('editProfilePreview');
+        
+        if (data.profileUrl) {
+            if(dashImg) { dashImg.src = data.profileUrl; dashImg.style.display = 'block'; }
+            
+            // 메뉴 쪽 처리
+            if(menuImg) { menuImg.src = data.profileUrl; menuImg.style.display = 'block'; }
+            if(menuDef) { menuDef.style.display = 'none'; } // ★ 아이콘 숨김
+
+            if(editPreview) { editPreview.src = data.profileUrl; editPreview.style.display = 'block'; }
+        } else {
+            if(dashImg) { dashImg.style.display = 'none'; }
+            
+            // 메뉴 쪽 처리
+            if(menuImg) { menuImg.style.display = 'none'; }
+            if(menuDef) { menuDef.style.display = 'flex'; } // ★ 아이콘 보임 (flex로 중앙정렬)
+
+            if(editPreview) { editPreview.style.display = 'none'; }
+        }
+        // ⭐⭐⭐ 수정 끝 ⭐⭐⭐
+
+        const challengeBtn = document.getElementById('headerChallengeBtn');
+        if (data.activeChallengeCount > 0) {
+            challengeBtn.style.display = 'flex';
+            challengeBtn.innerHTML = `<span>🏃🏻‍➡️ SME 챌린지</span>`;
+        } else {
+            challengeBtn.style.display = 'none';
+        }
+
+        if (data.notice) {
+            const banner = document.getElementById('noticeBanner');
+            banner.style.display = 'flex';
+            const prevHtml = `
+              <div style="display:flex; align-items:center; width:100%;">
+                  <div class="notice-icon" style="margin-right:10px;">📢</div>
+                  <div style="flex:1; overflow:hidden;">
+                      <div style="display:flex; align-items:center;">
+                          <span id="noticeBadge" class="new-badge">N</span>
+                          <div id="noticeTextContent" class="notice-text-wrapper"></div>
+                      </div>
+                      <div id="noticeWriter" class="notice-writer"></div>
+                  </div>
+                  <div id="noticeArrow" class="notice-arrow">▼</div>
+              </div>`;
+            banner.innerHTML = prevHtml;
+            document.getElementById('noticeTextContent').innerHTML = linkify(data.notice.content);
+            document.getElementById('noticeWriter').innerText = `from. ${data.notice.writer}`;
+
+            const lastNotice = localStorage.getItem('SME_LAST_NOTICE');
+            const currentNoticeHash = data.notice.content + data.notice.writer;
+            if (lastNotice !== currentNoticeHash) {
+                document.getElementById('noticeBadge').style.display = 'inline-block';
+                banner.setAttribute('data-new', 'true');
+                banner.setAttribute('data-hash', currentNoticeHash);
+            } else {
+                document.getElementById('noticeBadge').style.display = 'none';
+                banner.removeAttribute('data-new');
+            }
+            banner.onclick = function() { toggleNotice(this); };
+        } else {
+            document.getElementById('noticeBanner').style.display = 'none';
+        }
+
+        const badges = document.querySelectorAll('.admin-badge');
+        badges.forEach(b => b.style.display = isAdmin ? 'inline-block' : 'none');
+        
+        // [수정됨] 관리자 뱃지 로직 (메인 메뉴 아이콘 뱃지 기능 복구)
+        if (isAdmin) {
+            document.getElementById('adminWatermark').classList.add('active');
+            document.getElementById('adminMenuSection').style.display = 'block';
+            
+            let totalAlerts = 0;
+
+            if (data.adminCounts) {
+                const pCount = data.adminCounts.photos || 0; 
+                const eCount = data.adminCounts.exempts || 0;
+                const jCount = data.adminCounts.joins || 0;
+                const fCount = data.adminCounts.fines || 0; // [신규] 미납 건수
+                
+                // 전체 알림 합계에 미납 건수도 포함
+                totalAlerts = pCount + eCount + jCount + fCount;
+
+                const bRev = document.getElementById('badgeReview');
+                const bExe = document.getElementById('badgeExempt');
+                const bJoin = document.getElementById('badgeJoin');
+                const bFine = document.getElementById('badgeFine'); // [신규]
+                
+                if (pCount > 0) { bRev.innerText = pCount; bRev.style.display = 'block'; } else { bRev.style.display = 'none'; }
+                if (eCount > 0) { bExe.innerText = eCount; bExe.style.display = 'block'; } else { bExe.style.display = 'none'; }
+                if (jCount > 0) { bJoin.innerText = jCount; bJoin.style.display = 'block'; } else { bJoin.style.display = 'none'; }
+                
+                // [신규] 미납 뱃지 표시
+                if (fCount > 0) { bFine.innerText = fCount; bFine.style.display = 'block'; } else { bFine.style.display = 'none'; }
+            }
+            
+            // 헤더 통합 뱃지 & 메인 메뉴 버튼 뱃지 업데이트
+            const headerBadge = document.getElementById('adminTotalBadge');
+            const mainMenuBadge = document.getElementById('mainMenuBadge');
+            
+            if (totalAlerts > 0) {
+                headerBadge.innerText = totalAlerts;
+                headerBadge.style.display = 'inline-block';
+                
+                mainMenuBadge.innerText = totalAlerts;
+                mainMenuBadge.style.display = 'block';
+            } else {
+                headerBadge.style.display = 'none';
+                mainMenuBadge.style.display = 'none';
+            }
+            
+        } else {
+            // 관리자가 아닐 때
+            document.getElementById('adminWatermark').classList.remove('active');
+            document.getElementById('adminMenuSection').style.display = 'none';
+            document.getElementById('mainMenuBadge').style.display = 'none';
+        }
+        
+        if (data.isTest) {
+            document.getElementById('testWatermark').classList.add('active');
+            const badge = document.getElementById('menuUserBadge');
+            badge.innerText = "TEST"; badge.style.background = "#8B95A1"; badge.style.display = "inline-block";
+        } else {
+            document.getElementById('testWatermark').classList.remove('active');
+            if (!isAdmin) document.getElementById('menuUserBadge').style.display = 'none';
+            else {
+                document.getElementById('menuUserBadge').innerText = "ADMIN";
+                document.getElementById('menuUserBadge').style.background = "var(--primary)";
+            }
+        }
+        document.getElementById('menuUserName').innerText = data.nickname;
+
+        const matches = String(data.weekTitle).match(/(\d+)년\s+(\d+)월.*\((\d+)일~(\d+)일\)/);
+        if (matches) {
+            const y = parseInt(matches[1]);
+            const m = parseInt(matches[2]) - 1;
+            const startDay = parseInt(matches[3]);
+            const endDay = parseInt(matches[4]);
+
+            // 시작일이 종료일보다 숫자가 크면(예: 30일~5일), 시작일은 이전 달(3월)로 계산
+            let startMonth = m;
+            if (startDay > endDay) {
+                startMonth = m - 1;
+            }
+            currentStartDateObj = new Date(y, startMonth, startDay);
+        }
+        currentWeekData = data.weekData;
+        nextWeekData = data.nextWeekData;
+        showingWeek = 'this';
+        renderCal(currentWeekData, currentStartDateObj);
+        enableSwipeGestures();
+        
+        const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
+        const todayChar = daysMap[new Date().getDay()];
+        selectDay(todayChar, true);
+        
+        const lastWeekTitle = localStorage.getItem('SME_LAST_WEEK');
+        if (lastWeekTitle && lastWeekTitle !== data.weekTitle) {
+            setTimeout(() => { playNewWeekAnimation(data.weekTitle); }, 300);
+        }
+        localStorage.setItem('SME_LAST_WEEK', data.weekTitle);
+
+        const recapMenuBtn = document.querySelector('.menu-box[data-id="recap"]');
+        if (recapMenuBtn) {
+            recapMenuBtn.style.display = data.isRecapVisible ? 'flex' : 'none';
+        }
+        
+        // 관리자용 버튼 아이콘(🔒/🔓) 업데이트
+        if (isAdmin) {
+            const recapToggleSwitch = document.getElementById('recapToggleSwitch');
+            if (recapToggleSwitch) {
+                recapToggleSwitch.checked = data.isRecapVisible;
+            }
+        }
+
+        if (!data.tutoStatus.user) {
+            currentTutoType = 'user'; setTimeout(confirmTutorial, 500);
+        } else if (isAdmin && !data.tutoStatus.admin) {
+            currentTutoType = 'admin'; setTimeout(confirmTutorial, 500);
+        }
+        startActivityTracking();
+        refreshCheerData();
+    };
+
+    if (preloadedData) {
+        console.log("🚀 Fast Loading with preloaded data");
+        renderScreen(preloadedData);
+    } else {
+        console.log("🐌 Normal Loading from server");
+        google.script.run.withSuccessHandler(data => {
+            renderScreen(data);
+        }).withFailureHandler(err => {
+            hideLoad();
+            showAlert("접속 오류: " + err);
+        }).getUserStatus(currentUser);
+    }
+
+    google.script.run.withSuccessHandler(res => {
+        if (res.hasNoti) {
+            const isApprove = res.msg.includes('승인');
+            showSysModal(isApprove ? '면제 신청 승인' : '면제 신청 반려', res.msg.replace('✅ 승인 알림', '').replace('🚫 반려 알림', '').trim());
+            document.getElementById('sysIcon').innerText = isApprove ? '🎉' : '😥';
+        }
+    }).checkExemptionNoti(currentUser);
+    
+    google.script.run.withSuccessHandler(rankData => {
+        const rankEl = document.getElementById('dashMyRank');
+        if (rankEl) {
+            if (rankData.myRank > 0) rankEl.innerText = rankData.myRank + "위";
+            else rankEl.innerText = "-";
+        }
+    }).getWorkoutLeaderboard(currentUser);
+    
+    loadGalleryData();
+    if (data.isRecapVisible) {
+        checkRecapPrompt(data.tutoStatus.recap);
+    }
+  }
+
+  function toggleWeekView(target) {
+    const grid = document.getElementById('calGrid');
+    const title = document.getElementById('calTitleText');
+
+    // 이미 해당 뷰면 실행 안 함
+    if ((target === 'next' && showingWeek === 'next') || (target === 'this' && showingWeek === 'this')) return;
+
+    // 1. 사라지는 애니메이션
+    if (target === 'next') {
+      grid.classList.add('anim-slide-next-out');
+    } else {
+      grid.classList.add('anim-slide-prev-out');
+    }
+
+    // 2. 데이터 교체 및 나타나기
+    setTimeout(() => {
+      grid.classList.remove('anim-slide-next-out', 'anim-slide-prev-out');
+
+      if (target === 'next') {
+        showingWeek = 'next'; // [중요] 상태 변경
+        title.innerText = '다음 주';
+
+        const nextStartDate = new Date(currentStartDateObj);
+        nextStartDate.setDate(currentStartDateObj.getDate() + 7);
+        renderCal(nextWeekData, nextStartDate, true);
+
+        grid.classList.add('anim-slide-next-in');
+      } else {
+        showingWeek = 'this'; // [중요] 상태 변경
+        title.innerText = '이번 주';
+        renderCal(currentWeekData, currentStartDateObj, false);
+
+        grid.classList.add('anim-slide-prev-in');
+      }
+
+      // ========== [핵심 추가] 버튼 상태 강제 새로고침 ==========
+      // 화면이 넘어가면, 현재 선택되어 있는 요일(예: 수요일)을 기준으로
+      // 버튼을 잠글지 말지 다시 판단하게 시킵니다.
+      const currentDayChar = document.getElementById('selectedDayValue').value;
+      if (currentDayChar) {
+        // selectDay 함수가 'showingWeek' 변수를 확인해서 버튼을 비활성화해줍니다.
+        selectDay(currentDayChar, true);
+      }
+      // =====================================================
+
+      setTimeout(() => {
+        grid.classList.remove('anim-slide-next-in', 'anim-slide-prev-in');
+      }, 200);
+
+    }, 200);
+  }
+
+  function openNoticeModal() {
+    closeMenu();
+    document.getElementById('noticeInput').value = '';
+    document.getElementById('noticeModal').style.display = 'flex';
+  }
+
+  function submitNotice() {
+    const content = document.getElementById('noticeInput').value;
+    if (!content) return showAlert('내용을 입력해주세요.');
+
+    showLoad('공지 등록 중...');
+    google.script.run.withSuccessHandler(res => {
+      hideLoad();
+      if (res.success) {
+        showAlert('공지가 등록되었습니다.');
+        closeModal('noticeModal');
+        loadDashboard();
+      } else {
+        showAlert('실패: ' + res.msg);
+      }
+    }).writeNotice(currentUser, content);
+  }
+
+  function showFineDetail() {
+    closeMenu();
+    showLoad('벌금 분석 중...');
+    google.script.run.withSuccessHandler(stats => {
+      hideLoad();
+      document.getElementById('statsMyFine').innerText = parseInt(stats.myFine).toLocaleString() + '원';
+      document.getElementById('statsMax').innerText = parseInt(stats.max).toLocaleString() + '원';
+      document.getElementById('statsMin').innerText = parseInt(stats.min).toLocaleString() + '원';
+      document.getElementById('statsPercent').innerText = stats.percent;
+      document.getElementById('statsFunMsg').innerText = getFunMessage(stats.myFine);
+      document.getElementById('fineStatsModal').style.display = 'flex';
+    }).getUserFineStats(currentUser);
+  }
+
+  function getFunMessage(amount) {
+    if (amount <= 5000) return "오... 멋진데요? 😎\n아직까진 여유롭습니다.";
+    if (amount <= 6000) return "메가리카노 3잔 ☕\n마실 수 있는 금액이네요!";
+    if (amount <= 12000) return "뜨끈한 국밥 한 그릇 🍲\n사 먹을 수 있는 돈입니다.";
+    if (amount <= 30000) return "종로 누누 대실 가능! 🏩\n사랑을 나눌 수 있는 돈입니다.";
+    if (amount <= 50000) return "술번개를 두번이나! 🍺\n1차 하고도 2차까지 가능한 돈이네요";
+    if (amount <= 100000) return "ㅋㅋ 비교하기도 힘듭니다 😂\n어쩌다 이렇게 되셨나요...";
+    return "VIP 회원님 입장하십니다 👑\n운영진이 사랑합니다.";
+  }
+
+  function openExemption() {
+    closeMenu();
+    selectedExemptDates = [];
+    document.getElementById('exemptReason').value = '';
+    document.getElementById('exemptCountMsg').innerText = '날짜를 선택해주세요';
+    document.getElementById('nextWeekContainer').style.display = 'none';
+    document.getElementById('expandNextWeekBtn').style.display = 'block';
+
+    renderExemptCalendar();
+
+    showLoad('신청 내역 조회...');
+    google.script.run.withSuccessHandler(history => {
+      hideLoad();
+      const tbody = document.getElementById('exemptListBody');
+      tbody.innerHTML = '';
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px;">신청 내역이 없습니다.</td></tr>';
+      } else {
+        history.forEach(row => {
+          let statusHtml = '<span style="color:#8B95A1;">대기중</span>';
+          if (row.status == '1') statusHtml = '<span style="color:var(--primary); font-weight:bold;">승인</span>';
+          if (row.status == '0') statusHtml = '<span style="color:var(--red); font-weight:bold;">반려</span>';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${row.period}</td><td>${row.reason}</td><td>${statusHtml}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+      document.getElementById('exemptionModal').style.display = 'flex';
+    }).getExemptionHistory(currentUser);
+  }
+
+  function toggleNextWeek() {
+    document.getElementById('nextWeekContainer').style.display = 'block';
+    document.getElementById('expandNextWeekBtn').style.display = 'none';
+  }
+
+  function renderExemptCalendar() {
+    const thisWeekDiv = document.getElementById('exemptThisWeek');
+    const nextWeekDiv = document.getElementById('exemptNextWeek');
+    thisWeekDiv.innerHTML = '';
+    nextWeekDiv.innerHTML = '';
+
+    // 이번주 월요일 기준 (오늘 요일 구해서 역산)
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day == 0 ? -6 : 1);
+    const thisMon = new Date(today);
+    thisMon.setDate(diff);
+
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(thisMon);
+      d.setDate(thisMon.getDate() + i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+
+      const el = document.createElement('div');
+      el.className = 'exempt-day';
+      el.innerText = d.getDate();
+      el.onclick = () => toggleExemptDate(el, dateStr);
+
+      if (i < 7) thisWeekDiv.appendChild(el);
+      else nextWeekDiv.appendChild(el);
+    }
+  }
+
+  function toggleExemptDate(el, dateStr) {
+    if (selectedExemptDates.includes(dateStr)) {
+      selectedExemptDates = selectedExemptDates.filter(d => d !== dateStr);
+      el.classList.remove('selected');
+    } else {
+      selectedExemptDates.push(dateStr);
+      el.classList.add('selected');
+    }
+
+    const cnt = selectedExemptDates.length;
+    document.getElementById('exemptCountMsg').innerText = cnt > 0 ? `${cnt}일 면제 신청` : '날짜를 선택해주세요';
+  }
+
+  function submitExemption() {
+    if (selectedExemptDates.length === 0) return showAlert('면제할 날짜를 선택해주세요.');
+    const reason = document.getElementById('exemptReason').value;
+    if (!reason) return showAlert('사유를 입력해주세요.');
+
+    showLoad('신청 중...');
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        showAlert('신청되었습니다!');
+        openExemption();
+      } else {
+        hideLoad();
+        showAlert('실패: ' + res.msg);
+      }
+    }).requestExemption(currentUser, selectedExemptDates, reason);
+  }
+
+  // [수정] 캘린더 렌더링 (날짜 숫자 표시 강화)
+  function renderCal(weekData, startDate, isNextWeekMode = false) {
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+
+    // 1. 오늘 요일 인덱스 (0:월 ~ 6:일)
+    const jsDay = new Date().getDay();
+    const todayIdx = (jsDay === 0) ? 6 : jsDay - 1;
+
+    const currentSelectedDay = document.getElementById('selectedDayValue').value;
+
+    days.forEach((d, idx) => {
+      const item = weekData[d] || {
+        status: 'NONE'
+      };
+      const div = document.createElement('div');
+
+      // 날짜 표시용
+      const cellDate = new Date(startDate);
+      cellDate.setDate(startDate.getDate() + idx);
+      const dateDisplay = cellDate.getDate();
+
+      // 상태값 존재 여부 (완료/반려/면제 등이 있으면 무조건 보여줌)
+      const hasStatus = (item.status === 'DONE' || item.status === 'REJECT' || item.status === 'EXEMPT');
+
+      // [핵심 로직 수정] 
+      // "활성화(클릭 가능)"가 되는 조건 2가지
+      // 조건 1. (이번 주 모드이면서) AND (오늘을 포함한 과거 요일)
+      // 조건 2. OR (상태값이 이미 있는 경우 - 예: 미리 면제 신청한 날)
+      const isPastOrToday = (!isNextWeekMode && idx <= todayIdx);
+      const isActive = isPastOrToday || hasStatus;
+
+      let extraClass = '';
+      if (item.status === 'DONE') extraClass = 'done';
+      else if (item.status === 'REJECT') extraClass = 'rejected';
+      else if (item.status === 'PENDING') extraClass = 'pending';
+      else if (item.status === 'EXEMPT') extraClass = 'exempt';
+
+      // 활성화 조건이 아니면(즉, 미래거나 다음주면) -> 비활성화(점선) 처리
+      if (!isActive) {
+        extraClass += ' disabled';
+      }
+
+      div.className = `day-item ${extraClass}`;
+
+      // [오늘 표시] - 이번 주 모드일 때만
+      if (!isNextWeekMode && idx === todayIdx) {
+        div.classList.add('today');
+        if (!currentSelectedDay || currentSelectedDay === d) {
+          div.classList.add('selected');
+          if (!currentSelectedDay) {
+            document.getElementById('selectedDayValue').value = d;
+            document.getElementById('daySelectText').innerText = d + "요일";
+            setTimeout(() => selectDay(d, true), 0);
+          }
+        }
+      }
+      // [선택됨 표시]
+      else if (!isNextWeekMode && d === currentSelectedDay) {
+        div.classList.add('selected');
+      }
+
+      // HTML 구성
+      let innerHTML = `<div style="font-size:12px; font-weight:bold; opacity:0.6;">${d}</div><div class="day-date">${dateDisplay}</div>`;
+
+      if (item.status === 'DONE') innerHTML += `<div style="font-size:16px;">✅</div>`;
+      else if (item.status === 'REJECT') innerHTML += `<div style="font-size:16px;">❌</div>`;
+      else if (item.status === 'PENDING') innerHTML += `<div style="font-size:16px;">⏳</div>`;
+      else if (item.status === 'EXEMPT') innerHTML += `<div style="font-size:16px;">⭐</div>`;
+
+      div.innerHTML = innerHTML;
+
+      // 클릭 이벤트 연결 (비활성화 상태가 아닐 때만)
+      if (!div.classList.contains('disabled')) {
+        div.onclick = function() {
+          // UI 갱신
+          document.querySelectorAll('.day-item').forEach(el => el.classList.remove('selected'));
+          div.classList.add('selected');
+
+          // 데이터 선택
+          selectDay(d, true);
+
+          // 말풍선 메시지
+          let tooltipMsg = "";
+          if (item.status === 'REJECT') tooltipMsg = `[반려] ${item.rejectMsg}`;
+          else if (item.status === 'PENDING') tooltipMsg = "관리자 검토 중입니다";
+          else if (item.status === 'EXEMPT') tooltipMsg = "면제 승인된 날입니다";
+          else if (item.status === 'DONE') tooltipMsg = "인증 완료!";
+
+          if (tooltipMsg) {
+            const bubble = document.getElementById('globalTooltip');
+            const rect = div.getBoundingClientRect();
+            bubble.innerText = tooltipMsg;
+            bubble.style.left = (rect.left + (rect.width / 2)) + 'px';
+            bubble.style.top = rect.top + 'px';
+            bubble.classList.add('show');
+            if (tooltipTimeout) clearTimeout(tooltipTimeout);
+            tooltipTimeout = setTimeout(() => {
+              bubble.classList.remove('show');
+            }, 2000);
+          }
+        };
+      }
+
+      grid.appendChild(div);
+    });
+  }
+
+  function handleFileSelect(input) {
+    if (input.files && input.files[0]) {
+
+      // [추가된 부분] 파일이 선택되면 메시지를 띄웁니다 (2초간)
+      const notice = document.getElementById('timestampNotice');
+      // 메시지 내용을 살짝 바꿔주면 더 자연스럽습니다
+      notice.innerHTML = "사진에 타임스탬프를<br>기록하고 있습니다...";
+      notice.classList.add('show');
+
+      // 2초 뒤에 메시지 사라짐
+      setTimeout(() => {
+        notice.classList.remove('show');
+      }, 3000);
+      // [추가된 부분 끝]
+
+      const file = input.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+
+          // 데이터 준비
+          const now = new Date();
+          const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+          const authMark = "SME OFFICIAL VERIFIED | SME 서버에 저장됨";
+
+          // 스타일 설정
+          const fontSize = Math.floor(canvas.width / 28);
+          const margin = fontSize * 0.8;
+          const padding = fontSize * 0.4;
+
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          const timeWidth = ctx.measureText(timestamp).width;
+          ctx.font = `bold ${fontSize * 0.6}px sans-serif`;
+          const authWidth = ctx.measureText(authMark).width;
+
+          const boxWidth = Math.max(timeWidth, authWidth) + (padding * 2);
+          const boxHeight = (fontSize * 2.2) + (padding * 2);
+          const boxX = canvas.width - boxWidth - margin;
+          const boxY = canvas.height - boxHeight - margin;
+
+          // 배경 박스 및 텍스트 그리기
+          ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+          ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+          ctx.fillStyle = "#4992FF";
+          ctx.font = `bold ${fontSize * 0.6}px sans-serif`;
+          ctx.fillText(authMark, boxX + padding, boxY + padding + (fontSize * 0.6));
+
+          ctx.fillStyle = "white";
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.fillText(timestamp, boxX + padding, boxY + padding + (fontSize * 1.8));
+
+          selectedFile = canvas.toDataURL('image/jpeg', 0.8);
+          document.getElementById('miniPreviewImg').src = selectedFile;
+          document.getElementById('previewContainer').style.display = 'flex';
+          document.getElementById('postInputWrapper').style.display = 'block';
+          document.getElementById('selectPhotoBtn').style.display = 'none';
+          document.getElementById('uploadBtn').style.display = 'flex';
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  // [수정] 업로드 함수 (글 내용 포함)
+  function uploadPhoto() {
+    // selectedFile에 이미 합성된 base64 데이터가 들어있음
+    if (!selectedFile) return showAlert('인증사진을 선택해주세요.');
+
+    const day = document.getElementById('selectedDayValue').value;
+    const isPublic = document.getElementById('isPublicValue').value === 'true';
+    const postContent = document.getElementById('postContentInput').value;
+
+    showConfirm(`${day}요일 사진을 제출하시겠습니까?`, () => {
+      showLoad('사진 업로드 중...');
+
+      // FileReader 없이 바로 서버로 전송
+      google.script.run.withSuccessHandler(res => {
+        if (res.success) {
+          showAlert('제출 성공!\n(관리자 확인 대기)');
+          selectedFile = null;
+          document.getElementById('fileInput').value = '';
+          document.getElementById('postContentInput').value = '';
+          document.getElementById('previewContainer').style.display = 'none';
+          document.getElementById('selectPhotoBtn').style.display = 'flex';
+          document.getElementById('uploadBtn').style.display = 'none';
+          loadDashboard();
+        } else {
+          hideLoad();
+          showAlert('실패: ' + res.error);
+        }
+      }).uploadWorkoutPhoto(currentUser, day, selectedFile, isPublic, postContent);
+    });
+  }
+
+  function openMenu() {
+    document.getElementById('menuOverlay').style.display = 'block';
+    setTimeout(() => document.getElementById('sideMenu').classList.add('active'), 10);
+    google.script.run.withSuccessHandler(total => {
+      document.getElementById('totalFineHistory').innerText = parseInt(total).toLocaleString() + '원';
+    }).getUserTotalFine(currentUser);
+  }
+
+  function closeMenu() {
+    document.getElementById('sideMenu').classList.remove('active');
+    setTimeout(() => document.getElementById('menuOverlay').style.display = 'none', 300);
+  }
+
+  function openLedger() {
+    closeMenu();
+    showLoad('장부 불러오는 중...');
+
+    // 1. 관리자 확인
+    let isAdmin = false;
+    try {
+        const saved = JSON.parse(localStorage.getItem('SME_USER') || '{}');
+        if (saved.isAdmin) isAdmin = true;
+    } catch(e) {}
+
+    // 2. 관리자 버튼 UI 제어
+    const adminControls = document.getElementById('adminLedgerControls');
+    if (isAdmin) {
+        adminControls.style.display = 'block';
+    } else {
+        adminControls.style.display = 'none';
+    }
+
+    // 3. 데이터 로드
+    google.script.run.withSuccessHandler(history => {
+      hideLoad();
+      
+      document.getElementById('dashboardScreen').style.display = 'none';
+      document.getElementById('ledgerScreen').style.display = 'block';
+      window.scrollTo(0, 0);
+
+      const tbody = document.getElementById('ledgerBody');
+      tbody.innerHTML = '';
+      
+      // 삭제 버튼 열 표시/숨김
+      const thDel = document.querySelector('.admin-del-col');
+      if (thDel) thDel.style.display = isAdmin ? 'table-cell' : 'none';
+
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:#888;">거래 내역이 없습니다.</td></tr>';
+        document.getElementById('ledgerTotalBalance').innerText = "0원";
+      } else {
+        const hasNum = (str) => /\d/.test(str);
+        const parseMoney = (val) => parseInt(String(val).replace(/,/g, '')) || 0;
+
+        // 최신 잔액 계산
+        const lastItem = history[history.length - 1];
+        const currentTotal = parseMoney(lastItem.balance);
+        document.getElementById('ledgerTotalBalance').innerText = currentTotal.toLocaleString() + "원";
+
+        // 최신순 정렬
+        history.reverse();
+
+        history.forEach((row) => {
+          let amtClass = '';
+          let amtDisplay = '';
+
+          // [핵심] 수입/지출에 따라 클래스(in/out) 부여
+          if (hasNum(row.income)) {
+            amtClass = 'in'; // 파란색 클래스
+            amtDisplay = '+' + parseMoney(row.income).toLocaleString();
+          } else if (hasNum(row.expense)) {
+            amtClass = 'out'; // 빨간색 클래스
+            amtDisplay = '-' + parseMoney(row.expense).toLocaleString();
+          }
+
+          const balanceStr = row.balance ? parseMoney(row.balance).toLocaleString() : '-';
+          const tr = document.createElement('tr');
+          
+          // 삭제 버튼 (관리자용)
+          const delBtnHtml = isAdmin ? 
+            `<td class="l-td l-del">
+               <span onclick="doDeleteTrans(${row.rowNum})">❌</span>
+             </td>` : '';
+
+          tr.innerHTML = `
+                <td class="l-td">
+                    <div class="l-date">${row.date}</div>
+                    <div class="l-desc">${row.desc}</div>
+                </td>
+                <td class="l-td l-who">
+                    ${row.who}
+                </td>
+                <td class="l-td l-amt ${amtClass}">
+                    ${amtDisplay}
+                </td>
+                <td class="l-td l-bal">
+                    ${balanceStr}
+                </td>
+                ${delBtnHtml}
+            `;
+          tbody.appendChild(tr);
+        });
+      }
+    }).getTransactionHistory();
+  }
+
+  // [신규] 장부 화면 닫기 (뒤로가기)
+  function closeLedgerPage() {
+    document.getElementById('ledgerScreen').style.display = 'none';
+    document.getElementById('dashboardScreen').style.display = 'block';
+  }
+
+  // [신규] 수기 입력 모달 열기
+  function openManualTransModal() {
+     // 오늘 날짜 기본 세팅
+     const now = new Date();
+     const yyyy = now.getFullYear();
+     const mm = String(now.getMonth() + 1).padStart(2, '0');
+     const dd = String(now.getDate()).padStart(2, '0');
+     
+     document.getElementById('mtDate').value = `${yyyy}-${mm}-${dd}`;
+     document.getElementById('mtWho').value = '';
+     document.getElementById('mtAmount').value = '';
+     document.getElementById('mtDesc').value = '';
+     
+     document.getElementById('manualTransModal').style.display = 'flex';
+  }
+
+  // [신규] 수기 입력 저장
+  function submitManualTrans() {
+     const date = document.getElementById('mtDate').value; // YYYY-MM-DD
+     // 포맷 변경 (YYYY-MM-DD -> YYYY.MM.DD)
+     const dateFormatted = date.replace(/-/g, '.');
+     
+     const type = document.getElementById('mtType').value;
+     const who = document.getElementById('mtWho').value;
+     const amount = document.getElementById('mtAmount').value;
+     const desc = document.getElementById('mtDesc').value;
+
+     if(!date || !who || !amount || !desc) return showAlert('모든 항목을 입력해주세요.');
+
+     showLoad('장부에 기록 중...');
+     google.script.run.withSuccessHandler(res => {
+         if(res.success) {
+             showAlert('기록되었습니다.');
+             closeModal('manualTransModal');
+             openLedger(); // 장부 새로고침
+         } else {
+             hideLoad();
+             showAlert('실패: ' + res.msg);
+         }
+     }).addManualTransaction(currentUser, dateFormatted, type, amount, who, desc);
+  }
+
+  // [신규] 내역 삭제 실행
+  function doDeleteTrans(rowNum) {
+     showConfirm('정말 이 내역을 삭제하시겠습니까?\n(이후 잔액이 재계산됩니다)', () => {
+         showLoad('삭제 및 재계산 중...');
+         google.script.run.withSuccessHandler(res => {
+             if(res.success) {
+                 showAlert('삭제되었습니다.');
+                 openLedger(); // 장부 새로고침
+             } else {
+                 hideLoad();
+                 showAlert('실패: ' + res.msg);
+             }
+         }).deleteTransaction(currentUser, rowNum);
+     });
+  }
+
+  function runAggregation() {
+    closeMenu();
+    showLoad('집계 가능 여부 확인 중...');
+    google.script.run.withSuccessHandler(checkRes => {
+      hideLoad();
+      const proceedAgg = () => {
+        showLoad('주간 집계 및 데이터 저장 중...');
+        const saved = JSON.parse(localStorage.getItem('SME_USER') || '{}');
+        const currentNick = saved.nick || document.getElementById('userName').innerText;
+        google.script.run.withSuccessHandler(res => {
+          hideLoad();
+          if (res.success) {
+            showAlert(res.message);
+            loadDashboard(saved.isAdmin);
+          } else {
+            showAlert('실패: ' + res.message);
+          }
+        }).adminAggregateWeek(currentNick);
+      };
+      if (checkRes.recent) {
+        const msg = `⚠️ 경고: 최근 24시간 이내에 집계된 기록이 있습니다.\n[실행자] ${checkRes.user}\n[시간] 약 ${checkRes.hoursAgo}시간 ${checkRes.minsAgo}분 전\n그래도 초기화하시겠습니까?`;
+        showConfirm(msg, proceedAgg);
+      } else {
+        showConfirm("지난주 데이터를 집계하고 초기화합니다.\n진행하시겠습니까?", proceedAgg);
+      }
+    }).checkAggregationStatus();
+  }
+
+  function checkAndPayFine() {
+    showLoad('벌금 내역 조회 중...');
+
+    // 1. 지난주 정산 내역 조회
+    google.script.run.withSuccessHandler(function(res) {
+      
+      // 2. 누적 벌금 조회 + 재미있는 문구 표시
+      google.script.run.withSuccessHandler(total => {
+          const amount = parseInt(total);
+          document.getElementById('modalTotalFine').innerText = amount.toLocaleString() + '원';
+          
+          // 재미있는 문구 업데이트
+          const funMsg = getFunMessage(amount);
+          document.getElementById('modalFunMsg').innerText = funMsg;
+
+      }).getUserTotalFine(currentUser);
+
+      hideLoad();
+
+      if (!res.found) {
+        showAlert(res.msg);
+        return;
+      }
+      if (res.isNew) {
+        showAlert("신입 회원이므로 정산할 내역이 없습니다! \n열심히 운동해주세요!");
+        return;
+      }
+
+      // 지난주 캘린더 렌더링
+      if (res.prevWeekData) {
+        renderPastCal(res.prevWeekData);
+        document.getElementById('pastCalendarArea').style.display = 'block';
+      } else {
+        document.getElementById('pastCalendarArea').style.display = 'none';
+      }
+
+      const payInfo = document.getElementById('paymentInfoArea');
+
+      // 만약 '알림 복사 버튼'이 남아있다면 제거 (찌꺼기 제거용)
+      const oldBtn = document.getElementById("btnCopyNoti");
+      if(oldBtn) oldBtn.remove();
+
+      if (res.paid) {
+        document.getElementById('payModalMsg').innerHTML = `<strong style="color:#3182F6;">✅ 납부 완료되었습니다!</strong><br>지난주 운동 횟수: ${res.count}회`;
+        payInfo.style.display = 'none';
+      } else {
+        var fine = parseInt(res.fine);
+        var count = res.count;
+        var week = res.weekRange;
+
+        if (fine === 0) {
+          document.getElementById('payModalMsg').innerHTML = `[${week}]<br>총 인정 <strong>${count}회</strong> (운동+면제 기준)<br><span style="color:#3182F6; font-weight:bold;">벌금이 없습니다.</span>`;
+          payInfo.style.display = 'none';
+        } else {
+          var msg = `[${week}]<br>총 인정 <strong>${count}회</strong> (운동+횟수 기준)<br><br>` +
+            `납부하실 벌금은<br><strong style='color:#FF3B30; font-size:24px;'>${fine.toLocaleString()}원</strong> 입니다.`;
+          document.getElementById('payModalMsg').innerHTML = msg;
+
+          payInfo.style.display = 'block';
+
+          // 토스 송금
+          document.getElementById('btnToss').onclick = function() {
+            var url = "supertoss://send?bank=90&accountNo=79421981948&origin=app&amount=" + fine;
+            window.location.href = url;
+          };
+          // 카카오뱅크
+          document.getElementById('btnKakao').onclick = function() {
+            copyAccount(false);
+            setTimeout(function() {
+              alert("계좌번호가 복사되었습니다.\n카카오뱅크가 열리면 붙여넣기 하세요.");
+              window.location.href = 'kakaobank://';
+            }, 500);
+          };
+        }
+      }
+      document.getElementById('payModal').style.display = 'flex';
+    }).checkAndPayFine(currentUser);
+  }
+
+  function renderPastCal(data) {
+    const grid = document.getElementById('pastCalGrid');
+    grid.innerHTML = '';
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+
+    days.forEach(d => {
+      const status = data[d];
+      const div = document.createElement('div');
+      div.className = 'past-day-item';
+
+      let icon = '';
+      let text = d;
+
+      if (status === 'DONE') {
+        div.classList.add('done');
+        icon = '✅';
+      } else if (status === 'EXEMPT') {
+        div.classList.add('exempt');
+        icon = '⭐';
+      } else {
+        // NONE, REJECT, PENDING 등은 실패(X)로 간주하거나 빈칸
+        // 벌금 조회용이므로 수행하지 않은 날은 X 처리 (시각적 효과)
+        div.classList.add('fail');
+        icon = ''; // 그냥 빈칸 혹은 X
+      }
+
+      div.innerHTML = `<div class="past-day-icon">${icon}</div><div class="past-day-text">${text}</div>`;
+      grid.appendChild(div);
+    });
+  }
+
+  // [수정] 계좌복사 함수 (checkAndPayFine 바로 아래에 두세요)
+  function copyAccount(showMsg = true) {
+    const text = "7942-19-81948";
+
+    const handleCopy = () => {
+      if (showMsg) showAlert('계좌번호가 복사되었습니다!');
+    };
+
+    // 최신 브라우저 방식 시도 후 실패시 구형 방식 사용
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(handleCopy).catch(() => {
+        fallbackCopy(text, showMsg);
+      });
+    } else {
+      fallbackCopy(text, showMsg);
+    }
+  }
+
+  // [수정] 구형 기기 호환용 복사 함수
+  function fallbackCopyText(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        showAlert('복사되었습니다!');
+    } catch (err) {
+        showAlert('직접 복사해주세요.');
+    }
+    document.body.removeChild(textArea);
+  }
+
+  function logout() {
+    showConfirm('로그아웃 하시겠습니까?', () => {
+      // 1. 정보 삭제 (순서 중요)
+      localStorage.removeItem('SME_USER');
+      eraseCookie('SME_USER');
+
+      // 2. 전역 변수 초기화
+      currentUser = null;
+      isAutoLogin = false;
+
+      // 3. UI 초기화
+      document.getElementById('loginId').value = '';
+      document.getElementById('loginPw').value = '';
+      document.getElementById('autoLoginCheck').classList.remove('active');
+
+      closeMenu();
+      document.getElementById('adminWatermark').classList.remove('active');
+
+      // 4. [추가] 확실한 UI 갱신을 위해 화면 전환
+      document.getElementById('dashboardScreen').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'flex';
+    });
+  }
+
+  function showLoad(m) {
+    // 메시지 설정
+    const cleanMsg = m ? m.replace(/\.+$/, '') : "로딩 중";
+    const msgEl = document.getElementById('loadMsg');
+    if(msgEl) {
+        msgEl.innerText = cleanMsg;
+        msgEl.classList.add('loading-dots'); // 점(...) 애니메이션은 유지
+    }
+
+    // 로딩창 보여주기
+    const loader = document.getElementById('loader');
+    if(loader) loader.style.display = 'flex';
+  }
+
+  function hideLoad() {
+    // 로딩창 숨기기
+    const loader = document.getElementById('loader');
+    if(loader) loader.style.display = 'none';
+  }
+
+  function linkify(text) {
+    if (!text) return ""; // 텍스트가 없을 경우 에러 방지
+
+    // 1. URL 링크 만들기
+    var urlRegex = /(https?:\/\/[^\s]+)/g;
+    var linkedText = text.replace(urlRegex, function(url) {
+      return '<a href="' + url + '" target="_blank" style="color:#3182F6; text-decoration:underline; font-weight:700;">' + url + '</a>';
+    });
+
+    // 2. [핵심] 줄바꿈(\n)을 <br> 태그로 변환하여 리턴
+    return linkedText.replace(/\n/g, '<br>');
+  }
+
+  function openAdminReview() {
+    closeMenu();
+    showLoad('데이터 불러오는 중...');
+
+    // 1. 대기 목록 불러오기
+    google.script.run.withSuccessHandler(function(list) {
+      const container = document.getElementById('adminReviewList');
+      const batchArea = document.getElementById('batchActionArea');
+      container.innerHTML = '';
+
+      if (list.length === 0) {
+        container.innerHTML = '<div style="padding:40px 0; color:#B0B8C1; text-align:center;">대기 중인 검토 항목이 없습니다.</div>';
+        batchArea.style.display = 'none'; 
+      } else {
+        batchArea.style.display = 'block'; 
+        document.getElementById('checkAllReview').checked = false;
+
+        list.forEach(function(item) {
+          const div = document.createElement('div');
+          div.className = 'review-item';
+          div.style.cssText = "display:flex; flex-direction:column; gap:12px; margin-bottom:16px; border:1px solid #F2F4F6; border-radius:16px; padding:16px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.03);";
+
+          let profileHtml = item.profileUrl ?
+            `<img src="${item.profileUrl}" style="width:28px; height:28px; border-radius:50%; object-fit:cover; margin-right:8px; border:1px solid #eee;" referrerpolicy="no-referrer">` :
+            `<div style="width:28px; height:28px; border-radius:50%; background:#eee; display:flex; align-items:center; justify-content:center; margin-right:8px; font-size:14px;">👤</div>`;
+
+          let testBadge = item.isTest ? `<span style="background:#8B95A1; color:white; font-size:10px; padding:2px 5px; border-radius:4px; margin-left:4px;">TEST</span>` : '';
+
+          // [핵심] 체크박스는 CSS(.review-chk)가 제어하도록 class만 부여
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="display:flex; align-items:center; cursor:pointer; flex:1;">
+                <input type="checkbox" class="review-chk" value="${item.row}|${item.col}">
+                ${profileHtml}
+                <span style="font-size:15px; font-weight:700; color:#333;">${item.nickname}</span>
+                ${testBadge}
+              </label>
+              <span style="font-size:12px; color:#3182F6; font-weight:700; background:#E8F3FF; padding:4px 8px; border-radius:8px;">${item.day}요일</span>
+            </div>
+            
+            <img src="${item.imageUrl}" style="width:100%; border-radius:12px; border:1px solid #eee; display:block;" onclick="window.open('${item.imageUrl}')" referrerpolicy="no-referrer">
+            
+            <div class="review-actions" style="display:flex; gap:8px;">
+              <button class="act-btn act-approve" style="flex:1; padding:12px; border-radius:10px; border:none; background:#E8F3FF; color:#3182F6; font-weight:700;" onclick="submitReview(${item.row}, ${item.col}, 'APPROVE')">승인(O)</button>
+              <button class="act-btn act-reject" style="flex:1; padding:12px; border-radius:10px; border:none; background:#FFEAEA; color:#FF3B30; font-weight:700;" onclick="openRejectModal(${item.row}, ${item.col})">반려(X)</button>
+            </div>`;
+          container.appendChild(div);
+        });
+      }
+
+      // 2. 히스토리 로드
+      google.script.run.withSuccessHandler(function(history) {
+        hideLoad();
+        const histContainer = document.getElementById('adminHistoryList');
+        histContainer.innerHTML = '';
+        if (history.length === 0) {
+          histContainer.innerHTML = '<div style="text-align:center; padding:10px; color:#B0B8C1;">내역 없음</div>';
+        } else {
+          history.forEach(function(h) {
+            const hDiv = document.createElement('div');
+            hDiv.style.cssText = "background:white; border-bottom:1px solid #F2F4F6; padding:10px; display:flex; justify-content:space-between; align-items:center;";
+            let statusHtml = h.status === 'APPROVE' ? '<span style="color:#3182F6; font-weight:bold;">승인</span>' : '<span style="color:#FF3B30; font-weight:bold;">반려</span>';
+            hDiv.innerHTML = `
+              <div style="display:flex; align-items:center; gap:6px;">
+                 <span style="font-weight:700; font-size:13px; color:#333;">${h.nickname}</span> 
+                 <span style="color:#8B95A1; font-size:12px;">(${h.day})</span>
+              </div>
+              <div style="font-size:13px;">${statusHtml}</div>`;
+            histContainer.appendChild(hDiv);
+          });
+        }
+        document.getElementById('adminReviewModal').style.display = 'flex';
+      }).getReviewHistory(currentUser);
+
+    }).getPendingVerifications(currentUser);
+  }
+
+  // [추가] 관리자 뷰용 미니 그리드 생성기 (이번주/다음주 분리)
+  function createAdminSplitGridHtml(selectedDates) {
+    if (!selectedDates || selectedDates.length === 0) return '';
+
+    // 1. 날짜들을 시간 순서대로 정렬 (오류 방지)
+    const sortedDates = selectedDates.map(d => new Date(d)).sort((a, b) => a - b);
+
+    // 2. 기준 월요일 잡기 (가장 빠른 신청 날짜가 속한 주의 월요일)
+    // 이렇게 하면 관리자가 언제 접속하든 상관없이, 신청한 주간의 모양이 나옵니다.
+    const firstDate = sortedDates[0];
+    const day = firstDate.getDay();
+    const diff = firstDate.getDate() - day + (day == 0 ? -6 : 1); // 월요일 계산
+
+    const baseMon = new Date(firstDate);
+    baseMon.setDate(diff);
+    baseMon.setHours(0, 0, 0, 0);
+
+    // 3. 주차별 분류 (신청한 주 / 그 다음 주)
+    const week1Hits = []; // 신청 주간
+    const week2Hits = []; // 신청 주간의 다음 주 (2주치 신청했을 경우)
+
+    sortedDates.forEach(d => {
+      d.setHours(0, 0, 0, 0);
+
+      // 기준 월요일(baseMon)과 며칠 차이나는지 계산
+      const timeDiff = d.getTime() - baseMon.getTime();
+      const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+      // 요일 인덱스 (0:월 ~ 6:일)
+      const dayIdx = (d.getDay() + 6) % 7;
+
+      if (dayDiff >= 0 && dayDiff < 7) {
+        week1Hits.push(dayIdx); // 첫 번째 주
+      } else if (dayDiff >= 7 && dayDiff < 14) {
+        week2Hits.push(dayIdx); // 두 번째 주
+      }
+    });
+
+    // 4. HTML 생성
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    let html = '<div class="admin-exempt-wrapper">';
+
+    // [첫 번째 그리드]
+    html += '<div class="admin-week-label">신청 주간</div><div class="mini-grid-container">';
+    days.forEach((d, i) => {
+      const active = week1Hits.includes(i) ? 'active' : '';
+      html += `<div class="mini-grid-cell ${active}">${d}</div>`;
+    });
+    html += '</div>';
+
+    // [두 번째 그리드] - 만약 기간이 2주에 걸쳐있다면 표시
+    if (week2Hits.length > 0) {
+      html += '<div class="admin-week-label">다음 주간</div><div class="mini-grid-container">';
+      days.forEach((d, i) => {
+        const active = week2Hits.includes(i) ? 'active' : '';
+        html += `<div class="mini-grid-cell ${active}">${d}</div>`;
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function doProcessExempt(row, decision) {
+    showConfirm(decision === 1 ? '승인하시겠습니까?' : '반려하시겠습니까?', () => {
+      showLoad('처리 중...');
+      google.script.run.withSuccessHandler(res => {
+        if (res.success) {
+          showAlert('처리되었습니다.');
+          openAdminExempt();
+          loadDashboard();
+        } else {
+          hideLoad();
+          showAlert('실패: ' + res.msg);
+        }
+      }).processExemption(currentUser, row, decision);
+    });
+  }
+
+  function openMemberList() {
+    closeMenu();
+    showLoad('멤버 목록을 불러오는 중...');
+    google.script.run.withSuccessHandler(members => {
+      hideLoad();
+      const container = document.getElementById('memberListContainer');
+      container.innerHTML = '';
+      if (members.length === 0) {
+        container.innerHTML = '<div style="padding:20px; color:#888;">멤버가 없습니다.</div>';
+      } else {
+        members.forEach(m => {
+          const div = document.createElement('div');
+          div.className = 'member-item';
+          const imgHtml = m.profileUrl ? `<img src="${m.profileUrl}" class="member-img" referrerpolicy="no-referrer">` : `<div class="member-img" style="background:#E5E8EB; display:flex; align-items:center; justify-content:center; color:#888;">👤</div>`;
+          div.innerHTML = `${imgHtml}<div class="member-info">${m.nickname}</div>`;
+          container.appendChild(div);
+        });
+      }
+      document.getElementById('memberModal').style.display = 'flex';
+    }).getAllMembers();
+  }
+
+  function openAdminReview() {
+    closeMenu();
+    showLoad('데이터 불러오는 중...');
+
+    // 1. 대기 목록 불러오기
+    google.script.run.withSuccessHandler(function(list) {
+      const container = document.getElementById('adminReviewList');
+      const batchArea = document.getElementById('batchActionArea');
+      container.innerHTML = '';
+
+      if (list.length === 0) {
+        container.innerHTML = '<div style="padding:40px 0; color:#B0B8C1; text-align:center;">대기 중인 검토 항목이 없습니다.</div>';
+        batchArea.style.display = 'none'; 
+      } else {
+        batchArea.style.display = 'block'; 
+        document.getElementById('checkAllReview').checked = false;
+
+        list.forEach(function(item) {
+          const div = document.createElement('div');
+          div.className = 'review-item';
+          // [수정] 박스 스타일 간소화
+          div.style.cssText = "display:flex; flex-direction:column; gap:12px; margin-bottom:16px; border:1px solid #F2F4F6; border-radius:16px; padding:16px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.03);";
+
+          let profileHtml = item.profileUrl ?
+            `<img src="${item.profileUrl}" style="width:28px; height:28px; border-radius:50%; object-fit:cover; margin-right:8px; border:1px solid #eee;" referrerpolicy="no-referrer">` :
+            `<div style="width:28px; height:28px; border-radius:50%; background:#eee; display:flex; align-items:center; justify-content:center; margin-right:8px; font-size:14px;">👤</div>`;
+
+          let testBadge = item.isTest ? `<span style="background:#8B95A1; color:white; font-size:10px; padding:2px 5px; border-radius:4px; margin-left:4px;">TEST</span>` : '';
+
+          // [수정] 체크박스의 인라인 width/height 제거 (CSS가 제어함)
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="display:flex; align-items:center; cursor:pointer; flex:1;">
+                <input type="checkbox" class="review-chk" value="${item.row}|${item.col}">
+                ${profileHtml}
+                <span style="font-size:15px; font-weight:700; color:#333;">${item.nickname}</span>
+                ${testBadge}
+              </label>
+              <span style="font-size:12px; color:#3182F6; font-weight:700; background:#E8F3FF; padding:4px 8px; border-radius:8px;">${item.day}요일</span>
+            </div>
+            
+            <img src="${item.imageUrl}" style="width:100%; border-radius:12px; border:1px solid #eee; display:block;" onclick="window.open('${item.imageUrl}')" referrerpolicy="no-referrer">
+            
+            <div class="review-actions" style="display:flex; gap:8px;">
+              <button class="act-btn act-approve" style="flex:1; padding:12px; border-radius:10px; border:none; background:#E8F3FF; color:#3182F6; font-weight:700;" onclick="submitReview(${item.row}, ${item.col}, 'APPROVE')">승인(O)</button>
+              <button class="act-btn act-reject" style="flex:1; padding:12px; border-radius:10px; border:none; background:#FFEAEA; color:#FF3B30; font-weight:700;" onclick="openRejectModal(${item.row}, ${item.col})">반려(X)</button>
+            </div>`;
+          container.appendChild(div);
+        });
+      }
+
+      // 2. 히스토리 로드
+      google.script.run.withSuccessHandler(function(history) {
+        hideLoad();
+        const histContainer = document.getElementById('adminHistoryList');
+        histContainer.innerHTML = '';
+        if (history.length === 0) {
+          histContainer.innerHTML = '<div style="text-align:center; padding:10px; color:#B0B8C1;">내역 없음</div>';
+        } else {
+          history.forEach(function(h) {
+            const hDiv = document.createElement('div');
+            hDiv.style.cssText = "background:white; border-bottom:1px solid #F2F4F6; padding:10px; display:flex; justify-content:space-between; align-items:center;";
+            let statusHtml = h.status === 'APPROVE' ? '<span style="color:#3182F6; font-weight:bold;">승인</span>' : '<span style="color:#FF3B30; font-weight:bold;">반려</span>';
+            hDiv.innerHTML = `
+              <div style="display:flex; align-items:center; gap:6px;">
+                 <span style="font-weight:700; font-size:13px; color:#333;">${h.nickname}</span> 
+                 <span style="color:#8B95A1; font-size:12px;">(${h.day})</span>
+              </div>
+              <div style="font-size:13px;">${statusHtml}</div>`;
+            histContainer.appendChild(hDiv);
+          });
+        }
+        document.getElementById('adminReviewModal').style.display = 'flex';
+      }).getReviewHistory(currentUser);
+
+    }).getPendingVerifications(currentUser);
+  }
+
+  function toggleAllReviews(source) {
+    const checkboxes = document.querySelectorAll('.review-chk'); // ID가 아닌 class로 선택
+    checkboxes.forEach(chk => {
+        // 전체선택 체크박스 본인은 제외하고 나머지 변경
+        if(chk !== source) chk.checked = source.checked;
+    });
+  }
+
+  // [수정] 일괄 승인 실행 (디버깅 로그 추가)
+  function submitBatchApprove() {
+    // 1. 체크된 항목 수집
+    const checkboxes = document.querySelectorAll('.review-chk:checked');
+    console.log("선택된 체크박스 개수:", checkboxes.length); // 디버깅용
+
+    if (checkboxes.length === 0) {
+        return showAlert('선택된 항목이 없습니다.');
+    }
+
+    // 2. 데이터 파싱
+    const items = [];
+    checkboxes.forEach(chk => {
+        const val = chk.value;
+        if(val && val.includes('|')) {
+            const parts = val.split('|');
+            items.push({ row: parts[0], col: parts[1] });
+        }
+    });
+    
+    console.log("파싱된 아이템:", items); // 디버깅용
+
+    if (items.length === 0) {
+        return showAlert('유효한 선택 항목이 없습니다.');
+    }
+
+    // 3. 확인 창 띄우기
+    showConfirm(
+      `선택한 ${items.length}건을 일괄 승인하시겠습니까?\n\n⚠️ 사진을 꼼꼼히 확인하셨나요?`, 
+      function() { // 화살표 함수 대신 일반 함수 사용 (호환성)
+        showLoad('일괄 처리 중...');
+        
+        google.script.run
+        .withSuccessHandler(function(res) {
+            hideLoad(); // 로딩 끄기
+            if (res.success) {
+                showAlert(`${res.count}건 처리 완료!`);
+                openAdminReview(); // 목록 새로고침
+                loadDashboard();   // 대시보드 갱신
+            } else {
+                showAlert('실패: ' + res.msg);
+            }
+        })
+        .withFailureHandler(function(err) {
+             hideLoad();
+             showAlert('서버 오류: ' + err);
+        })
+        .processVerificationBatch(currentUser, items); 
+    });
+  }
+
+  function openRejectModal(row, col) {
+    targetRejectRow = row;
+    targetRejectCol = col;
+    document.getElementById('rejectReasonInput').value = '';
+    document.getElementById('rejectModal').style.display = 'flex';
+  }
+
+  function submitReject() {
+    const reason = document.getElementById('rejectReasonInput').value;
+    if (!reason) return showAlert('반려 사유를 입력해주세요.');
+    closeModal('rejectModal');
+    submitReview(targetRejectRow, targetRejectCol, 'REJECT', reason);
+  }
+
+  function submitReview(row, col, decision, reason = "") {
+    showLoad('처리 중...');
+    google.script.run.withSuccessHandler(res => {
+      if (res.success) {
+        showAlert('처리되었습니다.');
+        openAdminReview();
+        loadDashboard();
+      } else {
+        hideLoad();
+        showAlert('실패: ' + res.msg);
+      }
+    }).processVerification(currentUser, row, col, decision, reason);
+  }
+
+  let tutoStep = 0;
+  const userTutoData = [{
+      target: null,
+      reqMenu: false,
+      title: "환영합니다! 👋",
+      msg: "새로워진 SME 운동관리 앱!\n핵심 기능들을 하나씩 알려드릴게요."
+    },
+    {
+      target: document.getElementById('noticeBanner').style.display !== 'none' ? '#noticeBanner' : '.dashboard-header',
+      reqMenu: false,
+      title: "📢 공지사항 & 알림",
+      msg: "운영진의 공지사항이 이곳에 뜹니다.\n새로운 공지가 있으면 'N' 뱃지가 표시돼요!"
+    },
+    {
+      target: '#tutoStats',
+      reqMenu: false,
+      title: "📊 나의 현황",
+      msg: "이번 달 운동 횟수와 예상 벌금입니다.\n숫자를 '클릭'하면 상세 내용이 말풍선으로 뜹니다."
+    },
+    {
+      target: '#calendarWrapper',
+      reqMenu: false,
+      title: "🗓 주간 캘린더",
+      msg: "상단의 범례(⏳,✅,❌,⭐)를 참고하여\n날짜별 진행 상황을 확인하세요.\n화살표(◀ ▶)로 지난주/다음주 이동이 가능합니다."
+    },
+    {
+      target: '.action-row',
+      reqMenu: false,
+      title: "📷 인증 & 공유",
+      msg: "1. 인증할 요일을 선택하고 사진을 올리세요.\n2. '갤러리 공유' 버튼으로 공개/비공개를 설정합니다."
+    },
+    {
+      target: '.gallery-section',
+      reqMenu: false,
+      title: "👀 운동 갤러리",
+      msg: "다른 멤버들은 어떻게 운동할까요?\n사진을 눌러서 '리액션(🔥)'을 보내보세요!"
+    },
+    {
+      target: '#tutoMenu',
+      reqMenu: false,
+      title: "≡ 더보기 메뉴",
+      msg: "자, 이제 메뉴를 열어서\n숨겨진 꿀기능들을 살펴볼까요?"
+    },
+    // --- 메뉴 열림 (reqMenu: true) ---
+    {
+      target: '#tutoProfile',
+      reqMenu: true,
+      title: "👤 내 정보 수정",
+      msg: "프로필 사진, 비밀번호, 본인확인 질문을\n여기서 변경할 수 있습니다."
+    },
+    {
+      target: 'div[data-id="settle"]',
+      reqMenu: true,
+      title: "💸 벌금 관리",
+      msg: "지난주 벌금과 누적 벌금을 확인하고,\n카카오뱅크/토스로 바로 송금할 수 있습니다."
+    },
+    {
+      target: 'div[data-id="exempt"]',
+      reqMenu: true,
+      title: "🛡️ 면제 신청",
+      msg: "아프거나 바쁠 땐 미리 신청하세요.\n관리자가 승인하면 벌금이 면제됩니다!"
+    },
+    {
+      target: 'div[data-id="challenge"]',
+      reqMenu: true,
+      title: "🏆 SME 챌린지",
+      msg: "다양한 이벤트 챌린지에 도전하고\n보상도 획득해보세요! (예: 커피 쿠폰)"
+    },
+    {
+      target: 'div[data-id="ranking"]',
+      reqMenu: true,
+      title: "🥇 SME 랭킹",
+      msg: "나의 운동 순위는 몇 등일까요?\n전체 멤버와 선의의 경쟁을 해보세요."
+    },
+    {
+      target: 'div[data-id="record"]',
+      reqMenu: true,
+      title: "📊 내 기록 분석",
+      msg: "나의 주간 운동 추이와 벌금 변화를\n멋진 그래프로 분석해드립니다. 📈"
+    },
+    {
+      target: 'div[data-id="ledger"]',
+      reqMenu: true,
+      title: "📒 회비 장부",
+      msg: "모임의 벌금 입금 및 지출 내역이\n투명하게 공개됩니다."
+    },
+    {
+      target: 'div[data-id="ai"]',
+      reqMenu: true,
+      title: "🤖 AI 코치",
+      msg: "앱 사용법이나 운동 상식이 궁금하면\n언제든 AI에게 물어보세요!"
+    },
+    {
+      target: '#userMenuGrid', 
+      reqMenu: true,
+      title: "👆 순서 변경 가능",
+      msg: "자주 쓰는 기능이 있나요?\n아이콘을 '꾹 눌러서' 편한 위치로 옮겨보세요!"
+    },
+    {
+      target: null,
+      reqMenu: false,
+      title: "준비 완료! 😎",
+      msg: "이제 모든 기능을 마스터하셨습니다.\n오늘도 즐겁게 득근하세요!"
+    }
+  ];
+
+  function confirmTutorial(type) {
+    if (type) currentTutoType = type;
+    closeMenu();
+    const msg = (currentTutoType === 'admin') ? "관리자 기능을 둘러보시겠습니까?" : "앱 사용법을 간단히 둘러보시겠습니까?";
+    document.getElementById('tutoStartMsg').innerText = msg;
+    document.getElementById('tutoStartModal').style.display = 'flex';
+  }
+
+  function startTutorial(forceType = null) {
+    document.getElementById('tutoStartModal').style.display = 'none';
+    if (forceType) currentTutoType = forceType;
+    tutoStep = 0;
+    openMenu();
+    document.getElementById('tutoOverlay').style.display = 'block';
+    showStep();
+  }
+
+  function startAdminTutorial() {
+    const grid = document.getElementById('adminGrid');
+    const arrow = document.getElementById('adminArrow');
+    const hint = document.getElementById('adminDragHint'); // 추가
+
+    // 메뉴가 접혀있다면 강제로 펼치기
+    if (grid && grid.style.display === 'none') {
+        grid.style.display = 'grid';
+        arrow.classList.remove('closed');
+        if(hint) hint.style.display = 'block'; // 문구도 같이 펼치기
+    }
+    
+    startTutorial('admin');
+  }
+
+  const adminTutoData = [{
+      target: null,
+      reqMenu: false,
+      title: "관리자님 환영합니다! 👮‍♂️",
+      msg: "새로워진 관리자 기능을 안내해 드립니다.\n더 직관적이고 강력해졌습니다!"
+    },
+    {
+      target: '#tutoMenu',
+      reqMenu: false,
+      title: "메뉴 위치",
+      msg: "관리자 메뉴는 사이드바 하단에 위치합니다.\n메뉴를 열어볼까요?"
+    },
+    {
+      target: '#adminMenuSection',
+      reqMenu: true,
+      title: "👑 관리자 존 (Admin Zone)",
+      msg: "모든 관리 기능이 이곳에 모여있습니다.\n제목을 누르면 메뉴를 '접었다 폈다' 할 수 있습니다."
+    },
+    {
+      target: '.admin-toggle-header',
+      reqMenu: true,
+      title: "🔴 통합 알림 뱃지",
+      msg: "메뉴가 접혀 있어도 걱정 마세요.\n처리해야 할 건수가 있다면(승인/검토 등)\n이곳에 빨간 숫자로 표시됩니다."
+    },
+    {
+      target: 'div[data-id="chal_manage"]',
+      reqMenu: true,
+      title: "🏆 챌린지 관리",
+      msg: "앱에서 바로 새 챌린지를 등록할 수 있습니다.\n지난 챌린지는 '상세 화면'에서 삭제 가능합니다."
+    },
+    {
+      target: 'div[data-id="review"]',
+      reqMenu: true,
+      title: "📸 사진 검토",
+      msg: "회원들의 인증 사진을 확인하고 승인(O)하거나,\n사유를 적어 반려(X)합니다."
+    },
+    {
+      target: 'div[data-id="exempt_manage"]',
+      reqMenu: true,
+      title: "📝 면제 관리",
+      msg: "아픈 회원의 면제 신청을 확인하고 처리합니다."
+    },
+    {
+      target: 'div[data-id="fine_manage"]', // [수정됨]
+      reqMenu: true,
+      title: "💸 미납 관리",
+      msg: "지난주 벌금 미납자 목록을 확인합니다.\n입금이 확인되면 버튼을 누르세요.\n'회비 장부'에 자동으로 수입이 기록됩니다! 📒"
+    },
+    {
+      target: 'div[data-id="join"]', // [수정됨]
+      reqMenu: true,
+      title: "👥 멤버 관리 (업그레이드)",
+      msg: "단순 가입 승인뿐만 아니라,\n[멤버 목록] 탭에서 강제 추방을 하거나\n[탈퇴 멤버] 탭에서 회원을 복구할 수 있습니다."
+    },
+    {
+      target: 'div[data-id="agg"]',
+      reqMenu: true,
+      title: "🔄 주간 집계 (중요)",
+      msg: "한 주가 끝나면(월요일 오전) 꼭 눌러주세요.\n데이터를 정산하고 새로운 주를 시작합니다."
+    },
+    {
+      target: '#adminMenuSection',
+      reqMenu: true,
+      title: "👆 순서 변경 가능",
+      msg: "자주 쓰는 기능이 있나요?\n아이콘을 '꾹 눌러서' 편한 위치로 옮겨보세요!)"
+    },
+    {
+      target: null,
+      reqMenu: false,
+      title: "가이드 종료 🫡",
+      msg: "이제 모든 준비가 되었습니다.\n오늘도 SME를 잘 부탁드립니다!"
+    }
+  ];
+
+  // [3] 다음 단계로 이동
+  function nextStep() {
+    const dataList = (currentTutoType === 'admin') ? adminTutoData : userTutoData;
+    tutoStep++;
+
+    // 마지막 단계 이상으로 가면 종료
+    if (tutoStep >= dataList.length) {
+      endTutorial();
+    } else {
+      showStep();
+    }
+  }
+
+  // [4] 튜토리얼 종료 함수 (확실하게 닫기)
+  function endTutorial() {
+    // 오버레이 숨기기
+    document.getElementById('tutoOverlay').style.display = 'none';
+    document.getElementById('tutoStartModal').style.display = 'none';
+
+    // 다시 보지 않도록 저장
+    if (currentTutoType === 'admin') {
+      localStorage.setItem(ADMIN_GUIDE_KEY, 'done');
+    } else {
+      localStorage.setItem(GUIDE_KEY, 'done');
+    }
+    google.script.run.withSuccessHandler(() => {}).updateTutorialStatus(currentUser, currentTutoType);
+    // 메뉴가 열려있다면 닫아주기
+    closeMenu();
+  }
+
+  // [5] 스텝 준비 (메뉴 제어 및 딜레이)
+  function showStep() {
+    const dataList = (currentTutoType === 'admin') ? adminTutoData : userTutoData;
+    const data = dataList[tutoStep];
+
+    const spot = document.getElementById('tutoSpot');
+    const card = document.getElementById('tutoCard');
+
+    const sidebar = document.getElementById('sideMenu');
+    const isMenuOpen = sidebar.classList.contains('active');
+
+    let delay = 100;
+
+    if (data.reqMenu && !isMenuOpen) {
+      openMenu();
+      delay = 450;
+    } else if (!data.reqMenu && isMenuOpen) {
+      closeMenu();
+      delay = 450;
+    }
+
+    setTimeout(() => {
+      showStepReal(data, spot, card);
+    }, delay);
+  }
+
+  // [6] 하이라이트 및 카드 표시
+  function showStepReal(data, spot, card) {
+    const dataList = (currentTutoType === 'admin') ? adminTutoData : userTutoData;
+
+    document.getElementById('tutoTitle').innerText = data.title;
+    document.getElementById('tutoText').innerText = data.msg;
+
+    const nextBtn = document.querySelector('.tuto-next');
+    // 마지막 단계면 버튼 텍스트를 '시작하기'로 변경
+    if (tutoStep === dataList.length - 1) {
+      nextBtn.innerText = "시작하기";
+    } else {
+      nextBtn.innerText = "다음 >";
+    }
+
+    card.classList.remove('show');
+
+    if (data.target) {
+      const targetEl = document.querySelector(data.target);
+
+      if (targetEl) {
+        targetEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+
+        setTimeout(() => {
+          const rect = targetEl.getBoundingClientRect();
+          const padding = 10;
+
+          spot.style.top = (rect.top - padding) + 'px';
+          spot.style.left = (rect.left - padding) + 'px';
+          spot.style.width = (rect.width + (padding * 2)) + 'px';
+          spot.style.height = (rect.height + (padding * 2)) + 'px';
+          spot.style.opacity = 1;
+
+          let cardTop = rect.bottom + 20 + padding;
+          if (cardTop + 200 > window.innerHeight) {
+            cardTop = rect.top - 200 - padding;
+          }
+          if (cardTop < 20) cardTop = 20;
+
+          card.style.top = cardTop + 'px';
+          card.style.left = '50%';
+          card.style.transform = 'translateX(-50%)';
+          card.style.position = 'absolute';
+
+          card.classList.add('show');
+        }, 500);
+
+      } else {
+        showCenterCard(spot, card);
+      }
+    } else {
+      showCenterCard(spot, card);
+    }
+  }
+
+  function showCenterCard(spot, card) {
+    spot.style.opacity = 0;
+    card.style.top = '50%';
+    card.style.left = '50%';
+    card.style.transform = 'translate(-50%, -50%)';
+    card.style.position = 'fixed';
+    setTimeout(() => card.classList.add('show'), 100);
+  }
+
+  // [추가] 회원가입용 프로필 이미지 처리
+  function openRegister() {
+    document.getElementById('regModal').style.display = 'flex';
+    document.getElementById('regNick').value = '';
+    document.getElementById('regPw').value = '';
+    document.getElementById('regPwConfirm').value = '';
+    document.getElementById('regAnswer').value = '';
+    regProfileFile = null;
+    document.getElementById('regProfilePreview').style.display = 'none';
+  }
+
+  // [추가] 비밀번호 찾기 모달 열기
+  function openFindPw() {
+    document.getElementById('findPwModal').style.display = 'flex';
+    document.getElementById('findNick').value = '';
+    document.getElementById('findAnswer').value = '';
+    document.getElementById('newPw').value = '';
+  }
+
+  // [추가] 비밀번호 초기화 요청
+  function doResetPw() {
+    const nick = document.getElementById('findNick').value;
+    const question = document.getElementById('findQuestion').value;
+    const answer = document.getElementById('findAnswer').value;
+    const newPw = document.getElementById('newPw').value;
+
+    if (!nick || !question || !answer || !newPw) return showAlert('모든 항목을 입력해주세요.');
+
+    showLoad('본인 확인 및 비밀번호 변경 중...');
+    google.script.run.withSuccessHandler(res => {
+      hideLoad();
+      if (res.success) {
+        showAlert('비밀번호가 성공적으로 변경되었습니다.\n새 비밀번호로 로그인해주세요.');
+        closeModal('findPwModal');
+      } else {
+        showAlert('실패: ' + res.message);
+      }
+    }).resetUserPassword(nick, question, answer, newPw);
+  }
+
+  function handleRegProfile(input) {
+    if (input.files && input.files[0]) {
+      regProfileFile = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('regProfilePreview');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(regProfileFile);
+    }
+  }
+
+  function doRegister() {
+    const nick = document.getElementById('regNick').value;
+    const pw = document.getElementById('regPw').value;
+    const pwConfirm = document.getElementById('regPwConfirm').value;
+    const question = document.getElementById('regQuestion').value;
+    const answer = document.getElementById('regAnswer').value;
+
+    if (!nick || !pw || !pwConfirm || !answer) return showAlert('모든 항목을 입력해주세요.');
+    if (pw !== pwConfirm) return showAlert('비밀번호가 일치하지 않습니다.');
+
+    const nickRegex = /^[가-힣a-zA-Z0-9]+$/;
+    if (!nickRegex.test(nick)) {
+      return showAlert('닉네임은 완성된 한글, 영문, 숫자만 가능합니다.\n(자음/모음/특수문자 사용 불가)');
+    }
+
+    showLoad('가입 처리 중...(15초 이내)');
+
+    if (regProfileFile) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const base64Data = e.target.result;
+        sendRegisterRequest(nick, pw, base64Data, question, answer);
+      };
+      reader.readAsDataURL(regProfileFile);
+    } else {
+      sendRegisterRequest(nick, pw, null, question, answer);
+    }
+  }
+
+  function sendRegisterRequest(nick, pw, imgData, question, answer) {
+    google.script.run.withSuccessHandler(res => {
+      hideLoad();
+      if (res.success) {
+        showAlert('가입 완료! 로그인해주세요.');
+        document.getElementById('regModal').style.display = 'none';
+        localStorage.removeItem(GUIDE_KEY);
+      } else showAlert(res.message);
+    }).registerUser(nick, pw, imgData, question, answer);
+  }
+
+  // [추가] 내 정보 수정 기능
+  function openEditProfile() {
+    closeMenu();
+    document.getElementById('editProfileModal').style.display = 'flex';
+    document.getElementById('editNewPw').value = '';
+    document.getElementById('editQuestion').value = '';
+    document.getElementById('editAnswer').value = '';
+    editProfileFile = null;
+  }
+
+  function handleEditProfileImg(input) {
+    if (input.files && input.files[0]) {
+      editProfileFile = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('editProfilePreview').src = e.target.result;
+      };
+      reader.readAsDataURL(editProfileFile);
+    }
+  }
+
+  function submitEditProfile() {
+    const newPw = document.getElementById('editNewPw').value;
+    const newQ = document.getElementById('editQuestion').value;
+    const newA = document.getElementById('editAnswer').value;
+
+    if (newQ && !newA) {
+      return showAlert('질문을 변경하려면 답변도 입력해야 합니다.');
+    }
+
+    showLoad('정보 수정 중...');
+
+    if (editProfileFile) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        sendUpdateProfile(newPw, e.target.result, newQ, newA);
+      };
+      reader.readAsDataURL(editProfileFile);
+    } else {
+      sendUpdateProfile(newPw, null, newQ, newA);
+    }
+  }
+
+  function sendUpdateProfile(pw, imgData, q, a) {
+    google.script.run.withSuccessHandler(res => {
+      hideLoad();
+      if (res.success) {
+        showAlert('정보가 수정되었습니다.');
+        closeModal('editProfileModal');
+        if (res.newProfileUrl) {
+          document.getElementById('dashProfileImg').src = res.newProfileUrl;
+          document.getElementById('menuProfileImg').src = res.newProfileUrl;
+        }
+        if (pw) {
+          showAlert('비밀번호가 변경되었습니다.\n다시 로그인해주세요.');
+          logout();
+        }
+      } else {
+        showAlert('실패: ' + res.message);
+      }
+    }).updateUserProfile(currentUser, pw, imgData, q, a);
+  }
+
+  // 1. 바텀 시트 열기
+  function openDaySheet() {
+    const overlay = document.getElementById('sheetOverlay');
+    const sheet = document.getElementById('daySheet');
+
+    overlay.style.display = 'block';
+    setTimeout(() => {
+      overlay.classList.add('visible');
+      sheet.classList.add('active');
+    }, 10);
+
+    // 1. 현재 선택된 값 가져오기
+    const currentVal = document.getElementById('selectedDayValue').value;
+
+    // 2. 비교를 위한 날짜 객체 준비
+    const realToday = new Date();
+    realToday.setHours(0, 0, 0, 0);
+
+    // currentStartDateObj는 loadDashboard에서 설정된 '시스템상 이번 주 월요일'
+    const systemMonDate = new Date(currentStartDateObj);
+    
+    // 현재 뷰가 'next'라면 기준일을 7일 뒤로 이동
+    if (typeof showingWeek !== 'undefined' && showingWeek === 'next') {
+      systemMonDate.setDate(systemMonDate.getDate() + 7);
+    }
+
+    // 3. 리스트 아이템 하나씩 검사
+    const items = document.querySelectorAll('.sheet-item');
+    items.forEach((item, index) => {
+      // 초기화
+      item.classList.remove('selected', 'disabled');
+
+      // 해당 항목의 날짜 계산 (index 0=월요일 ... 6=일요일)
+      // 주의: HTML의 sheet-item 순서가 월~일 순서여야 합니다.
+      const itemDate = new Date(systemMonDate);
+      itemDate.setDate(itemDate.getDate() + index);
+      itemDate.setHours(0, 0, 0, 0);
+
+      // [핵심 수정] "항목 날짜"가 "실제 오늘"보다 미래면 비활성화
+      // 예: 오늘이 월요일이어도, 시스템이 지난주 일요일을 가리키면 일요일은 '과거'이므로 활성화됨
+      if (itemDate > realToday) {
+        item.classList.add('disabled');
+      }
+
+      // 현재 선택된 항목 표시 (비활성화 아닌 경우에만)
+      if (!item.classList.contains('disabled') && item.innerText.startsWith(currentVal)) {
+        item.classList.add('selected');
+      }
+    });
+  }
+
+  // 2. 바텀 시트 닫기
+  function closeDaySheet() {
+    const overlay = document.getElementById('sheetOverlay');
+    const sheet = document.getElementById('daySheet');
+    overlay.classList.remove('visible');
+    sheet.classList.remove('active');
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 300);
+  }
+
+  // 3. 요일 선택 (목록에서 클릭 or 캘린더에서 클릭)
+  function selectDay(dayChar, fromCalendar = false) {
+    const btn = document.getElementById('daySelectBtn');
+    const valInput = document.getElementById('selectedDayValue');
+    const textSpan = document.getElementById('daySelectText');
+    const uploadBtn = document.getElementById('selectPhotoBtn'); // 업로드 버튼
+
+    // 1. 값 및 텍스트 변경
+    valInput.value = dayChar;
+    textSpan.innerText = dayChar + "요일";
+
+    // 2. 캘린더 UI 동기화 (목록에서 눌렀을 때 캘린더에도 표시)
+    if (!fromCalendar) {
+      closeDaySheet();
+      const gridItems = document.querySelectorAll('.day-item');
+      gridItems.forEach(item => {
+        if (item.textContent.trim().startsWith(dayChar)) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      });
+    }
+
+    // 3. 버튼 펄스 애니메이션
+    btn.classList.remove('anim-pulse');
+    void btn.offsetWidth;
+    btn.classList.add('anim-pulse');
+
+    // ========== [핵심 수정] 버튼 활성화/비활성화 로직 (날짜 기준 비교) ==========
+
+    // A. 비교를 위한 '실제 오늘 날짜' 객체 생성 (시간은 00:00:00으로 통일)
+    const realToday = new Date();
+    realToday.setHours(0, 0, 0, 0);
+
+    // B. 선택한 요일이 '몇 월 며칠'인지 계산
+    const dayMap = { '월': 0, '화': 1, '수': 2, '목': 3, '금': 4, '토': 5, '일': 6 };
+    const selectedIdx = dayMap[dayChar];
+
+    // showingWeek가 undefined일 경우 안전하게 'this'로 처리
+    const currentView = (typeof showingWeek !== 'undefined') ? showingWeek : 'this';
+    
+    // currentStartDateObj는 loadDashboard에서 설정된 '시스템상 이번 주 월요일'입니다.
+    let targetDate = new Date(currentStartDateObj);
+    
+    // 만약 '다음 주' 보기 상태라면 7일을 더함
+    if (currentView === 'next') {
+      targetDate.setDate(targetDate.getDate() + 7);
+    }
+    
+    // 선택한 요일만큼 날짜를 더함
+    targetDate.setDate(targetDate.getDate() + selectedIdx);
+    targetDate.setHours(0, 0, 0, 0);
+
+    // C. 데이터 가져오기 (이번 주 or 다음 주)
+    const targetData = (currentView === 'next') ? nextWeekData : currentWeekData;
+    const dayInfo = targetData[dayChar];
+
+    // D. 버튼 상태 결정
+    // "선택한 날짜(targetDate)"가 "오늘(realToday)"보다 확실히 미래인 경우에만 잠금
+    // 예: 시스템은 1일~7일(일), 실제 오늘은 8일(월)인 경우
+    // 사용자가 7일(일) 선택 -> targetDate(7일) < realToday(8일) -> 과거이므로 활성화됨 (OK)
+    if (targetDate > realToday) {
+      uploadBtn.classList.add('disabled');
+      uploadBtn.innerText = "인증 불가";
+      return; // 로직 종료
+    }
+
+    // E. 과거/오늘 날짜라면 -> 상태(DONE)에 따라 처리
+    if (dayInfo && dayInfo.status === 'DONE') {
+      uploadBtn.classList.add('disabled'); // 회색 처리
+      uploadBtn.innerText = "✅ 이미 인증됨";
+    } else {
+      // 업로드 가능 상태
+      uploadBtn.classList.remove('disabled');
+      uploadBtn.innerText = "사진 업로드";
+
+      // 상태별 텍스트 디테일
+      if (dayInfo && dayInfo.status === 'PENDING') uploadBtn.innerText = "사진 교체하기";
+      if (dayInfo && dayInfo.status === 'REJECT') uploadBtn.innerText = "재업로드 (반려됨)";
+    }
+  }
+
+  function toggleTooltip(element) {
+    // 1. 숨겨진 텍스트 가져오기
+    const hiddenTextDiv = element.querySelector('.tooltip-bubble');
+    if (!hiddenTextDiv) return;
+    const msg = hiddenTextDiv.innerText.trim();
+
+    // 2. 툴팁 요소 준비
+    const globalBubble = document.getElementById('globalTooltip');
+    globalBubble.innerText = msg;
+    
+    // 3. 툴팁을 일단 화면에 그려서 크기를 측정해야 함 (보이지 않게)
+    globalBubble.style.opacity = '0';
+    globalBubble.style.display = 'block';
+    
+    // 4. 좌표 계산
+    const rect = element.getBoundingClientRect(); // 클릭한 아이템의 위치
+    const bubbleRect = globalBubble.getBoundingClientRect(); // 툴팁의 크기
+    
+    const screenWidth = window.innerWidth;
+    const margin = 10; // 화면 끝에서 띄울 간격
+
+    // 기본 위치: 아이템의 정중앙
+    let leftX = rect.left + (rect.width / 2) - (bubbleRect.width / 2);
+    
+    // [핵심] 화면 왼쪽 밖으로 나가면 보정
+    if (leftX < margin) {
+        leftX = margin;
+    }
+    // [핵심] 화면 오른쪽 밖으로 나가면 보정
+    else if (leftX + bubbleRect.width > screenWidth - margin) {
+        leftX = screenWidth - bubbleRect.width - margin;
+    }
+
+    // 높이 설정 (아이템 바로 위)
+    let topY = rect.top - bubbleRect.height - 10; 
+    // 혹시 위쪽 공간이 부족하면 아래로 띄우기
+    if (topY < 10) {
+        topY = rect.bottom + 10;
+    }
+
+    // 5. 최종 위치 적용 및 표시
+    globalBubble.style.left = leftX + 'px';
+    globalBubble.style.top = topY + 'px';
+    globalBubble.classList.add('show');
+    globalBubble.style.opacity = '1';
+
+    // 6. 2.5초 뒤 자동 닫기
+    if (tooltipTimeout) clearTimeout(tooltipTimeout);
+    tooltipTimeout = setTimeout(() => {
+        globalBubble.classList.remove('show');
+        setTimeout(() => { globalBubble.style.display = 'none'; }, 200);
+    }, 2500);
+  }
+
+  let calTouchStartX = 0;
+  let calTouchStartY = 0;
+  let menuTouchStartX = 0;
+  let menuTouchStartY = 0;
+  let challTouchStartX = 0;
+  let challTouchStartY = 0;
+  let isSwipeEnabled = false; // 중복 실행 방지 플래그
+
+  function enableSwipeGestures() {
+    if (isSwipeEnabled) return;
+    isSwipeEnabled = true;
+
+    // --- 1. 캘린더 영역 스와이프 (이번주 <-> 다음주) ---
+    const calGrid = document.getElementById('calGrid');
+    calGrid.addEventListener('touchstart', (e) => {
+        calTouchStartX = e.changedTouches[0].screenX;
+        calTouchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    calGrid.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].screenX;
+        const endY = e.changedTouches[0].screenY;
+        handleCalendarSwipe(calTouchStartX, endX, calTouchStartY, endY, e);
+    }, { passive: true });
+
+    // --- 2. 전체 화면 스와이프 (메뉴 열기/닫기) ---
+    document.addEventListener('touchstart', (e) => {
+        menuTouchStartX = e.changedTouches[0].screenX;
+        menuTouchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].screenX;
+        const endY = e.changedTouches[0].screenY;
+        handleMenuSwipe(menuTouchStartX, endX, menuTouchStartY, endY, e);
+    }, { passive: true });
+
+    // --- 3. [신규] 챌린지 화면 뒤로가기 (왼쪽 가장자리 -> 오른쪽) ---
+    const challengeScreen = document.getElementById('challengeScreen');
+    
+    challengeScreen.addEventListener('touchstart', (e) => {
+        challTouchStartX = e.changedTouches[0].screenX;
+        challTouchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    challengeScreen.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].screenX;
+        const endY = e.changedTouches[0].screenY;
+        
+        const diffX = endX - challTouchStartX; // 가로 이동 거리
+        const diffY = endY - challTouchStartY; // 세로 이동 거리
+
+        // [조건 1] 왼쪽 가장자리에서 시작했는가? (화면 왼쪽 15% 이내)
+        const isEdgeStart = challTouchStartX < (window.innerWidth * 0.15); 
+        
+        // [조건 2] 오른쪽으로 충분히 당겼는가? (80px 이상)
+        // [조건 3] 수직 이동은 적은가? (대각선 스와이프 방지)
+        if (isEdgeStart && diffX > 80 && Math.abs(diffY) < 60) {
+            closeChallengePage(); // 뒤로가기 실행!
+        }
+    }, { passive: true });
+  }
+
+  // 캘린더 스와이프 로직
+  function handleCalendarSwipe(startX, endX, startY, endY, event) {
+    const diffX = endX - startX;
+    const diffY = endY - startY;
+
+    if (Math.abs(diffY) > 50) return; // 수직 스크롤 무시
+
+    if (Math.abs(diffX) > 60) {
+      if (diffX < 0) toggleWeekView('next'); // 왼쪽으로 밀면 다음주
+      else toggleWeekView('this'); // 오른쪽으로 밀면 이번주
+
+      // 캘린더 스와이프가 메뉴 스와이프로 오해받지 않도록 이벤트 전파 중단 시도
+      if (event.stopPropagation) event.stopPropagation();
+    }
+  }
+
+  // 메뉴바 스와이프 로직
+  function handleMenuSwipe(startX, endX, startY, endY, event) {
+    const diffX = endX - startX;
+    const diffY = endY - startY;
+    const sidebar = document.getElementById('sideMenu');
+    const screenWidth = window.innerWidth; // 화면 전체 너비
+
+    // 수직 스크롤 중이면 무시
+    if (Math.abs(diffY) > 60) return;
+
+    // 1. 메뉴 닫기: 메뉴가 열려있을 때
+    // 메뉴가 오른쪽에 있으므로, 닫으려면 오른쪽으로 밀어야 함 ( -> )
+    if (sidebar.classList.contains('active')) {
+      if (diffX > 60) {
+        closeMenu();
+      }
+    }
+    // 2. 메뉴 열기: 메뉴가 닫혀있을 때
+    // 화면 오른쪽 끝에서 왼쪽으로 당겨야 함 ( <- )
+    else {
+      // 시작점이 화면 오른쪽 끝(오차 60px) 이내여야 함
+      // 그리고 왼쪽으로 60px 이상 이동했는지 확인
+      if (startX > (screenWidth - 60) && diffX < -60) {
+        openMenu();
+      }
+    }
+  }
+
+  // [수정됨] 밖으로 꺼낸 공지사항 토글 함수
+  function toggleNotice(el) {
+    // 1. 펼치기/접기 토글
+    el.classList.toggle('expanded');
+
+    // 2. 새 공지(N 뱃지)가 떠있는 상태였다면 -> 읽음 처리
+    if (el.hasAttribute('data-new')) {
+      const hash = el.getAttribute('data-hash');
+
+      // 'N' 뱃지 숨기기
+      const badge = el.querySelector('.new-badge');
+      if (badge) badge.style.display = 'none';
+
+      // 로컬 스토리지에 "읽음" 상태 저장 (다음에 접속할 땐 N 안 뜸)
+      localStorage.setItem('SME_LAST_NOTICE', hash);
+
+      // 속성 제거
+      el.removeAttribute('data-new');
+    }
+  }
+
+  // [신규] 갤러리 데이터 불러오기
+  function loadGalleryData() {
+    const container = document.getElementById('galleryContainer');
+    google.script.run.withSuccessHandler(list => {
+      allGalleryPhotos = list; // 서버에서 받은 데이터를 전역 변수에 저장
+      renderGalleryThumbnails(); // 썸네일을 그리는 별도 함수 호출
+      startFloatingBubbles(list);
+    }).getGalleryPhotos();
+  }
+  function renderGalleryThumbnails() {
+    const container = document.getElementById('galleryContainer');
+    container.innerHTML = '';
+    
+    allGalleryPhotos.forEach((photo, index) => {
+      const div = document.createElement('div');
+      div.className = 'gallery-item';
+      div.style.position = 'relative'; 
+      
+      // ★ [추가] 나중에 이 요소를 찾기 위해 ID를 부여합니다.
+      div.id = `gallery-item-${index}`; 
+      
+      // 리액션 배지 생성
+      let reactionBadgesHtml = generateBadgeHtml(photo.reactions); // (아래에서 만들 함수 사용)
+
+      div.innerHTML = `
+        <img src="${photo.url}" class="gallery-img" loading="lazy" referrerpolicy="no-referrer">
+        
+        <div class="gallery-top-reactions" id="badges-${index}">
+          ${reactionBadgesHtml}
+        </div>
+
+        <div class="gallery-overlay">
+          <div class="gallery-user-name">${photo.nickname}</div>
+        </div>
+      `;
+      // ★ [수정] openGalleryDetail에 index도 같이 넘깁니다.
+      div.onclick = () => openGalleryDetail(photo, index); 
+      container.appendChild(div);
+    });
+  }
+
+  // [신규] 배지 HTML 생성 헬퍼 함수 (중복 제거용)
+  function generateBadgeHtml(reactions) {
+      if (!reactions) return "";
+      let html = "";
+      const emojiOrder = ['🔥', '💪', '🌶️']; 
+      emojiOrder.forEach(emoji => {
+          const count = reactions[emoji];
+          if (count && count > 0) {
+            html += `<span class="reaction-badge">${emoji} ${count}</span>`;
+          }
+      });
+      return html;
+  }
+
+  function openGalleryDetail(photo, index) {
+    // ★ 현재 인덱스 저장 (나중에 리액션 업데이트 할 때 씀)
+    currentPhotoIndex = index;
+
+    document.getElementById('gDetailImg').src = photo.url;
+    document.getElementById('gDetailNick').innerText = photo.nickname;
+    document.getElementById('gDetailDay').innerText = photo.day + '요일 운동';
+
+    // ... (중간 텍스트 표시 로직은 기존과 동일) ...
+    const textEl = document.getElementById('gDetailText');
+    if (photo.content) {
+      textEl.innerText = photo.content;
+      textEl.style.display = 'block';
+    } else {
+      textEl.style.display = 'none';
+    }
+
+    // 숫자 세팅 (기존 코드 유지)
+    const idMap = { '🔥': 'count-fire', '💪': 'count-muscle', '🌶️': 'count-pepper' };
+    const emojis = ['🔥', '💪', '🌶️'];
+    emojis.forEach(emoji => {
+      const count = (photo.reactions && photo.reactions[emoji]) ? photo.reactions[emoji] : 0;
+      const targetId = idMap[emoji]; 
+      if (document.getElementById(targetId)) {
+          document.getElementById(targetId).innerText = count;
+      }
+    });
+
+    document.getElementById('galleryDetailModal').style.display = 'flex';
+  }
+
+  function toggleShareBtn() {
+    const btn = document.getElementById('shareToggleBtn');
+    // const icon = document.getElementById('shareIcon'); // <--- 이 녀석이 범인이었습니다 (삭제함)
+    const status = document.getElementById('shareStatus');
+    const input = document.getElementById('isPublicValue');
+
+    // 현재 상태 확인 (off 클래스가 없으면 공개 상태)
+    // 버튼을 눌렀으니 상태를 반대로 뒤집어야 합니다.
+    const isCurrentlyPublic = !btn.classList.contains('off');
+
+    if (isCurrentlyPublic) {
+      // [ON -> OFF] 끄기 (비공개)
+      btn.classList.add('off');
+      // icon.innerText = '🔒'; // 에러 유발 코드 삭제
+      status.innerText = 'OFF';
+      input.value = 'false'; // [중요] 여기가 실행되어야 서버에 비공개로 전달됩니다.
+    } else {
+      // [OFF -> ON] 켜기 (공개)
+      btn.classList.remove('off');
+      // icon.innerText = '🔥'; // 에러 유발 코드 삭제
+      status.innerText = 'ON';
+      input.value = 'true';
+    }
+  }
+  let bubbleInterval = null;
+
+  // [신규] 무작위 말풍선 연기 효과 시작
+  function startFloatingBubbles(photoList) {
+    // 기존 타이머가 있다면 먼저 제거
+    if (bubbleInterval) {
+        clearInterval(bubbleInterval);
+        bubbleInterval = null;
+    }
+
+    const galleryItems = document.querySelectorAll('.gallery-item');
+    const validIndices = [];
+
+    // 글 내용이 있는 사진만 후보군으로 등록
+    photoList.forEach((data, idx) => {
+      if (data.content && data.content.trim() !== "") {
+        validIndices.push(idx);
+      }
+    });
+
+    if (validIndices.length === 0 || galleryItems.length === 0) return;
+
+    bubbleInterval = setInterval(() => {
+      // ⭐⭐⭐ [핵심 수정] 대시보드가 화면에 안 보이면 즉시 중단 ⭐⭐⭐
+      const dashboard = document.getElementById('dashboardScreen');
+      if (!dashboard || dashboard.style.display === 'none') {
+          return; // 아무것도 하지 않고 함수 종료
+      }
+
+      // 2. 랜덤 선택
+      const targetIdx = validIndices[Math.floor(Math.random() * validIndices.length)];
+      const targetItem = galleryItems[targetIdx];
+      const photoData = photoList[targetIdx];
+
+      if (!targetItem || !photoData) return;
+
+      // 3. 위치 계산
+      const rect = targetItem.getBoundingClientRect();
+
+      // ⭐ [추가 안전장치] 높이/너비가 0이면(숨겨진 상태) 생성 안 함
+      if (rect.width === 0 || rect.height === 0) return;
+
+      // 화면 밖이면 생성 안 함
+      if (rect.top < 0 || rect.bottom > window.innerHeight) return;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'floating-bubble';
+
+      const shortText = photoData.content.length > 20 ?
+        photoData.content.substring(0, 20) + "..." :
+        photoData.content;
+      bubble.innerText = "💬 " + shortText;
+
+      // 4. 위치 랜덤화
+      const randomOffsetX = (Math.random() - 0.5) * (rect.width * 0.6);
+      const randomOffsetY = (Math.random() - 0.5) * (rect.height * 0.4);
+
+      const centerX = rect.left + (rect.width / 2) + randomOffsetX;
+      const startY = rect.top + (rect.height / 2) + randomOffsetY;
+
+      bubble.style.left = centerX + "px";
+      bubble.style.top = startY + "px";
+
+      document.body.appendChild(bubble);
+
+      setTimeout(() => {
+        if (bubble && bubble.parentNode) {
+          bubble.parentNode.removeChild(bubble);
+        }
+      }, 3000);
+
+    }, 1500); 
+  }
+
+  function triggerPhotoSelection() {
+    // 모바일 보안 정책상 딜레이 없이 바로 열어야 합니다.
+    document.getElementById('fileInput').click();
+  }
+
+  function openAdminFine() {
+    closeMenu();
+    showLoad('미납 내역 조회 중...');
+
+    google.script.run
+    .withSuccessHandler(res => {
+      hideLoad();
+
+      const container = document.getElementById('adminFineList');
+      const titleEl = document.getElementById('adminFineWeekTitle');
+
+      container.innerHTML = '';
+      
+      // 데이터가 없거나 오류일 경우 대비
+      if (!res || !res.list) {
+         titleEl.innerText = "조회 불가";
+         container.innerHTML = '<div style="text-align:center; padding:30px; color:#B0B8C1;">데이터를 불러올 수 없습니다.</div>';
+         document.getElementById('adminFineModal').style.display = 'flex';
+         return;
+      }
+
+      titleEl.innerText = res.weekTitle;
+
+      if (res.list.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:#B0B8C1;">미납된 벌금이 없습니다.</div>';
+      } else {
+        res.list.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'pending-item';
+          
+          // [안전장치] 닉네임 등에 따옴표(')가 있으면 스크립트 에러가 나므로 치환
+          const safeNick = item.nickname.replace(/'/g, "\\'");
+          const safeNote = item.weekNote.replace(/'/g, "\\'");
+
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+               <div>
+                 <div style="font-size:16px; font-weight:800; color:#333; margin-bottom:4px;">${item.nickname}</div>
+                 <div style="font-size:12px; color:#8B95A1;">운동 ${item.count}회 / <span style="color:#FF3B30; font-weight:bold;">${item.fine.toLocaleString()}원</span></div>
+               </div>
+               <button class="btn" style="width:auto; padding:6px 10px; font-size:11px; background:#FFEAEA; color:#FF3B30; border:none; border-radius:8px; font-weight:600;" 
+                 onclick="waiveFine('${safeNick}', ${item.row}, ${item.col})">
+                 면제처리
+               </button>
+            </div>
+            
+            <div style="display:flex; gap:8px;">
+               <button class="btn" style="flex:1; padding:10px; font-size:13px; background:#F2F4F6; color:#4E5968; border-radius:12px;" 
+                 onclick="viewUserRecord('${safeNick}', ${item.row}, ${item.col})">
+                 기록조회
+               </button>
+
+               <button class="btn" style="flex:2; padding:10px; font-size:13px; background:#3182F6; color:white; border-radius:12px; font-weight:700;" 
+                 onclick="confirmPay('${safeNick}', ${item.fine}, '${safeNote}', ${item.row}, ${item.col})">
+                 납부확인
+               </button>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      }
+      document.getElementById('adminFineModal').style.display = 'flex';
+    })
+    .withFailureHandler(err => {
+      hideLoad();
+      // 에러가 발생하면 알림창으로 원인을 알려줌
+      showAlert("조회 실패: " + err); 
+    })
+    .getAdminUnpaidFines(currentUser);
+  }
+
+  function confirmPay(nick, amount, note, row, col) {
+    showConfirm(`[${nick}] 님의 벌금 ${amount.toLocaleString()}원\n납부를 확인하시겠습니까?\n\n(거래내역에 자동 기록됩니다)`, () => {
+      showLoad('처리 중...');
+      google.script.run.withSuccessHandler(res => {
+        if (res.success) {
+          showAlert('납부 처리가 완료되었습니다.');
+          openAdminFine(); // 리스트 새로고침
+        } else {
+          hideLoad();
+          showAlert('실패: ' + res.msg);
+        }
+      }).processFinePayment(currentUser, nick, amount, note, row, col);
+    });
+  }
+
+  function openLeaderboard() {
+    closeMenu();
+    showLoad('전체 랭킹 집계 중...');
+
+    google.script.run.withSuccessHandler(res => {
+      hideLoad();
+
+      // 1. 내 정보 업데이트
+      document.getElementById('myPercentVal').innerText = res.percent;
+      document.getElementById('totalMemVal').innerText = res.totalMembers;
+      document.getElementById('myRankVal').innerText = res.myRank;
+      document.getElementById('myTotalCountVal').innerText = res.myCount;
+
+      // 2. 리스트 그리기
+      const listContainer = document.getElementById('leaderboardList');
+      listContainer.innerHTML = '';
+
+      res.list.forEach((item, index) => {
+        const div = document.createElement('div');
+        const isMe = (item.nickname === document.getElementById('userName').innerText);
+        const rank = index + 1;
+
+        let rankClass = "rank-num";
+        if (rank === 1) rankClass += " rank-1";
+        if (rank === 2) rankClass += " rank-2";
+        if (rank === 3) rankClass += " rank-3";
+
+        let rankDisplay = rank;
+        if (rank === 1) rankDisplay = "🥇";
+        if (rank === 2) rankDisplay = "🥈";
+        if (rank === 3) rankDisplay = "🥉";
+
+        div.className = `leaderboard-item ${isMe ? 'is-me' : ''}`;
+        
+        // [수정] 닉네임 옆에 그래프 버튼 추가
+        div.innerHTML = `
+           <div class="${rankClass}">${rankDisplay}</div>
+           <div class="rank-nick" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding-right:4px;">
+             <div>
+               ${item.nickname} 
+               ${isMe ? '<span style="font-size:10px; color:#3182F6; background:#E8F3FF; padding:2px 4px; border-radius:4px; margin-left:4px;">나</span>' : ''}
+             </div>
+             <div style="display:flex; align-items:center; gap:8px;">
+                <span class="rank-count" style="font-size:14px;">${item.count}회</span>
+                <button onclick="showUserGraph('${item.nickname}')" style="background:#F2F4F6; border:1px solid #E5E8EB; border-radius:8px; padding:4px 8px; font-size:12px; cursor:pointer;">📊</button>
+             </div>
+           </div>
+        `;
+        listContainer.appendChild(div);
+      });
+
+      document.getElementById('leaderboardModal').style.display = 'flex';
+
+    }).getWorkoutLeaderboard(currentUser);
+  }
+
+  let workoutChart = null; 
+  let fineChart = null;
+  let rankChart = null; // 추가
+
+  function showUserGraph(nickname) {
+    showLoad(nickname + '님의 데이터 분석 중...');
+    
+    google.script.run.withSuccessHandler(data => {
+      hideLoad();
+      document.getElementById('graphUserNick').innerText = data.nickname;
+      
+      const sliderContainer = document.getElementById('chartSliderContainer');
+      const noDataMsg = document.getElementById('noChartData');
+      const modal = document.getElementById('graphModal');
+
+      modal.style.display = 'flex';
+
+      // 1. 데이터 검증 로직
+      // 라벨이 없거나, 운동횟수와 벌금 합계가 모두 0이면 '데이터 없음'으로 판단
+      const totalWorkout = data.data ? data.data.reduce((a, b) => a + b, 0) : 0;
+      const totalFine = data.fines ? data.fines.reduce((a, b) => a + b, 0) : 0;
+      
+      // 데이터가 있는지 여부 (라벨이 있고, 기록 합계가 0보다 커야 함)
+      // ※ 주의: 기존 회원이 운동을 아예 안 해서 0인 경우도 포함될 수 있으나,
+      //    그래프가 텅 비어 보이는 것보다 '기록 없음' 메시지가 낫습니다.
+      const hasData = (data.labels && data.labels.length > 0) && (totalWorkout > 0 || totalFine > 0);
+
+      if (!hasData) {
+        // [케이스 A] 데이터 없음 -> 그래프 숨기고 메시지 표시
+        sliderContainer.style.display = 'none';
+        noDataMsg.style.display = 'flex';
+        
+        // 메시지 내용을 좀 더 친절하게 변경
+        noDataMsg.innerHTML = `
+            <div style="font-size:40px; margin-bottom:10px;">📉</div>
+            <div style="font-size:15px; font-weight:700; color:#333;">아직 집계된 기록이 없습니다</div>
+            <div style="font-size:13px; color:#8B95A1; margin-top:6px;">
+                신규 회원이거나<br>지난주 활동 내역이 없어요.
+            </div>
+        `;
+      } else {
+        // [케이스 B] 데이터 있음 -> 그래프 표시
+        noDataMsg.style.display = 'none';
+        sliderContainer.style.display = 'block';
+
+        // 슬라이더 초기화 (첫 번째 슬라이드로 이동)
+        const slider = document.getElementById('chartSlider');
+        if(slider) slider.scrollLeft = 0;
+        goToSlide(0);
+
+        setTimeout(() => {
+             renderDualCharts(data.labels, data.data, data.fines, data.exemptions);
+        }, 300);
+      }
+    }).getMemberWeeklyStats(nickname);
+  }
+
+  // [수정] 차트 렌더링 진입점
+  function renderDualCharts(labels, counts, fines, exemptions) {
+    // 1. 주간 운동 횟수
+    drawChart('workoutChartCanvas', 'line', labels, counts, '운동 횟수', '#3182F6', true, null);
+    
+    // 2. 벌금 (면제 데이터 포함)
+    drawChart('fineChartCanvas', 'bar', labels, fines, '벌금', '#FF3B30', false, exemptions);
+
+    // 스크롤 감지
+    const slider = document.querySelector('.chart-slider');
+    slider.onscroll = () => {
+        const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+        for(let i=0; i<2; i++) {
+             const dot = document.getElementById('dot'+i);
+             if(dot) dot.className = (index === i) ? 'dot active' : 'dot';
+        }
+    };
+    slider.scrollLeft = 0;
+  }
+
+  // [대폭 수정] 면제 표시 기능이 추가된 그리기 함수
+  function drawChart(canvasId, type, labels, data, labelName, color, isFill, exemptions) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    
+    if (canvasId === 'workoutChartCanvas' && workoutChart) workoutChart.destroy();
+    if (canvasId === 'fineChartCanvas' && fineChart) fineChart.destroy();
+
+    // 그라데이션 (Line only)
+    let bg = color;
+    if (type === 'line') {
+        let gradient = ctx.createLinearGradient(0, 0, 0, 250);
+        gradient.addColorStop(0, color + '66'); 
+        gradient.addColorStop(1, color + '00'); 
+        bg = gradient;
+    }
+
+    // 기본 데이터셋
+    const datasets = [{
+        label: labelName,
+        data: data,
+        borderColor: color,
+        backgroundColor: type === 'line' ? bg : color + 'CC',
+        borderWidth: 2,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: color,
+        pointRadius: 6,
+        pointHoverRadius: 9,
+        pointHitRadius: 25,
+        fill: isFill,
+        tension: 0.3,
+        borderRadius: 6,
+        order: 2
+    }];
+
+    // [핵심] 벌금 그래프이고, 면제 데이터가 있다면 -> '별 마커' 데이터셋 추가
+    if (type === 'bar' && exemptions) {
+        // 면제인 날은 500원 위치에, 아닌 날은 null
+        const starData = exemptions.map(ex => ex ? 500 : null);
+        
+        datasets.push({
+            type: 'line', // 마커를 찍기 위해 선 그래프 형식 사용 (선은 숨김)
+            label: '면제',
+            data: starData,
+            borderColor: '#FFD700', // 금색
+            backgroundColor: '#FFD700',
+            pointStyle: 'star',     // 별 모양
+            pointRadius: 8,         // 별 크기 키움
+            pointHoverRadius: 10,
+            showLine: false,        // 선은 안 그림
+            order: 1                // 막대보다 위에 그림
+        });
+    }
+
+    const config = {
+      type: type,
+      data: {
+        labels: labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+            duration: 1500,
+            easing: 'easeOutQuart'
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            // 벌금 그래프면 면제 별(500위치)이 잘 보이게 최소 높이 확보
+            suggestedMax: type === 'line' ? 5 : 6000, 
+            grid: { color: '#F2F4F6' },
+            ticks: { 
+                color: color, 
+                font: {family: 'Pretendard', weight: 'bold'},
+                stepSize: (type === 'bar') ? undefined : 1,
+                callback: function(value) {
+                    if (type === 'bar') return value >= 1000 ? (value/1000) + 'k' : value;
+                    if (value % 1 !== 0) return null;
+                    return value;
+                }
+            }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: {size: 11}, maxRotation: 45, minRotation: 45 }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            padding: 14,
+            cornerRadius: 12,
+            displayColors: false,
+            callbacks: {
+              label: function(context) {
+                // 면제 마커 툴팁
+                if (context.dataset.label === '면제') {
+                    return '⭐ 벌금 면제됨';
+                }
+                
+                // 기존 데이터 툴팁
+                const val = context.parsed.y;
+                if (type === 'bar') {
+                    // 벌금 0원인데 면제 마커가 없는 경우 (완벽하게 수행한 날)
+                    if (val === 0) return '🎉 완벽 수행 (0원)';
+                    return `💸 ${val.toLocaleString()}원`;
+                }
+                return `🔥 ${val}회`;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    if (canvasId === 'workoutChartCanvas') workoutChart = new Chart(ctx, config);
+    else fineChart = new Chart(ctx, config);
+  }
+
+  function closeGraphModal() {
+    document.getElementById('graphModal').style.display = 'none';
+  }
+
+  function animateCounter(id, endValue, duration) {
+    const element = document.getElementById(id);
+    const startValue = 0;
+    const startTime = performance.now();
+
+    // 목표값이 0이면 애니메이션 없이 바로 0 표시
+    if (endValue === 0) {
+      element.innerText = 0;
+      return;
+    }
+
+    function update(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease-out 효과 (처음엔 빠르고 끝에 느려짐)
+      // 수식: 1 - pow(1 - progress, 3) -> Cubic Ease Out
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      const current = Math.floor(startValue + (endValue - startValue) * ease);
+      element.innerText = current;
+
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      } else {
+        element.innerText = endValue; // 최종 값 보정
+      }
+    }
+
+    requestAnimationFrame(update);
+  }
+
+  function toggleDarkMode() {
+    const body = document.body;
+    const toggle = document.getElementById('darkModeToggle');
+
+    if (toggle.checked) {
+      body.classList.add('dark-mode');
+      localStorage.setItem('SME_THEME', 'dark');
+    } else {
+      body.classList.remove('dark-mode');
+      localStorage.setItem('SME_THEME', 'light');
+    }
+  }
+
+  function loadSavedTheme() {
+    const savedTheme = localStorage.getItem('SME_THEME');
+    const toggle = document.getElementById('darkModeToggle');
+
+    // 저장된 설정이 'dark'이거나, 설정이 없고 시스템이 다크모드인 경우
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.body.classList.add('dark-mode');
+      if (toggle) toggle.checked = true;
+    }
+  }
+
+  function toggleAdminHistory() {
+    const list = document.getElementById('adminHistoryList');
+    const arrow = document.getElementById('histArrow');
+
+    if (list.style.display === 'none') {
+      list.style.display = 'flex';
+      arrow.style.transform = 'rotate(180deg)'; // 화살표 회전
+    } else {
+      list.style.display = 'none';
+      arrow.style.transform = 'rotate(0deg)'; // 화살표 복구
+    }
+  }
+  
+  function openAdminApproval() {
+    closeMenu();
+    document.getElementById('adminApprovalModal').style.display = 'flex';
+    switchMemberTab('wait'); // 탭 초기화
+  }
+
+  // [신규] 승인/거절 처리
+  function processJoin(targetNick, action) {
+    const actName = action === 'APPROVE' ? '승인' : '거절(삭제)';
+    showConfirm(`[${targetNick}] 님을 ${actName}하시겠습니까?`, () => {
+      showLoad('처리 중...');
+      google.script.run.withSuccessHandler(res => {
+        if (res.success) {
+          showAlert(res.msg);
+          openAdminApproval(); // 목록 새로고침
+        } else {
+          hideLoad();
+          showAlert('오류: ' + res.msg);
+        }
+      }).processMemberApproval(currentUser, targetNick, action);
+    });
+  }
+
+  function viewUserRecord(targetNick, row, col) {
+    showLoad(targetNick + '님의 기록 조회 중...');
+    
+    // 면제 처리를 위해 데이터 저장
+    document.getElementById('waiveTargetRow').value = row;
+    document.getElementById('waiveTargetCol').value = col;
+
+    google.script.run.withSuccessHandler(res => {
+      hideLoad();
+      
+      document.getElementById('adminRecordNick').innerText = res.nickname;
+      document.getElementById('adminRecordRange').innerText = res.weekRange;
+      
+      const grid = document.getElementById('adminUserRecordGrid');
+      grid.innerHTML = '';
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+
+      days.forEach(d => {
+        const status = res.weekData[d];
+        const div = document.createElement('div');
+        div.className = 'past-day-item';
+        div.style.cursor = "pointer"; 
+
+        let icon = '';
+        let text = d;
+        let isDone = false;
+
+        if (status === 'DONE') {
+          div.classList.add('done'); icon = '✅'; isDone = true;
+        } else if (status === 'EXEMPT') {
+          div.classList.add('exempt'); icon = '⭐'; isDone = true; 
+        } else if (status === 'PENDING') {
+           div.style.background = '#F2F4F6'; div.style.border = '1px solid #D1D6DB'; icon = '⏳';
+        } else {
+          div.classList.add('fail'); icon = ''; 
+        }
+
+        div.innerHTML = `<div class="past-day-icon">${icon}</div><div class="past-day-text">${text}</div>`;
+        
+        if (!isDone) {
+            div.onclick = function() { openRecoveryModal(targetNick, d); };
+        }
+        grid.appendChild(div);
+      });
+
+      document.getElementById('adminUserRecordModal').style.display = 'flex';
+
+    }).getUserPastWeekData(targetNick);
+  }
+
+  // [신규] 복구 모달 열기
+  function openRecoveryModal(nick, day) {
+      // 1. 정보 세팅
+      document.getElementById('recTargetNick').value = nick;
+      document.getElementById('recTargetDay').value = day;
+      document.getElementById('recTargetInfo').innerText = `[${nick}]님 ${day}요일`;
+      
+      // 2. 사유 초기화 (기본값 설정)
+      document.getElementById('recoveryReasonInput').value = "단순 인증 누락";
+      
+      // 3. 모달 띄우기
+      document.getElementById('recoveryModal').style.display = 'flex';
+  }
+
+  // [신규] 복구 실행 (서버 전송)
+  function submitRecovery() {
+      const nick = document.getElementById('recTargetNick').value;
+      const day = document.getElementById('recTargetDay').value;
+      const reason = document.getElementById('recoveryReasonInput').value;
+
+      if (!reason) return showAlert('사유를 입력해주세요.');
+
+      closeModal('recoveryModal'); // 입력창 닫기
+      showLoad('복구 처리 중...');
+
+      google.script.run.withSuccessHandler(res => {
+          if(res.success) {
+              hideLoad();
+              showAlert('수정되었습니다! ♻️');
+              viewUserRecord(nick); // 기록창 새로고침
+          } else {
+              hideLoad();
+              showAlert('실패: ' + res.msg);
+          }
+      }).forceUpdateLastWeek(currentUser, nick, day, reason);
+  }
+  let reactionQueue = {}; // 누른 횟수 모아두는 곳 { '🔥': 3, '💪': 1 ... }
+  let reactionTimer = null; // 타이머
+
+  // [수정됨] 리액션 버튼 클릭 함수 (Optimistic UI + Debouncing)
+  function sendEmoji(emoji) {
+    const postNick = document.getElementById('gDetailNick').innerText;
+    const dayText = document.getElementById('gDetailDay').innerText;
+    const day = dayText.substring(0, 1);
+
+    // 1. 모달 내부 숫자 업데이트 (기존 코드)
+    const idMap = { '🔥': 'count-fire', '💪': 'count-muscle', '🌶️': 'count-pepper' };
+    const targetId = idMap[emoji];
+    const countEl = document.getElementById(targetId);
+    
+    if (countEl) {
+        let currentVal = parseInt(countEl.innerText) || 0;
+        countEl.innerText = currentVal + 1;
+        
+        countEl.style.transform = "scale(1.5)";
+        countEl.style.transition = "transform 0.2s";
+        setTimeout(() => countEl.style.transform = "scale(1)", 200);
+    }
+
+    // 2. ★ [핵심 추가] 갤러리 썸네일(목록) 데이터 및 UI 즉시 업데이트
+    if (currentPhotoIndex !== -1 && allGalleryPhotos[currentPhotoIndex]) {
+        // (1) 전역 데이터 수정
+        const photoData = allGalleryPhotos[currentPhotoIndex];
+        if (!photoData.reactions) photoData.reactions = {};
+        
+        // 해당 이모지 카운트 증가
+        photoData.reactions[emoji] = (photoData.reactions[emoji] || 0) + 1;
+
+        // (2) 썸네일 배지 영역 다시 그리기
+        const badgeContainer = document.getElementById(`badges-${currentPhotoIndex}`);
+        if (badgeContainer) {
+            badgeContainer.innerHTML = generateBadgeHtml(photoData.reactions);
+        }
+    }
+
+    // 3. 서버 전송 큐 (기존 코드)
+    const key = `${postNick}|${day}|${emoji}`; 
+    if (!reactionQueue[key]) reactionQueue[key] = 0;
+    reactionQueue[key]++;
+
+    if (reactionTimer) clearTimeout(reactionTimer);
+    reactionTimer = setTimeout(() => {
+        sendBatchReactions(); 
+    }, 800);
+  }
+
+  // [신규] 모아둔 리액션을 서버로 전송
+  function sendBatchReactions() {
+    // 큐 복사 후 초기화 (전송 중 새로 들어오는 것과 섞이지 않게)
+    const dataToSend = { ...reactionQueue };
+    reactionQueue = {}; 
+
+    if (Object.keys(dataToSend).length === 0) return;
+
+    // 서버로 전송
+    google.script.run.withSuccessHandler(res => {
+        // 성공 시 아무것도 안 함 (이미 숫자는 올라가 있음)
+        // 실패 시에만 롤백하거나 알림 (여기선 생략)
+    }).addReactionBatch(dataToSend, currentUser);
+  }
+
+  function openAiChat(initialMsg) {
+    const chatList = document.getElementById('aiChatList');
+    chatList.innerHTML = ''; 
+    
+    // 대화 기록 초기화 (첫 인사 저장)
+    chatHistory = [{ role: "assistant", content: initialMsg }];
+    addChatBubble('ai', initialMsg);
+    
+    // [수정] 추천 질문 목록 그리기 함수 호출
+    renderRecommendations(); 
+    
+    document.getElementById('aiChatModal').style.display = 'flex';
+  }
+
+  // 메시지 화면에 그리기
+  function addChatBubble(type, text) {
+    const chatList = document.getElementById('aiChatList');
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble bubble-${type}`;
+    bubble.innerText = text;
+    chatList.appendChild(bubble);
+    
+    // 자동 스크롤 하단 이동
+    chatList.scrollTop = chatList.scrollHeight;
+  }
+
+  function sendAiMessage() {
+    const input = document.getElementById('aiChatInput');
+    const question = input.value.trim();
+    if (!question) return;
+
+    document.getElementById('aiRecommendationArea').style.display = 'none';
+    
+    // 1. 사용자 메시지 추가 (이제 우측에 뜸)
+    addChatBubble('user', question);
+    chatHistory.push({ role: "user", content: question }); 
+    input.value = '';
+
+    // 2. AI 로딩 표시 (이제 좌측 AI 자리에 뜸)
+    const loadingId = "ai-loading-" + Date.now();
+    const chatList = document.getElementById('aiChatList');
+    const loadingBubble = document.createElement('div');
+    loadingBubble.className = 'chat-bubble bubble-ai';
+    loadingBubble.id = loadingId;
+
+    // ▼▼▼ 여기가 변경된 핵심 부분입니다 ▼▼▼
+    loadingBubble.innerHTML = `
+      <div style="display: flex; align-items: center;">
+        <span class="ai-thinking-text">SME 코치가 답변을 준비 중</span>
+        <div class="thinking-dots">
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+        </div>
+      </div>
+    `;
+    chatList.appendChild(loadingBubble);
+    chatList.scrollTop = chatList.scrollHeight;
+
+    // 3. 서버 호출
+    google.script.run.withSuccessHandler(answer => {
+      const loader = document.getElementById(loadingId);
+      if (loader) loader.remove();
+
+      // 실제 AI 답변 생성 (좌측)
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble bubble-ai';
+      chatList.appendChild(bubble);
+      
+      // 타이핑 효과 실행 (검은색 텍스트로 한 글자씩)
+      typeWriter(bubble, answer);
+      
+      chatHistory.push({ role: "assistant", content: answer }); 
+    }).askAiExerciseQuestion(chatHistory, currentUser);
+  }
+
+  const SME_RECOMMENDATIONS = [
+    "운동 인정 기준을 알려줘",
+    "SME 앱 사용법 알려줘",
+    "벌금은 어디로 보내?"
+  ];
+
+  function renderRecommendations() {
+    const area = document.getElementById('aiRecommendationArea');
+    area.innerHTML = ''; 
+    
+    // [추가] 숨겨졌던 영역을 다시 보이게 설정
+    area.style.display = 'flex'; 
+    
+    SME_RECOMMENDATIONS.forEach(q => {
+      const chip = document.createElement('div');
+      chip.className = 'recommend-chip';
+      chip.innerText = q;
+      chip.onclick = () => {
+        document.getElementById('aiChatInput').value = q;
+        sendAiMessage();
+      };
+      area.appendChild(chip);
+    });
+  }
+
+  function typeWriter(element, text, speed = 30) {
+    let i = 0;
+    function type() {
+      if (i < text.length) {
+        // charAt(i)가 '\n'일 때 CSS의 pre-wrap 덕분에 자동으로 줄바꿈이 됩니다.
+        element.textContent += text.charAt(i);
+        i++;
+        // 타이핑할 때마다 스크롤을 아래로 밀어줌
+        document.getElementById('aiChatList').scrollTop = document.getElementById('aiChatList').scrollHeight;
+        setTimeout(type, speed);
+      }
+    }
+    type();
+  }
+
+  function moveSlide(direction) {
+    const slider = document.getElementById('chartSlider');
+    // 현재 슬라이더의 가로 폭만큼 이동
+    const slideWidth = slider.offsetWidth;
+    
+    slider.scrollBy({ 
+        left: direction * slideWidth, 
+        behavior: 'smooth' 
+    });
+  }
+
+  // 점(Dot) 클릭 시 이동
+  function goToSlide(index) {
+    const slider = document.getElementById('chartSlider');
+    const slideWidth = slider.offsetWidth;
+    
+    slider.scrollTo({
+        left: index * slideWidth,
+        behavior: 'smooth'
+    });
+  }
+
+  function openChallengePage() {
+    closeMenu(); 
+    
+    // 1. 대시보드 숨김
+    document.getElementById('dashboardScreen').style.display = 'none';
+    
+    // 2. [핵심] 갤러리 말풍선 효과 중지!
+    stopFloatingBubbles(); 
+
+    // 3. 챌린지 화면 보이기
+    const page = document.getElementById('challengeScreen');
+    page.style.display = 'block';
+    
+    loadChallengeList();
+  }
+
+  // 2. 챌린지 페이지 닫기 (대시보드로 복귀)
+  function closeChallengePage() {
+    document.getElementById('challengeScreen').style.display = 'none';
+    document.getElementById('dashboardScreen').style.display = 'block';
+    
+    // [핵심] 대시보드로 돌아왔으니 갤러리 데이터가 있다면 말풍선 다시 시작
+    if (typeof allGalleryPhotos !== 'undefined' && allGalleryPhotos.length > 0) {
+        startFloatingBubbles(allGalleryPhotos);
+    }
+  }
+
+  // [수정] 챌린지 목록 불러오기 (종료됨 분류 추가 + 클릭 이벤트)
+  function loadChallengeList() {
+    showLoad('챌린지 목록 불러오는 중...');
+    
+    google.script.run.withSuccessHandler(list => {
+      hideLoad();
+      const activeContainer = document.getElementById('activeChallengeList');
+      const otherContainer = document.getElementById('otherChallengeList');
+      const endedContainer = document.getElementById('endedChallengeList');
+      
+      const sectionTitle = activeContainer.previousElementSibling;
+      
+      activeContainer.innerHTML = '';
+      otherContainer.innerHTML = '';
+      if(endedContainer) endedContainer.innerHTML = '';
+
+      if (list.length === 0) {
+        activeContainer.innerHTML = '<div style="text-align:center; color:#888;">등록된 챌린지가 없습니다.</div>';
+        return;
+      }
+
+      const hasActive = list.some(item => item.status === '진행중');
+      let promotedTitle = null; 
+
+      if (!hasActive) {
+          const firstUpcoming = list.find(item => item.status === '예정');
+          if (firstUpcoming) {
+              promotedTitle = firstUpcoming.title;
+              if(sectionTitle) sectionTitle.innerText = "🚀 곧 시작되는 챌린지";
+          } else {
+              if(sectionTitle) sectionTitle.innerText = "🔥 진행 중인 챌린지";
+          }
+      } else {
+          if(sectionTitle) sectionTitle.innerText = "🔥 진행 중인 챌린지";
+      }
+
+      list.forEach(item => {
+        let cardClass = 'challenge-card';
+        let badgeStyle = ''; // 기본 스타일
+        let targetDiv = otherContainer; 
+        
+        // 이미지 프리로딩
+        if (item.img) {
+             const preloadImg = new Image();
+             preloadImg.src = item.img;
+        }
+
+        let bgStyle = '';
+        if (item.img) {
+            bgStyle = `background-image: url('${item.img}');`;
+            cardClass += ' has-img';
+        }
+
+        let statusDisplay = ''; 
+        
+        const isPromoted = (promotedTitle && item.title === promotedTitle);
+
+        // 1. 상태별 로직 (진행중, 종료, 예정)
+        if (item.status === '진행중') {
+            cardClass += ' active'; 
+            targetDiv = activeContainer; 
+            statusDisplay = `<span class="d-day-badge">${item.dDay}</span>`;
+            
+        } else if (item.status === '종료') {
+            // 종료는 회색 배경에 진한 회색 글씨
+            badgeStyle = 'background:#E5E8EB; color:#8B95A1;';
+            if(endedContainer) targetDiv = endedContainer;
+            
+        } else if (item.status === '예정') {
+            // ⭐ [수정됨] 예정도 회색 배경에 진한 회색 글씨로 변경
+            badgeStyle = 'background:#F2F4F6; color:#8B95A1;';
+        }
+
+        // 2. 메인으로 승격된 '예정' 챌린지 처리
+        if (isPromoted) {
+            cardClass += ' active'; // 배경은 화려하게
+            targetDiv = activeContainer; // 위치는 위로
+            // 텍스트만 띄우기 (Coming Soon)
+            statusDisplay = `<span style="color:white; font-weight:800; font-size:14px; text-shadow: 0 1px 4px rgba(0,0,0,0.5);">Coming Soon</span>`;
+        }
+
+
+        // 특수문자 방어
+        const clean = (str) => {
+            if (!str) return "";
+            return String(str).replace(/\\/g, "/").replace(/"/g, "&quot;").replace(/'/g, "\\'").replace(/[\r\n]+/g, " ");
+        };
+        const cleanDesc = (str) => {
+            if (!str) return "";
+            return String(str).replace(/\\/g, "/").replace(/"/g, "&quot;").replace(/'/g, "\\'").replace(/[\r\n]+/g, "<br>");
+        };
+
+        const safeTitle = clean(item.title);
+        const safePeriod = clean(item.period);     // 화면 표시용 (02.15 등)
+        const safeRawPeriod = clean(item.rawPeriod); // [핵심] 계산용 원본 (2026.02.15)
+        const safeDesc = cleanDesc(item.desc);
+        const safeReward = clean(item.reward);
+        const safeImg = clean(item.img);
+        const safeTarget = item.target || 0;
+        
+        const html = `
+            <div class="${cardClass}" style="${bgStyle}" onclick="openChallengeDetail('${safeTitle}', '${safePeriod}', '${safeDesc}', '${safeReward}', '${item.status}', '${safeImg}', ${safeTarget}, '${safeRawPeriod}')">
+              <div class="c-header">
+                <span class="c-badge" style="${badgeStyle}">${item.status}</span>
+                ${statusDisplay}
+              </div>
+              <div class="c-title">${item.title}</div>
+              <div class="c-period">${item.period}</div>
+              <div class="c-reward">
+                <span>🎁</span> <span>${item.reward}</span>
+              </div>
+            </div>
+        `;
+        targetDiv.innerHTML += html;
+      });
+
+    }).getChallengeData();
+  }
+
+  // [수정됨] 상세 모달 헤더에 이미지 적용
+  function openChallengeDetail(title, period, desc, reward, status, imgUrl, targetCount, rawPeriod) {
+    document.getElementById('cDetailTitle').innerText = title;
+    document.getElementById('cDetailPeriod').innerText = period;
+    document.getElementById('cDetailDesc').innerText = desc.replace(/&apos;/g, "'");
+    document.getElementById('cDetailReward').innerText = reward.replace(/&apos;/g, "'");
+    document.getElementById('cDetailStatus').innerText = status;
+    
+    // 헤더 스타일링
+    const header = document.getElementById('cDetailHeader');
+    header.classList.remove('has-bg');
+    header.style.backgroundImage = 'none';
+
+    if (imgUrl && imgUrl !== "") {
+        header.classList.add('has-bg');
+        header.style.backgroundImage = `url('${imgUrl}')`;
+    } else {
+        if (status === '종료') header.style.background = '#4E5968';
+        else if (status === '예정') header.style.background = '#3182F6';
+        else header.style.background = 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)';
+    }
+
+    const rankList = document.getElementById('cDetailRankingList');
+    rankList.innerHTML = '<div style="text-align:center; padding:30px;"><div class="loading-dots" style="color:#8B95A1; font-size:20px;">계산 중</div></div>';
+    
+    document.getElementById('challengeDetailModal').style.display = 'flex';
+
+    const periodForCalc = rawPeriod ? rawPeriod : period;
+
+    google.script.run.withSuccessHandler(res => {
+        rankList.innerHTML = '';
+        if (!res.success || res.list.length === 0) {
+            rankList.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">참여 기록이 없습니다.</div>';
+            return;
+        }
+
+        res.list.forEach((m, idx) => {
+            // 내 이름인지 확인
+            const myName = document.getElementById('userName').innerText;
+            const isMe = (m.nickname === myName);
+            
+            // [핵심 로직] 목표 달성 여부 확인
+            // targetCount가 0이면 목표가 없는 것이므로 모두 달성 안 함 처리(단순 목록)
+            const isAchieved = (targetCount > 0 && m.count >= targetCount);
+            
+            let badgeHtml = '';
+            if (isAchieved) {
+                // 달성했을 때 보여줄 뱃지
+                badgeHtml = `<span style="background:#E8F3FF; color:#3182F6; font-size:11px; font-weight:700; padding:4px 8px; border-radius:8px;">수령예정</span>`;
+            }
+
+            // 스타일: 운동 횟수 색상 (달성했으면 파란색, 아니면 기본)
+            const countColor = isAchieved ? '#3182F6' : '#4E5968';
+
+            const div = document.createElement('div');
+            div.className = `leaderboard-item ${isMe ? 'is-me' : ''}`;
+            
+            // [디자인] 순위 숫자와 메달 제거 -> 단순히 닉네임, 뱃지, 횟수만 표시
+            div.innerHTML = `
+                <div class="rank-nick" style="font-weight:600; display:flex; align-items:center; gap:6px;">
+                    ${m.nickname}
+                    ${badgeHtml}
+                </div>
+                <div class="rank-count" style="color:${countColor};">
+                    ${m.count} / <span style="font-size:12px; color:#B0B8C1;">${targetCount > 0 ? targetCount : '-'}</span>
+                </div>
+            `;
+            rankList.appendChild(div);
+        });
+
+    }).getChallengeLeaderboard(periodForCalc);
+  }
+
+  function toggleEventHistory() {
+    const wrapper = document.getElementById('eventHistoryWrapper');
+    const arrow = document.getElementById('historyArrow');
+    
+    if (wrapper.style.display === 'none') {
+      wrapper.style.display = 'block';
+      arrow.style.transform = 'rotate(180deg)'; // 화살표 뒤집기
+    } else {
+      wrapper.style.display = 'none';
+      arrow.style.transform = 'rotate(0deg)'; // 화살표 원복
+    }
+  }
+
+  function stopFloatingBubbles() {
+    // 1. 더 이상 생성되지 않게 타이머 중지
+    if (bubbleInterval) {
+        clearInterval(bubbleInterval);
+        bubbleInterval = null;
+    }
+    
+    // 2. 이미 화면에 떠있는 말풍선들 모두 삭제
+    const bubbles = document.querySelectorAll('.floating-bubble');
+    bubbles.forEach(el => el.remove());
+  }
+
+  function enablePullToRefresh() {
+    const spinner = document.getElementById('ptr-spinner');
+    const icon = document.getElementById('ptr-icon');
+    
+    let startY = 0;
+    let isPulling = false;
+    let isRefreshing = false;
+    let pullDistance = 0; 
+
+    // 1. 터치 시작
+    window.addEventListener('touchstart', (e) => {
+      // ⭐ [핵심 추가] 예외 처리: 메뉴나 모달, 바텀시트 내부 터치 시 무시 ⭐
+      const target = e.target;
+
+      // A. 사이드 메뉴가 열려있고, 터치가 메뉴(Sidebar) 내부라면 -> 무시
+      const sideMenu = document.getElementById('sideMenu');
+      if (sideMenu && sideMenu.classList.contains('active') && sideMenu.contains(target)) {
+          return; 
+      }
+
+      // B. 열려있는 모달(.modal-card)이나 오버레이 내부라면 -> 무시
+      if (target.closest('.modal-card') || target.closest('.modal-overlay')) {
+          return;
+      }
+
+      // C. 바텀 시트(요일 선택 등) 내부라면 -> 무시
+      if (target.closest('.bottom-sheet')) {
+          return;
+      }
+      
+      // 👇👇👇 새로고침 방지 추가 (리포트 화면) 👇👇👇
+      if (target.closest('#recapScreen')) {
+          return;
+      }
+
+      // 스크롤이 맨 위이고, 현재 새로고침 중이 아닐 때만 시작
+      if (window.scrollY === 0 && !isRefreshing) {
+        startY = e.touches[0].clientY;
+        isPulling = true;
+        pullDistance = 0;
+        
+        // 애니메이션 초기화
+        spinner.style.transition = 'none'; 
+      }
+    }, { passive: true });
+
+    // 2. 당기는 중
+    window.addEventListener('touchmove', (e) => {
+      if (!isPulling) return;
+      
+      const currentY = e.touches[0].clientY;
+      const diff = currentY - startY;
+
+      // 아래로 당길 때만 작동
+      if (diff > 0) {
+        // 저항감(0.4)을 줘서 쫀쫀하게
+        const move = Math.min(diff * 0.4, 120); 
+        pullDistance = move; 
+
+        spinner.style.top = (move - 60) + 'px'; 
+        
+        // 회전 애니메이션 (충분히 당겼을 때)
+        if (move > 60) {
+            icon.style.transform = 'rotate(180deg)';
+            icon.innerText = '⬆️'; 
+        } else {
+            icon.style.transform = 'rotate(0deg)';
+            icon.innerText = '⬇️';
+        }
+      } else {
+        // 위로 스크롤하면 취소
+        isPulling = false;
+        pullDistance = 0;
+      }
+    }, { passive: true });
+
+    // 3. 터치 끝
+    window.addEventListener('touchend', (e) => {
+      if (!isPulling) return;
+      isPulling = false; 
+
+      if (pullDistance > 60) { 
+        // 새로고침 실행 상태로 변경
+        isRefreshing = true;
+        
+        // 놓는 순간에는 부드럽게 제자리로 가야 하므로 애니메이션 킴
+        spinner.style.transition = 'top 0.2s';
+        spinner.style.top = '20px'; 
+        
+        icon.innerText = '⏳'; 
+        icon.style.animation = 'spin 1s infinite linear'; 
+
+        // 데이터 로드
+        loadDashboard(); 
+
+        // 2초 후 복구
+        setTimeout(() => {
+          resetPtr();
+        }, 2000); 
+
+      } else {
+        // 충분히 안 당겼으면 그냥 복구
+        resetPtr();
+      }
+      
+      pullDistance = 0; 
+    });
+
+    function resetPtr() {
+        // 복구될 때도 부드럽게 올라가도록 애니메이션 킴
+        spinner.style.transition = 'top 0.3s ease-out';
+        spinner.style.top = '-60px';
+        
+        // 아이콘 복구 (올라가는 시간 0.3초 뒤에 리셋)
+        setTimeout(() => {
+            isRefreshing = false; // [중요] 상태 잠금 해제
+            icon.innerText = '⬇️';
+            icon.style.transform = 'rotate(0deg)';
+            icon.style.animation = 'none';
+        }, 300);
+      }
+  }
+
+  // [신규] CSS 애니메이션 (스피너 회전용) - 스크립트 안에 넣어도 됨
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  `;
+  document.head.appendChild(style);
+
+  let challengeImgData = null;
+
+  function openAdminChallenge() {
+    closeMenu();
+    // 초기화
+    document.getElementById('chalTitle').value = '';
+    document.getElementById('chalStart').value = '';
+    document.getElementById('chalEnd').value = '';
+    document.getElementById('chalTarget').value = '';
+    document.getElementById('chalReward').value = '';
+    document.getElementById('chalDesc').value = '';
+    document.getElementById('chalImgInput').value = '';
+    document.getElementById('chalImgPreview').style.display = 'none';
+    document.getElementById('chalImgIcon').style.display = 'block';
+    challengeImgData = null;
+    
+    document.getElementById('adminChallengeModal').style.display = 'flex';
+  }
+
+  function handleChallengeImg(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        challengeImgData = e.target.result;
+        const preview = document.getElementById('chalImgPreview');
+        preview.src = challengeImgData;
+        preview.style.display = 'block';
+        document.getElementById('chalImgIcon').style.display = 'none';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function submitChallenge() {
+    const title = document.getElementById('chalTitle').value;
+    const start = document.getElementById('chalStart').value;
+    const end = document.getElementById('chalEnd').value;
+    const target = document.getElementById('chalTarget').value;
+    const reward = document.getElementById('chalReward').value;
+    const desc = document.getElementById('chalDesc').value;
+
+    if (!title || !start || !end || !desc) {
+        return showAlert('제목, 기간, 설명은 필수입니다!');
+    }
+    if (start > end) {
+        return showAlert('종료일이 시작일보다 빠를 수 없습니다.');
+    }
+
+    showLoad('챌린지 등록 중...');
+
+    const data = {
+        adminName: currentUser, // 현재 로그인한 관리자 닉네임
+        title: title,
+        start: start,
+        end: end,
+        target: target,
+        reward: reward,
+        desc: desc,
+        imgData: challengeImgData // 이미지 Base64 문자열
+    };
+
+    google.script.run.withSuccessHandler(res => {
+        hideLoad();
+        if (res.success) {
+            showAlert('챌린지가 등록되었습니다! 🏃🏻‍➡️');
+            closeModal('adminChallengeModal');
+            loadDashboard(); // 메인화면 갱신 (챌린지 버튼 뜨게)
+        } else {
+            showAlert('실패: ' + res.msg);
+        }
+    }).registerChallenge(data);
+  }
+
+  function toggleAdminGrid() {
+    const grid = document.getElementById('adminGrid');
+    const arrow = document.getElementById('adminArrow');
+    const hint = document.getElementById('adminDragHint'); // 문구 요소 가져오기
+
+    if (grid.style.display === 'none') {
+        // 펼치기
+        grid.style.display = 'grid';
+        arrow.classList.remove('closed');
+        if(hint) hint.style.display = 'block'; // 문구 보이기
+    } else {
+        // 접기
+        grid.style.display = 'none';
+        arrow.classList.add('closed');
+        if(hint) hint.style.display = 'none'; // 문구 숨기기
+    }
+  }
+
+  function initMenuSortable() {
+    setupSortable('userMenuGrid', 'SME_MENU_ORDER');   // 유저 메뉴
+    setupSortable('adminGrid', 'SME_ADMIN_ORDER');     // 관리자 메뉴
+  }
+
+  function setupSortable(elementId, storageKey) {
+    const grid = document.getElementById(elementId);
+    if (!grid) return;
+
+    // 1. 저장된 순서 불러오기
+    const savedOrder = localStorage.getItem(storageKey);
+    if (savedOrder) {
+        try {
+            const order = JSON.parse(savedOrder);
+            
+            // ⭐ [추가] 저장된 목록에 없는 '새로운 메뉴'들만 따로 모아둡니다.
+            const unsavedItems = [];
+            grid.querySelectorAll('.menu-box').forEach(el => {
+                if (!order.includes(el.getAttribute('data-id'))) {
+                    unsavedItems.push(el);
+                }
+            });
+
+            // 기존 메뉴들을 저장된 순서대로 재배치
+            order.forEach(id => {
+                const item = grid.querySelector(`[data-id="${id}"]`);
+                if (item) grid.appendChild(item);
+            });
+            
+            // ⭐ [추가] 새로운 메뉴는 무조건 맨 끝에 이어 붙여줍니다!
+            unsavedItems.forEach(item => grid.appendChild(item));
+
+        } catch(e) {}
+    }
+
+    // 2. 드래그 활성화
+    new Sortable(grid, {
+        animation: 300,
+        delay: 200,
+        delayOnTouchOnly: true, 
+        ghostClass: 'sortable-ghost',
+        onEnd: function (evt) {
+            const newOrder = [];
+            grid.querySelectorAll('.menu-box').forEach(el => {
+                newOrder.push(el.getAttribute('data-id'));
+            });
+            localStorage.setItem(storageKey, JSON.stringify(newOrder));
+        },
+    });
+  }
+
+  function switchMemberTab(tabName) {
+    const tabWait = document.getElementById('tabWait');
+    const tabManage = document.getElementById('tabManage');
+    const tabWithdraw = document.getElementById('tabWithdraw'); // 신규
+
+    const listWait = document.getElementById('approvalListWrapper');
+    const listManage = document.getElementById('managementListWrapper');
+    const listWithdraw = document.getElementById('withdrawListWrapper'); // 신규
+
+    // 모든 탭 비활성화
+    tabWait.classList.remove('active');
+    tabManage.classList.remove('active');
+    tabWithdraw.classList.remove('active');
+    
+    listWait.style.display = 'none';
+    listManage.style.display = 'none';
+    listWithdraw.style.display = 'none';
+
+    if (tabName === 'wait') {
+        tabWait.classList.add('active');
+        listWait.style.display = 'block';
+        loadWaitList();
+    } else if (tabName === 'manage') {
+        tabManage.classList.add('active');
+        listManage.style.display = 'block';
+        loadManageList();
+    } else if (tabName === 'withdraw') {
+        tabWithdraw.classList.add('active');
+        listWithdraw.style.display = 'block';
+        loadWithdrawnList(); // 탈퇴 목록 로드
+    }
+  }
+
+  // [분리됨] 가입 대기 목록 로드
+  function loadWaitList() {
+    showLoad('대기 명단 조회 중...');
+    google.script.run.withSuccessHandler(list => {
+      hideLoad();
+      const container = document.getElementById('approvalList');
+      container.innerHTML = '';
+      
+      if (list.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:#B0B8C1;">대기 중인 회원이 없습니다.</div>';
+      } else {
+        list.forEach(m => {
+          const div = document.createElement('div');
+          div.className = 'pending-item';
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-size:16px; font-weight:800;">${m.nickname}</span>
+              <span style="font-size:12px; color:#8B95A1;">${m.joinDate}</span>
+            </div>
+            <div class="pending-actions">
+              <button class="act-btn act-approve" onclick="processJoin('${m.nickname}', 'APPROVE')">승인</button>
+              <button class="act-btn act-reject" onclick="processJoin('${m.nickname}', 'REJECT')">거절</button>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      }
+    }).getPendingMembers(currentUser);
+  }
+
+  // [신규] 현재 멤버 목록 로드 (탈퇴 버튼 포함)
+  function loadManageList() {
+    showLoad('멤버 목록 조회 중...');
+    google.script.run.withSuccessHandler(list => {
+      hideLoad();
+      const container = document.getElementById('managementList');
+      container.innerHTML = '';
+      
+      list.forEach(m => {
+          // 자기 자신(관리자)은 추방 버튼 안 보이게
+          const isMe = (m.nickname === currentUser);
+          const btnHtml = isMe ? 
+            `<span style="font-size:12px; color:#3182F6; font-weight:bold;">관리자(나)</span>` : 
+            `<button class="btn" style="padding:6px 12px; font-size:12px; background:#FFEAEA; color:#FF3B30; border-radius:8px;" onclick="doWithdrawMember('${m.nickname}')">탈퇴처리</button>`;
+
+          const div = document.createElement('div');
+          div.style.cssText = "background:white; border:1px solid #E5E8EB; border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center;";
+          div.innerHTML = `
+            <div style="display:flex; flex-direction:column;">
+               <span style="font-size:15px; font-weight:700; color:#333;">${m.nickname}</span>
+               <span style="font-size:11px; color:#8B95A1;">가입일: ${m.joinDate}</span>
+            </div>
+            <div>${btnHtml}</div>
+          `;
+          container.appendChild(div);
+      });
+    }).getAdminMemberList(currentUser);
+  }
+
+  // [신규] 강제 탈퇴 실행
+  function doWithdrawMember(nick) {
+    showConfirm(`🚨 경고: [${nick}]님을 정말 탈퇴처리하시겠습니까?\n해당 회원은 더 이상 로그인할 수 없습니다.`, () => {
+        showLoad('처리 중...');
+        google.script.run.withSuccessHandler(res => {
+            hideLoad();
+            if(res.success) {
+                showAlert('처리되었습니다.');
+                loadManageList(); // 목록 새로고침
+            } else {
+                showAlert('실패: ' + res.msg);
+            }
+        }).forceWithdrawMember(currentUser, nick);
+    });
+  }
+
+  function loadWithdrawnList() {
+    showLoad('탈퇴 멤버 조회 중...');
+    google.script.run.withSuccessHandler(list => {
+      hideLoad();
+      const container = document.getElementById('withdrawList');
+      container.innerHTML = '';
+      
+      if (list.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:#B0B8C1;">탈퇴한 멤버가 없습니다.</div>';
+      } else {
+        list.forEach(m => {
+          const div = document.createElement('div');
+          div.style.cssText = "background:#FFF5F5; border:1px solid #FFE0E0; border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center;";
+          div.innerHTML = `
+            <div style="display:flex; flex-direction:column;">
+               <span style="font-size:15px; font-weight:700; color:#4E5968; text-decoration:line-through;">${m.nickname}</span>
+               <span style="font-size:11px; color:#8B95A1;">가입일: ${m.joinDate}</span>
+            </div>
+            <button class="btn" style="padding:6px 12px; font-size:12px; background:#E8F3FF; color:#3182F6; border-radius:8px; border:1px solid #3182F6;" onclick="doRestoreMember('${m.nickname}')">♻️ 복구</button>
+          `;
+          container.appendChild(div);
+        });
+      }
+    }).getWithdrawnMembers(currentUser);
+  }
+
+  function doRestoreMember(nick) {
+    showConfirm(`[${nick}]님을 다시 일반 회원으로 복구하시겠습니까?`, () => {
+        showLoad('복구 중...');
+        google.script.run.withSuccessHandler(res => {
+            hideLoad();
+            if(res.success) {
+                showAlert('복구되었습니다! 🎉\n이제 해당 회원은 로그인할 수 있습니다.');
+                loadWithdrawnList(); // 목록 새로고침
+            } else {
+                showAlert('실패: ' + res.msg);
+            }
+        }).restoreMember(currentUser, nick);
+    });
+  }
+
+  function startActivityTracking() {
+    // 앱을 켰을 때(로그인 시) 1회만 전송
+    if (currentUser) {
+        google.script.run.withSuccessHandler().logUserActivity(currentUser, 'VISIT', '');
+    }
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showAlert('복사되었습니다!');
+        }).catch(() => {
+            fallbackCopyText(text);
+        });
+    } else {
+        fallbackCopyText(text);
+    }
+  }
+
+  // 구형 방식 (화면 밖 안 보이는 곳에 입력창 만들어서 복사)
+  function fallbackCopyText(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // 화면 밖으로 숨김
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showAlert('계좌번호가 복사되었습니다!');
+    } catch (err) {
+        showAlert('복사에 실패했습니다. 직접 입력해주세요.');
+    }
+    
+    document.body.removeChild(textArea);
+  }
+
+  function copyFineNotice() {
+    const titleEl = document.getElementById('adminFineWeekTitle');
+    const container = document.getElementById('adminFineList');
+    
+    if (!titleEl || !container) return;
+
+    const title = titleEl.innerText;
+    
+    // 1. 벌금 대상자 닉네임 수집
+    const nicknames = [];
+    const items = container.querySelectorAll('.pending-item');
+    
+    items.forEach(function(item) {
+        const nickTarget = item.querySelector('div[style*="font-size:16px"]');
+        if (nickTarget) {
+            const onlyNick = nickTarget.innerText.split('\n')[0].trim();
+            nicknames.push(onlyNick);
+        }
+    });
+
+    if (nicknames.length === 0) {
+        return showAlert('벌금 대상자가 없습니다.');
+    }
+
+    // 2. 텍스트 생성
+    let cleanTitle = title.replace(/^\d+년\s*/, ''); 
+    const noticeText = "📌" + cleanTitle + " 벌금 납부자 명단\n\n" +
+                       "=> 벌금 납부 계좌\n" +
+                       "카카오뱅크 79421981948 (예금주: 이ㅇㅅ)\n\n" +
+                       "(" + nicknames.join(', ') + ")\n\n" +
+                       "sme웹앱 메뉴 내 ‘벌금 관리’ 버튼으로 벌금 확인해주세요\n" +
+                       "--------------------\n" +
+                       "[https://sites.google.com/view/smesme/sme-gym]";
+
+    // 3. 클립보드 복사 시도
+    copyToClipboard(noticeText);
+
+    // 4. [신규] 0.5초 뒤 카카오톡 앱 실행 (모바일 전용)
+    setTimeout(function() {
+        // 사용자에게 안내 (PC에서는 카톡이 안 켜질 수 있음)
+        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            // 카카오톡 URL Scheme 실행
+            window.location.href = "kakaotalk://";
+        } else {
+            // PC인 경우 알림만
+            showAlert("텍스트가 복사되었습니다!\n카카오톡을 열어 붙여넣기 하세요.");
+        }
+    }, 500);
+  }
+
+  function carryOverBalance() {
+      // 1. 오늘 날짜 확인 (1일인지 체크하려면 주석 해제)
+      // const today = new Date().getDate();
+      // if (today !== 1) return showAlert("이월 처리는 매월 1일에만 가능합니다.");
+
+      const msg = "⚠️ [주의] 장부를 이월하시겠습니까?\n\n" +
+                  "1. 현재 잔액이 '전월 이월금'으로 잡힙니다.\n" +
+                  "2. 기존 내역은 '백업 시트'로 안전하게 이동됩니다.\n" +
+                  "3. 현재 장부는 초기화됩니다.\n\n" +
+                  "진행하시겠습니까?";
+
+      showConfirm(msg, () => {
+          showLoad('데이터 백업 및 이월 처리 중...');
+          
+          google.script.run.withSuccessHandler(res => {
+              hideLoad();
+              if (res.success) {
+                  showAlert('✅ 이월 처리가 완료되었습니다!\n(기존 내역은 백업되었습니다)');
+                  openLedger(); // 장부 새로고침
+              } else {
+                  showAlert('실패: ' + res.msg);
+              }
+          }).performCarryOver(currentUser);
+      });
+  }
+
+  function openWaiverModal() {
+      // 기본 문구 설정
+      document.getElementById('waiverReasonInput').value = "신입으로 면제 처리";
+      document.getElementById('waiverReasonModal').style.display = 'flex';
+  }
+
+  // [신규] 면제 실행
+  function submitWaiver() {
+      const reason = document.getElementById('waiverReasonInput').value;
+      if (!reason.trim()) return showAlert("사유를 입력해주세요.");
+
+      // 아까 저장해둔 row, col 가져오기
+      const row = document.getElementById('waiveTargetRow').value;
+      const col = document.getElementById('waiveTargetCol').value;
+      const nick = document.getElementById('adminRecordNick').innerText;
+
+      closeModal('waiverReasonModal'); // 사유창 닫기
+      closeModal('adminUserRecordModal'); // 조회창도 닫기
+      
+      showLoad('면제 처리 중...');
+      
+      google.script.run.withSuccessHandler(res => {
+          if (res.success) {
+              hideLoad();
+              showAlert('면제 처리되었습니다.');
+              openAdminFine(); // 목록 새로고침
+          } else {
+              hideLoad();
+              showAlert('실패: ' + res.msg);
+          }
+      }).processFineWaiver(currentUser, row, col, reason);
+  }
+
+  function startCheerRolling(dataList) {
+    const wrapper = document.getElementById('cheerRollingWrapper');
+    wrapper.innerHTML = '';
+    
+    // 1. 롤링할 리스트 준비
+    const rollingList = [...dataList];
+
+    // 2. 마지막에 기본 문구 추가
+    rollingList.push({
+      nickname: "System", 
+      msg: "여기를 눌러 응원 한마디! 💬",
+      profileUrl: "",
+      isDefault: true 
+    });
+
+    // 3. DOM 생성
+    rollingList.forEach(item => {
+      const div = document.createElement('div');
+      // 스타일: 높이 20px, 가로 100% 꽉 차게
+      div.style.cssText = "height: 20px; display: flex; align-items: center; gap: 6px; width: 100%; max-width: 100%;";
+      
+      let innerHTML = "";
+
+      if (item.isDefault) {
+         // [A] 기본 문구일 때 (회색)
+         innerHTML = `<span class="cheer-text-item" style="color:#8B95A1;">${item.msg}</span>`;
+      } else {
+         // [B] 회원 글일 때
+         let imgTag = '';
+         if(item.profileUrl) {
+             imgTag = `<img src="${item.profileUrl}" style="width:16px; height:16px; border-radius:50%; object-fit:cover; flex-shrink:0;" referrerpolicy="no-referrer">`;
+         } else {
+             imgTag = `<span style="font-size:12px; flex-shrink:0;">👤</span>`;
+         }
+         
+         // 텍스트 색상 적용 (기본값 #333333이면 다크모드 대응 변수 사용)
+         const rawColor = item.color || "#333333";
+         const finalColor = (rawColor === "#333333") ? "var(--text-main)" : rawColor;
+
+         // 닉네임과 내용 표시
+         innerHTML = `${imgTag} 
+                      <span style="font-weight:700; font-size:13px; color:var(--text-main); flex-shrink:0;">${item.nickname}</span> 
+                      <span class="cheer-text-item" style="color:${finalColor}; font-weight:600;">${item.msg}</span>`;
+      }
+      
+      div.innerHTML = innerHTML;
+      wrapper.appendChild(div);
+    });
+
+    // 4. 롤링 애니메이션 로직
+    if (rollingList.length > 1) {
+       const firstClone = wrapper.children[0].cloneNode(true);
+       wrapper.appendChild(firstClone);
+
+       let idx = 0;
+       
+       if (cheerInterval) clearInterval(cheerInterval);
+       
+       cheerInterval = setInterval(() => {
+          idx++;
+          wrapper.style.transition = "transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)";
+          wrapper.style.transform = `translateY(-${idx * 20}px)`; 
+
+          if (idx === rollingList.length) {
+             setTimeout(() => {
+                wrapper.style.transition = "none"; 
+                wrapper.style.transform = "translateY(0)"; 
+                idx = 0;
+             }, 500); 
+          }
+       }, 2500); 
+    }
+  }
+
+  function openCheerModal() {
+     document.getElementById('cheerModal').style.display = 'flex';
+     
+     // 입력창 초기화
+     document.getElementById('cheerInput').value = '';
+     document.getElementById('cheerInput').style.color = 'var(--text-main)'; 
+     
+     // 색상 선택 초기화
+     const dots = document.querySelectorAll('.color-dot');
+     dots.forEach(d => d.classList.remove('selected'));
+     if(dots.length > 0) dots[0].classList.add('selected');
+     document.getElementById('cheerColorVal').value = '#333333';
+     
+     // 리스트 그리기 호출
+     renderCheerList(); 
+  }
+
+  function submitCheer() {
+      const msg = document.getElementById('cheerInput').value.trim();
+      if (!msg) return showAlert("내용을 입력해주세요.");
+      
+      const myProfileUrl = document.getElementById('dashProfileImg').src || "";
+      // [수정] 선택된 색상 가져오기
+      const color = document.getElementById('cheerColorVal').value || "#333333";
+      
+      showLoad('등록 중...');
+      google.script.run.withSuccessHandler(res => {
+          hideLoad();
+          if(res.success) {
+              showAlert("등록되었습니다!");
+              closeModal('cheerModal');
+              refreshCheerData();
+          }
+      }).writeCheerMessage(currentUser, msg, myProfileUrl, color); // color 추가됨
+  }
+
+  function refreshCheerData() {
+      google.script.run.withSuccessHandler(list => {
+          cheerList = list;
+          // 1. 메인화면 롤링 갱신
+          startCheerRolling(list);
+          
+          // 2. [핵심] 모달이 열려있다면 리스트도 즉시 새로고침
+          if(document.getElementById('cheerModal').style.display === 'flex') {
+              renderCheerList();
+          }
+      }).getValidCheerMessages();
+  }
+
+  function selectCheerColor(el, colorCode) {
+      // 모든 점의 선택 상태 해제
+      document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('selected'));
+      // 현재 점 선택
+      el.classList.add('selected');
+      // 값 저장
+      document.getElementById('cheerColorVal').value = colorCode;
+      // 입력창 글씨 색도 미리보기로 변경
+      document.getElementById('cheerInput').style.color = colorCode;
+  }
+
+  function deleteCheer(row) {
+      showConfirm("정말 삭제하시겠습니까?", () => {
+          showLoad("삭제 중...");
+          google.script.run.withSuccessHandler(res => {
+              hideLoad();
+              if (res.success) {
+                  showAlert("삭제되었습니다."); 
+                  // 데이터 갱신 요청 -> 완료되면 자동으로 리스트가 다시 그려짐 (위 2-1번 덕분)
+                  refreshCheerData();
+              } else {
+                  showAlert("실패: " + res.msg);
+              }
+          }).deleteCheerMessage(currentUser, row);
+      });
+  }
+
+  function renderCheerList() {
+      const container = document.getElementById('cheerListContainer');
+      container.innerHTML = '';
+      
+      if (cheerList.length === 0) {
+          container.innerHTML = '<div style="text-align:center; padding:40px 0; color:#B0B8C1; font-size:13px;">아직 작성된 한마디가 없어요.<br>첫 번째 주인공이 되어보세요!</div>';
+          return;
+      }
+
+      cheerList.forEach(item => {
+          const div = document.createElement('div');
+          div.style.cssText = "padding: 12px 0; border-bottom: 1px solid #F2F4F6; display: flex; align-items: flex-start; gap: 10px;";
+          
+          let imgHtml = item.profileUrl ? 
+              `<img src="${item.profileUrl}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #E5E8EB;" referrerpolicy="no-referrer">` :
+              `<div style="width:36px; height:36px; border-radius:50%; background:#F2F4F6; display:flex; align-items:center; justify-content:center;">👤</div>`;
+          
+          const rawColor = item.color || "#333333";
+          const finalColor = (rawColor === "#333333") ? "var(--text-main)" : rawColor;
+
+          // 내 글인지 확인
+          const isMe = (item.nickname === currentUser);
+          
+          // 삭제 버튼 (내 글일 때만)
+          const delBtn = isMe ? 
+              `<div onclick="deleteCheer(${item.row})" style="padding:4px 8px; cursor:pointer; font-size:16px; color:#B0B8C1; margin-left:auto;">&times;</div>` : 
+              `<div style="margin-left:auto;"></div>`; 
+
+          div.innerHTML = `
+              ${imgHtml}
+              <div style="flex:1;">
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                     <div style="display:flex; gap:6px; align-items:center;">
+                        <span style="font-size:13px; font-weight:700; color:var(--text-main);">${item.nickname}</span>
+                        <span style="font-size:11px; color:#B0B8C1;">${item.time}</span>
+                     </div>
+                 </div>
+                 <div style="font-size:14px; margin-top:2px; font-weight:500; color:${finalColor}; width:100%; word-break:break-all;">${item.msg}</div>
+              </div>
+              ${delBtn} 
+          `;
+          container.appendChild(div);
+      });
+  }
+
+  function openAdminExempt() {
+    closeMenu();
+    showLoad('면제 신청 내역 불러오는 중...');
+
+    google.script.run.withSuccessHandler(list => {
+      hideLoad();
+      const container = document.getElementById('adminExemptList');
+      container.innerHTML = '';
+
+      if (list.length === 0) {
+        container.innerHTML = '<div style="padding:40px 0; color:#B0B8C1; text-align:center;">대기 중인 신청이 없습니다.</div>';
+      } else {
+        list.forEach(item => {
+          // 날짜 시각화를 위한 그리드 생성 및 정확한 날짜 텍스트 파싱
+          let gridHtml = '';
+          let formattedPeriod = ''; // ★ 정확한 날짜 텍스트를 담을 변수
+          
+          if(item.period) {
+            const dates = item.period.split(',').map(s => s.trim());
+            gridHtml = createAdminSplitGridHtml(dates);
+            
+            // ★ [신규] YYYY-MM-DD 형식을 M월 D일(요일) 형태로 변환
+            const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
+            const dateStrings = dates.map(dStr => {
+                const d = new Date(dStr);
+                if(isNaN(d.getTime())) return dStr; // 날짜 형식이 아니면 원본 반환
+                return `${d.getMonth() + 1}월 ${d.getDate()}일(${daysArr[d.getDay()]})`;
+            });
+            formattedPeriod = dateStrings.join(', '); // 쉼표로 연결
+          }
+
+          const div = document.createElement('div');
+          div.className = 'pending-item';
+          div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+              <div>
+                <div style="font-size:16px; font-weight:800; color:#333; margin-bottom:2px;">${item.nickname}</div>
+                <div style="font-size:11px; color:#8B95A1;">신청일: ${item.requestTime}</div>
+              </div>
+            </div>
+            
+            <div style="font-size:13px; font-weight:800; color:var(--primary); margin-bottom:8px; background:rgba(49,130,246,0.1); padding:8px 12px; border-radius:8px;">
+                🗓️ 대상: ${formattedPeriod}
+            </div>
+
+            ${gridHtml}
+
+            <div style="background:white; padding:10px; border-radius:8px; border:1px solid #eee; margin-bottom:12px; font-size:14px; color:#4E5968;">
+              ${item.reason}
+            </div>
+
+            <div style="display:flex; gap:8px;">
+              <button class="btn" style="flex:1; padding:10px; font-size:13px; background:#E8F3FF; color:#3182F6; border-radius:12px; font-weight:700; border:none;" onclick="doProcessExempt(${item.row}, 1)">승인</button>
+              <button class="btn" style="flex:1; padding:10px; font-size:13px; background:#FFEAEA; color:#FF3B30; border-radius:12px; font-weight:700; border:none;" onclick="doProcessExempt(${item.row}, 0)">반려</button>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      }
+      document.getElementById('adminExemptModal').style.display = 'flex';
+    })
+    .withFailureHandler(err => {
+        hideLoad();
+        showAlert("불러오기 실패: " + err);
+    })
+    .getPendingExemptions(currentUser);
+  }
+
+  function checkRecapPrompt(hasSeenRecap) {
+    // 시트(V열)에 기록이 없다면 모달 띄우기
+    if (!hasSeenRecap) {
+      setTimeout(() => {
+        document.getElementById('recapPromptModal').style.display = 'flex';
+      }, 1500); 
+    }
+  }
+
+  function closeRecapPrompt() {
+    document.getElementById('recapPromptModal').style.display = 'none';
+  }
+
+  function openRecapScreen() {
+    closeMenu(); 
+    closeRecapPrompt();
+    showLoad('나의 상반기 기록을 분석 중입니다...');
+    
+    google.script.run.withSuccessHandler(res => {
+      hideLoad();
+      if (!res.success) return showAlert(res.msg);
+      
+      google.script.run.updateTutorialStatus(currentUser, 'recap');
+      
+      renderRecapUI(res);
+      
+      document.getElementById('dashboardScreen').style.display = 'none';
+      document.getElementById('recapScreen').style.display = 'block';
+      
+      setupRecapAnimations();
+
+      // ★ BGM 재생 시작 (배경음악이므로 볼륨을 40%로 잔잔하게 설정)
+      const bgm = document.getElementById('recapBgm');
+      if (bgm) {
+          bgm.volume = 0.4;
+          bgm.muted = false;
+          document.getElementById('recapSoundBtn').innerText = '🔊';
+          // 모바일 브라우저 정책 방어를 위해 Promise 캐치
+          bgm.play().catch(e => console.log("BGM 자동재생이 차단되었습니다.", e));
+      }
+
+    }).getSemiAnnualRecapData(currentUser);
+  }
+
+  function closeRecapScreen() {
+    document.getElementById('recapScreen').style.display = 'none';
+    document.getElementById('dashboardScreen').style.display = 'block';
+
+    // ★ BGM 정지 및 처음으로 되감기
+    const bgm = document.getElementById('recapBgm');
+    if (bgm) {
+        bgm.pause();
+        bgm.currentTime = 0;
+    }
+  }
+
+  // ★ [신규] 음소거 ON/OFF 토글 함수
+  function toggleRecapSound() {
+    const bgm = document.getElementById('recapBgm');
+    const btn = document.getElementById('recapSoundBtn');
+    if (!bgm) return;
+
+    if (bgm.muted) {
+      bgm.muted = false;
+      btn.innerText = '🔊';
+    } else {
+      bgm.muted = true;
+      btn.innerText = '🔇';
+    }
+  }
+
+  function closeRecapScreen() {
+    document.getElementById('recapScreen').style.display = 'none';
+    document.getElementById('dashboardScreen').style.display = 'block';
+  }
+
+  function renderRecapUI(data) {
+    const d = data.myData;
+    const container = document.getElementById('recapContainer');
+    
+    // ★ 사진을 순서대로 하나씩 뽑아주는 헬퍼 함수
+    const photos = data.userPhotoUrls || [];
+    let photoIndex = 0;
+    
+    function getPolaroid() {
+      if (photos.length === 0) return ""; // 사진이 없으면 빈 문자열 반환
+      
+      // 사진이 부족하면 처음 사진부터 다시 반복 (Loop)
+      const url = photos[photoIndex % photos.length]; 
+      photoIndex++;
+      
+      // -6도 ~ +6도 사이로 랜덤하게 비뚤어지게 배치
+      const rot = (Math.random() * 12 - 6).toFixed(1); 
+      
+      return `
+      <div class="recap-anim-sub" style="margin-top: 25px; transform: rotate(${rot}deg); transition-delay: 0.6s; pointer-events: none;">
+        <div style="background: white; padding: 8px 8px 24px 8px; border-radius: 4px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); display: inline-block;">
+          <img src="${url}" style="width: 160px; height: 160px; object-fit: cover; border-radius: 2px;" loading="lazy" referrerpolicy="no-referrer">
+        </div>
+      </div>`;
+    }
+
+    function createChartHTML(highlightType) {
+      const daysArr = ['월', '화', '수', '목', '금', '토', '일'];
+      const maxDayCount = Math.max(...data.myDays, 1);
+      let html = '<div class="recap-anim-sub" style="width: 100%; max-width: 320px; margin: 30px auto 0; text-align: left;">';
+      
+      data.myDays.forEach((val, idx) => {
+        const dayStr = daysArr[idx];
+        let isHighlight = false;
+        let barColor = 'rgba(255,255,255,0.15)';
+        let textColor = '#d4d4d8';
+
+        if (highlightType === 'BEST' && data.myBestDays.includes(dayStr) && val > 0) {
+          isHighlight = true;
+          barColor = 'linear-gradient(90deg, #00c6ff, #0072ff)';
+          textColor = '#00c6ff';
+        } else if (highlightType === 'WORST' && data.myWorstDays.includes(dayStr)) {
+          isHighlight = true;
+          barColor = 'linear-gradient(90deg, #ff9966, #ff5e62)';
+          textColor = '#ff9966';
+        }
+
+        const pct = (val / maxDayCount) * 100;
+        html += `
+          <div style="display:flex; align-items:center; margin-bottom:14px; font-size:14px;">
+            <div style="width:30px; color:${isHighlight ? 'white' : '#a1a1aa'}; font-weight:${isHighlight ? '800' : '400'};">${dayStr}</div>
+            <div style="flex:1; background:rgba(0,0,0,0.5); border-radius:8px; height:16px; margin:0 12px; overflow:hidden;">
+              <div class="recap-bar-fill" style="background:${barColor}; --w:${pct}%;"></div>
+            </div>
+            <div style="width:40px; text-align:right; color:${textColor}; font-weight:bold;">${val}회</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    let personaIcon = "🏃‍♂️"; let personaTitle = "꾸준한 득근러"; let personaDesc = "묵묵히 땀방울을 흘리며 단련한 당신, 멋집니다!";
+    if (d.fines >= 20000) { personaIcon = "💸"; personaTitle = "SME의 기부천사"; personaDesc = `무려 ${d.fines.toLocaleString()}원 기부! 운영진이 사랑합니다.`; }
+    else if (d.meetup >= 3) { personaIcon = "🍻"; personaTitle = "오프라인 지배자"; personaDesc = `오프라인에서도 빛나는 당신! 정모의 핵심 멤버입니다.`; }
+    else if (d.challenge >= 5) { personaIcon = "🏅"; personaTitle = "도장 깨기 장인"; personaDesc = `미션이란 미션은 다 깼군요! 챌린지 사냥꾼으로 임명합니다.`; }
+    else if (d.maxRest >= 14) { personaIcon = "🐻"; personaTitle = "겨울잠 자는 곰"; personaDesc = `무려 ${d.maxRest}일이나 휴식! 이제 슬슬 일어날 시간입니다.`; }
+    else if (d.shares + d.rxSent + d.cheers >= 50) { personaIcon = "🌟"; personaTitle = "SME 최고 인싸"; personaDesc = "소통의 왕! 모임의 분위기 메이커 역할을 톡톡히 하셨어요."; }
+    else if (d.maxStreak >= 10) { personaIcon = "🔥"; personaTitle = "불꽃 헬창"; personaDesc = `무려 ${d.maxStreak}일 연속 운동! 헬스장 관장님도 울고 갑니다.`; }
+    else if (d.totalWorkout >= 40) { personaIcon = "🦾"; personaTitle = "강철 프레임"; personaDesc = "어떤 유혹에도 흔들리지 않고 거대한 근육을 쌓아 올렸습니다."; }
+
+    const textStyle = "font-size: 24px; font-weight: 800; line-height: 1.6; text-align: center; color: white; word-break: keep-all;";
+    const subTextStyle = "font-size: 15px; font-weight: 500; line-height: 1.5; color: #a1a1aa; margin-top: 16px;";
+    const highlight1 = "background: linear-gradient(90deg, #ff007f, #7928ca); -webkit-background-clip: text; -webkit-text-fill-color: transparent;";
+    const highlight2 = "background: linear-gradient(90deg, #00c6ff, #0072ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;";
+    const highlight3 = "background: linear-gradient(90deg, #ff9966, #ff5e62); -webkit-background-clip: text; -webkit-text-fill-color: transparent;";
+    const highlight4 = "background: linear-gradient(90deg, #00b09b, #96c93d); -webkit-background-clip: text; -webkit-text-fill-color: transparent;";
+
+    container.innerHTML = `
+      <div class="recap-section">
+        <div class="recap-anim-text">안녕하세요,<br><span class="recap-highlight-blue" style="font-size:32px;">${d.nickname}</span>님!</div>
+        <div style="position:absolute; bottom:40px; font-size:12px; color:#555; animation: bounce 2s infinite;">아래로 스크롤 해보세요 ↓</div>
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">2026년 상반기의<br>운동 결산 리포트,<br>지금 바로 펼쳐볼게요.</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">${d.nickname}님은 상반기 동안<br>SME 앱에 총<br><span class="recap-highlight">${d.visits}번</span><br>찾아와 주셨어요!</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">그리고 이 기간 동안<br>우리가 함께 기록한 운동 횟수는<br><span class="recap-highlight">${d.totalWorkout}회</span>입니다.</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">이 엄청난 기록은<br>SME 전체 멤버 중<br><span class="recap-highlight-blue" style="font-size:40px;">상위 ${data.workoutPercentile}%</span>에<br>해당해요! 👏</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">요일별로 살펴볼까요?<br>가장 운동 열정이 불타올랐던 요일은<br><span class="recap-highlight-blue" style="font-size:36px;">${data.myBestDays}요일</span>!</div>
+        ${createChartHTML('BEST')}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">반대로 조금 쉬어갔던,<br>운동 횟수가 가장 적은 요일은<br><span class="recap-highlight-orange" style="font-size:36px;">${data.myWorstDays}요일</span>이었네요.</div>
+        ${createChartHTML('WORST')}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text" style="font-size:22px;">그럼 SME 전체 멤버 기준은 어떨까요?</div>
+        <div class="recap-anim-sub">
+          모두가 가장 불타올랐던 요일은<br><strong style="color:#00c6ff; font-size:24px;">${data.globalBestDays}요일</strong> 🔥<br><br>
+          모두가 약속한 듯 쉬었던 요일은<br><strong style="color:#ff9966; font-size:24px;">${data.globalWorstDays}요일</strong> 이었어요 🛌
+        </div>
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">쉬지 않고 달렸던<br>나의 최대 연속 운동 일수는?<br><br><span class="recap-highlight">${d.maxStreak}일</span></div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">반대로 가장 길게<br>휴식을 취했던 기간은<br><br><span class="recap-highlight-orange">${d.maxRest}일</span> 이었네요.</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">
+          온라인 인증을 넘어<br>다채롭게 SME를 즐겨주셨어요! 🏃‍♂️<br><br>
+          미션을 깨고 <span style="${highlight4}">${d.challenge}번</span>의<br>챌린지를 달성했고,<br><br>
+          오프라인 정모에도 <span style="${highlight1}">${d.meetup}번</span>이나<br>참석해 주셨네요! 🎉
+        </div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">SME는 혼자 하는 운동이 아니죠.<br><br><span style="color:#F1C40F;">우리는 소통으로 만들어집니다.</span></div>
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">상반기 동안 갤러리에<br>내 땀방울이 담긴 사진을<br><span class="recap-highlight-blue">${d.shares}번</span> 공유했고,</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">사진과 함께 멋진 인증 글을<br><span class="recap-highlight-blue">${d.posts}번</span> 작성해 주셨어요.</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">참고로 상반기 동안 우리 모두가<br>공유한 사진은 총 <strong style="color:#00c6ff;">${data.globalShares}장</strong>,<br>작성한 글은 <strong style="color:#00c6ff;">${data.globalPosts}개</strong>랍니다!</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">사진을 보며<br>서로 주고받은 뜨거운 리액션! 🔥</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">내가 동료들을 위해<br>꾹 눌러 보낸 응원은 총<br><span class="recap-highlight">${d.rxSent}번</span></div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">그리고 동료들이 나에게 보내준<br>따뜻한 응원은 총<br><span class="recap-highlight">${d.rxReceived}번</span> 이었어요!</div>
+        <div class="recap-anim-sub">인싸력 상위 ${data.rxPercentile}%! 👍</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">우리 SME 멤버 전체가 주고받은<br>총 응원(리액션) 횟수는 무려<br><span class="recap-highlight-orange" style="font-size:40px;">${data.globalReactions.toLocaleString()}번</span> 이나 됩니다.</div>
+        ${getPolaroid()}
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text">마지막으로...<br>올 상반기 우리 멤버들이 함께 이뤄낸<br>전체 누적 운동 횟수를 공개합니다.</div>
+        <div class="recap-anim-text">
+          <span style="background: linear-gradient(90deg, #F1C40F, #FF9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 46px; display:block; margin: 20px 0;">
+            ${data.globalTotalWorkout.toLocaleString()}번!
+          </span>
+        </div>
+        <div class="recap-anim-sub" style="color:#d4d4d8;">혼자였다면 중간에 포기했을지도 모릅니다.<br>하지만 우리는 함께 땀 흘리고 응원하며<br>이렇게나 성장했습니다.</div>
+      </div>
+
+      <div class="recap-section">
+        <div class="recap-anim-text" style="font-size:20px; margin-bottom:20px;">데이터가 증명하는<br>${d.nickname}님의 상반기 칭호!</div>
+        
+        <div class="recap-persona-card" style="width: 100%; opacity:0; transform:translateY(20px); transition:all 1s 0.5s;" id="finalCard">
+          <div class="persona-icon">${personaIcon}</div>
+          <div class="persona-title">${personaTitle}</div>
+          <div class="persona-desc">${personaDesc}</div>
+        </div>
+
+        <div class="recap-anim-sub" style="margin-top:30px;">함께 땀 흘려주셔서 감사합니다.<br>하반기에도 우리 즐겁게 득근해요! 💪</div>
+        
+        <button class="btn" style="background:white; color:black; font-weight:800; font-size:16px; padding:16px; margin-top:30px; border-radius:16px; width: 100%; box-shadow:0 10px 30px rgba(255,255,255,0.2);" onclick="closeRecapScreen()">
+          메인 화면으로 돌아가기
+        </button>
+      </div>
+    `;
+  }
+
+  // 스크롤 시 씬(Scene)이 활성화되는 로직
+  function setupRecapAnimations() {
+    const sections = document.querySelectorAll('.recap-section');
+    const finalCard = document.getElementById('finalCard');
+    
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        // 씬이 화면의 50% 이상 보일 때 visible 클래스 추가
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          // 마지막 카드 특별 애니메이션
+          if(entry.target.contains(finalCard)) {
+              finalCard.style.opacity = 1;
+              finalCard.style.transform = 'translateY(0)';
+          }
+        }
+      });
+    }, { threshold: 0.5 }); // 화면에 50% 걸치면 실행되게 하여 몰입감 상승
+
+    sections.forEach(sec => observer.observe(sec));
+  }
+
+  function openMenuAddModal() {
+    closeMenu();
+    document.getElementById('menuAddModal').style.display = 'flex';
+  }
+
+  // [신규] 모달 내 개별 스위치 동작 제어 (확장형)
+  function executeMenuToggle(menuType, switchEl) {
+    // 1. 확인(Confirm)을 누르기 전까지는 스위치가 움직이지 않게 시각적 상태 되돌림
+    const isChecking = switchEl.checked;
+    switchEl.checked = !isChecking; 
+
+    // 2. 확인 창 띄우기
+    showConfirm(`해당 메뉴를 ${isChecking ? '공개(활성화)' : '숨김(비활성화)'} 하시겠습니까?`, () => {
+      showLoad('상태 변경 중...');
+      
+      // 메뉴 타입이 'recap(결산)'일 경우의 처리
+      if (menuType === 'recap') {
+        google.script.run.withSuccessHandler(res => {
+          hideLoad();
+          if (res.success) {
+            // 서버 응답 성공 시 스위치 상태를 최종 적용
+            switchEl.checked = res.isVisible; 
+            showAlert(res.isVisible ? "메뉴가 회원들에게 공개되었습니다! 🎉" : "메뉴가 숨김 처리되었습니다. 🔒");
+            loadDashboard(); // 메인 화면 메뉴 즉시 갱신
+          } else {
+            showAlert('실패: ' + res.msg);
+          }
+        }).toggleRecapVisibility(currentUser);
+      }
+      
+      // 추후에 다른 메뉴가 추가되면 여기에 if (menuType === 'new_event') { ... } 형태로 이어서 작성하시면 됩니다.
+    });
+  }
+</script>
