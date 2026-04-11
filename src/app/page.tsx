@@ -457,18 +457,19 @@ export default function Home() {
       const startDate = currentWeekDays[0].날짜;
       const endDate = currentWeekDays[6].날짜;
 
-      // 4. Fetch ALL approved activities for this week once (to avoid composite index issues per user)
+      // 4. Fetch ALL activities for this week once (Simple range query only to avoid any index issues)
       const allActSnap = await getDocs(query(
         collection(db, "활동"),
         where("날짜", ">=", startDate),
-        where("날짜", "<=", endDate),
-        where("상태", "==", "승인")
+        where("날짜", "<=", endDate)
       ));
       
       const countMap: any = {};
       allActSnap.forEach(doc => {
         const d = doc.data();
-        countMap[d.닉네임] = (countMap[d.닉네임] || 0) + 1;
+        if (d.상태 === "승인") {
+          countMap[d.닉네임] = (countMap[d.닉네임] || 0) + 1;
+        }
       });
 
       // 5. Process Penalties
@@ -506,9 +507,9 @@ export default function Home() {
       });
 
       setToast("집계 및 다음 주차 이동이 완료되었습니다! 🎉");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setToast("집계 중 오류가 발생했습니다. ❌");
+      setToast(`집계 오류: ${err.message || '알 수 없는 오류'}`);
     }
   };
 
