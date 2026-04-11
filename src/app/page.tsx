@@ -1647,31 +1647,23 @@ export default function Home() {
                 {adminApprovalTab === "벌금확인" && (
                   <>
                     <div style={{ background: "rgba(56, 189, 248, 0.05)", padding: "1rem", borderRadius: "1rem", marginBottom: "1rem", border: "1px solid rgba(56, 189, 248, 0.1)" }}>
-                      <p style={{ fontSize: "0.75rem", opacity: 0.7, fontWeight: 800, lineHeight: 1.5 }}>지난주 기준 모든 멤버의 정산 현황입니다. <br/>목표 달성자는 자동으로 완료 처리됩니다. ✨</p>
+                      <p style={{ fontSize: "0.75rem", opacity: 0.7, fontWeight: 800, lineHeight: 1.5 }}>
+                        저장된 모든 벌금 정산 내역입니다. <br/>
+                        미납 및 확인 대기 중인 항목을 먼저 처리해 주세요. ✨
+                      </p>
                     </div>
-                    {members
-                      .map(m => {
-                        const count = allMembersLastWeekCounts[m.닉네임] || 0;
-                        const penaltyAmount = Math.max(0, 3 - count) * 2000;
-                        
-                        const lastWeekDays = getLastWeekRange(mockNow);
-                        const weekId = lastWeekDays[0];
-                        const penaltyRecord = penalties.find(p => p.닉네임 === m.닉네임 && p.주차 === weekId);
-                        
-                        return {
-                          ...m,
-                          count,
-                          penaltyAmount,
-                          status: penaltyRecord?.상태 || (penaltyAmount === 0 ? "완료" : "미납"),
-                          recordId: penaltyRecord?.id
-                        };
-                      })
+                    {penalties
                       .sort((a: any, b: any) => {
+                        // 1. 상태 우선순위: 납부확인중 > 미납 > 기타
                         const order: any = { "납부확인중": 0, "미납": 1, "완료": 2, "완납": 3 };
-                        return order[a.status] - order[b.status];
+                        const orderA = order[a.상태] ?? 99;
+                        const orderB = order[b.상태] ?? 99;
+                        if (orderA !== orderB) return orderA - orderB;
+                        // 2. 최신 주차 우선
+                        return (b.주차 || "").localeCompare(a.주차 || "");
                       })
                       .map((item: any) => (
-                        <div key={item.닉네임} className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                        <div key={item.id} className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", flex: 1, minWidth: 0 }}>
                              <div style={{ 
                                width: "2.5rem", height: "2.5rem", borderRadius: "50%", 
@@ -1684,10 +1676,11 @@ export default function Home() {
                              <div style={{ minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                                   <span style={{ fontWeight: 900, fontSize: "0.95rem" }}>{item.닉네임}</span>
-                                  {item.penaltyAmount === 0 && <span style={{ fontSize: "0.6rem", background: "rgba(34, 197, 94, 0.1)", color: "var(--success)", padding: "2px 5px", borderRadius: "5px", fontWeight: 800 }}>완료</span>}
+                                  <span style={{ fontSize: "0.65rem", opacity: 0.5, fontWeight: 800 }}>({item.주차?.substring(5, 10)})</span>
+                                  {item.금액 === 0 && <span style={{ fontSize: "0.6rem", background: "rgba(34, 197, 94, 0.1)", color: "var(--success)", padding: "2px 5px", borderRadius: "5px", fontWeight: 800 }}>완료</span>}
                                 </div>
                                 <div style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "2px" }}>
-                                  {item.penaltyAmount === 0 ? "3회 달성! 수고하셨습니다 👏" : `${item.count}회 / ${item.penaltyAmount.toLocaleString()}원`}
+                                  {item.금액 === 0 ? "3회 달성 완료 👏" : `${item.운동횟수}회 / ${item.금액?.toLocaleString()}원`}
                                 </div>
                              </div>
                           </div>
@@ -1696,24 +1689,23 @@ export default function Home() {
                                onClick={() => { setAdminViewUserCalendar(item); fetchUserLastWeekCalendar(item.닉네임); }}
                                style={{ padding: "0.45rem 0.65rem", fontSize: "0.68rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.04)", fontWeight: 800 }}
                              >기록</button>
-                             <div style={{ fontSize: "0.7rem", color: (item.status === '완납' || item.status === '완료') ? "var(--success)" : "var(--error)", fontWeight: 800, margin: "0 0.1rem" }}>
-                               {item.status}
+                             <div style={{ fontSize: "0.7rem", color: (item.상태 === '완납' || item.상태 === '완료') ? "var(--success)" : "var(--error)", fontWeight: 800, margin: "0 0.1rem" }}>
+                               {item.상태}
                              </div>
-                             {item.status === "납부확인중" && item.recordId && (
-                               <button onClick={() => handleConfirmPenalty(item.recordId)} className="btn-primary" style={{ padding: "0.5rem 0.8rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>확인</button>
+                             {item.상태 === "납부확인중" && (
+                               <button onClick={() => handleConfirmPenalty(item.id)} className="btn-primary" style={{ padding: "0.5rem 0.8rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>확인</button>
                              )}
-                             {item.status === "미납" && (
+                             {item.상태 === "미납" && (
                                <button onClick={() => handleAdminManualConfirmPenalty(item)} className="btn-primary" style={{ padding: "0.5rem 0.8rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>완납</button>
                              )}
-                             {(item.status === "완납" || item.status === "완료") && <Check size={20} color="var(--success)" strokeWidth={3} />}
+                             {(item.상태 === "완납" || item.상태 === "완료") && <Check size={20} color="var(--success)" strokeWidth={3} />}
                           </div>
                         </div>
-                      ))
-                    }
-                    {members.filter(m => (allMembersLastWeekCounts[m.닉네임] || 0) < 3).length === 0 && (
+                      ))}
+                    {penalties.length === 0 && (
                       <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>
                          <Trophy size={40} style={{ margin: "0 auto 0.8rem" }} />
-                         <p style={{ fontSize: "0.85rem" }}>지난주 목표를 모두 달성했습니다! 👏</p>
+                         <p style={{ fontSize: "0.85rem" }}>아직 정산된 벌금 내역이 없습니다.</p>
                       </div>
                     )}
                   </>
