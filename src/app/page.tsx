@@ -139,7 +139,7 @@ export default function Home() {
   const [showUpload, setShowUpload] = useState<any>(null); 
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [selectedDay, setSelectedDay] = useState<any>(null);
-  const [isNoticeOpen, setIsNoticeOpen] = useState(true);
+  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<string | null>(null);
   const [adminApprovalTab, setAdminApprovalTab] = useState<"가입검토" | "사진검토" | "면제검토" | "벌금확인" | "멤버관리">("가입검토");
@@ -240,7 +240,29 @@ export default function Home() {
       // 2. Session check with real-time verification
       const savedSession = localStorage.getItem("sme_session");
       if (savedSession) {
-        // ... (existing session logic)
+        try {
+          const user = JSON.parse(savedSession);
+          const userRef = doc(db, "멤버", user.닉네임);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            if (userData.승인상태 === "승인") {
+              setCurrentUser(userData);
+            } else if (userData.승인상태 === "탈퇴") {
+              localStorage.removeItem("sme_session");
+              setToast("탈퇴 처리된 사용자입니다. ❌");
+            } else {
+              localStorage.removeItem("sme_session");
+              setToast("승인이 취소되었거나 대기 중인 계정입니다. ⏳");
+            }
+          } else {
+            localStorage.removeItem("sme_session");
+          }
+        } catch (err) { 
+          console.error("Session restore error", err);
+          localStorage.removeItem("sme_session");
+        }
       }
 
       // 3. System State Initialization (First time only)
@@ -272,6 +294,22 @@ export default function Home() {
     });
 
     if (!currentUser) return () => unsubSystem();
+
+    // 0.5. Listen for Current User's latest data (for immediate logout if withdrawn)
+    const unsubCurrentUser = onSnapshot(doc(db, "멤버", currentUser.닉네임), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.승인상태 === "탈퇴") {
+           setCurrentUser(null);
+           localStorage.removeItem("sme_session");
+           setToast("탈퇴 처리된 사용자입니다. 로그아웃됩니다. 🚫");
+        } else if (data.승인상태 === "대기") {
+           setCurrentUser(null);
+           localStorage.removeItem("sme_session");
+           setToast("승인 대기 상태로 변경되었습니다. 로그아웃됩니다. ⏳");
+        }
+      }
+    });
 
     // 1. Listen for Monthly Activities (For Calendar)
     const year = mockNow.getFullYear();
@@ -356,6 +394,8 @@ export default function Home() {
     });
 
     return () => {
+      unsubSystem();
+      unsubCurrentUser();
       unsubActivities(); unsubMembers(); unsubPosts(); unsubPenalties(); unsubNotices();
       if (currentUser.관리자여부) {
         if (unsubPendingA) unsubPendingA();
@@ -622,7 +662,7 @@ export default function Home() {
 
         // Case 3.5: Withdrawn account
         if (userData.승인상태 === "탈퇴") {
-          setToast("탈퇴 처리된 계정입니다. 관리자에게 문의하세요. ❌");
+          setToast("탈퇴 처리된 사용자입니다. ❌");
           return;
         }
 
