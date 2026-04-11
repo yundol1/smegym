@@ -9,7 +9,7 @@ import {
   Home as HomeIcon, Users, Check, Heart, MessageCircle, Share2, Send,
   Dumbbell, Plus, ArrowLeft, X, Copy, CreditCard, History, BookOpen, 
   Calendar, ShieldCheck, Mail, Lock, LogOut, Bell, AlertCircle, Trash2,
-  FileText, ShieldAlert, FastForward
+  FileText, ShieldAlert, FastForward, RotateCcw
 } from "lucide-react";
 
 // --- Firebase Imports ---
@@ -129,12 +129,11 @@ export default function Home() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [showComments, setShowComments] = useState<any>(null);
   const [commentInput, setCommentInput] = useState("");
-  const [inlineInputs, setInlineInputs] = useState<any>({});
   const [isNavVisible, setIsNavVisible] = useState(true);
-  const [isTestMode, setIsTestMode] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const mockNow = isTestMode ? new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000) : new Date();
+  const mockNow = new Date(new Date().getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000);
   const weekInfo = getWeekRange(mockNow);
 
   useEffect(() => {
@@ -920,24 +919,36 @@ export default function Home() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
            {currentUser?.관리자여부 && (
-             <motion.div 
-               whileTap={{ scale: 0.9 }}
-               onClick={() => {
-                 setIsTestMode(!isTestMode);
-                 setToast(!isTestMode ? "테스트 모드 활성화 (+1주일) 🚀" : "테스트 모드 비활성화 (현재 시간) 🏠");
-               }}
-               style={{ 
-                 display: "flex", alignItems: "center", gap: "0.4rem",
-                 padding: "0.4rem 0.8rem", borderRadius: "1rem",
-                 background: isTestMode ? "var(--warning)" : "rgba(0,0,0,0.05)",
-                 cursor: "pointer", transition: "0.3s"
-               }}
-             >
-               <FastForward size={18} color={isTestMode ? "white" : "inherit"} />
-               <span style={{ fontSize: "0.75rem", fontWeight: 800, color: isTestMode ? "white" : "inherit" }}>
-                 {isTestMode ? "다음 주차" : "테스트"}
-               </span>
-             </motion.div>
+             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+               <motion.div 
+                 whileTap={{ scale: 0.9 }}
+                 onClick={() => {
+                   setWeekOffset(prev => prev + 1);
+                   setToast(`${weekOffset + 1}주 후로 이동했습니다. 🚀`);
+                 }}
+                 style={{ 
+                   display: "flex", alignItems: "center", gap: "0.4rem",
+                   padding: "0.4rem 0.8rem", borderRadius: "1rem",
+                   background: weekOffset > 0 ? "var(--warning)" : "rgba(0,0,0,0.05)",
+                   cursor: "pointer", transition: "0.3s"
+                 }}
+               >
+                 <FastForward size={18} color={weekOffset > 0 ? "white" : "inherit"} />
+                 <span style={{ fontSize: "0.75rem", fontWeight: 800, color: weekOffset > 0 ? "white" : "inherit" }}>
+                   {weekOffset > 0 ? `+${weekOffset}주` : "다음주차"}
+                 </span>
+               </motion.div>
+               {weekOffset > 0 && (
+                 <RotateCcw 
+                   size={18} 
+                   style={{ cursor: "pointer", opacity: 0.5 }} 
+                   onClick={() => {
+                     setWeekOffset(0);
+                     setToast("현재 시간으로 초기화되었습니다. 🏠");
+                   }}
+                 />
+               )}
+             </div>
            )}
            <div onClick={() => setIsLightMode(!isLightMode)} style={{ width: "36px", height: "18px", borderRadius: "9px", background: isLightMode ? "#e0e7ff" : "#334155", position: "relative", cursor: "pointer" }}>
               <motion.div animate={{ x: isLightMode ? 2 : 20 }} style={{ width: "14px", height: "14px", borderRadius: "50%", background: "white", position: "absolute", top: "2px" }} />
