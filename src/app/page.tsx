@@ -59,6 +59,33 @@ const getLastWeekRange = (targetDate: Date = new Date()) => {
   return days; // Array of 7 date strings
 };
 
+const getMonthDays = (targetDate: Date = new Date()) => {
+  const year = targetDate.getFullYear();
+  const month = targetDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  
+  // Padding for the first week (start from Monday)
+  let startDay = firstDay.getDay(); // 0: Sun, 1: Mon...
+  const paddingStart = startDay === 0 ? 6 : startDay - 1;
+  
+  const days = [];
+  // Calculate the first Monday display date
+  const firstMon = new Date(firstDay);
+  firstMon.setDate(firstDay.getDate() - paddingStart);
+
+  for (let i = 0; i < 35; i++) { // Show 5 weeks fixed
+    const d = new Date(firstMon);
+    d.setDate(firstMon.getDate() + i);
+    days.push({
+      날짜: d.toISOString().split('T')[0],
+      일: d.getDate().toString(),
+      이달인가: d.getMonth() === month
+    });
+  }
+  return days;
+};
+
 const getLastWeekRangeInfo = (targetDate: Date = new Date()) => {
   const currentWeek = getWeekRange(targetDate);
   const firstDayStr = currentWeek[0].날짜;
@@ -148,6 +175,7 @@ export default function Home() {
 
   const mockNow = getSimulatedNow();
   const weekInfo = getWeekRange(mockNow);
+  const monthInfo = getMonthDays(mockNow);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -226,23 +254,27 @@ export default function Home() {
 
     if (!currentUser) return () => unsubSystem();
 
-    // 1. Listen for Current Week's Activities (Current User)
-    const startDate = weekInfo[0].날짜;
-    const endDate = weekInfo[6].날짜;
+    // 1. Listen for Monthly Activities (For Calendar)
+    const year = mockNow.getFullYear();
+    const month = mockNow.getMonth();
+    const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+    const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
     const qActivities = query(
       collection(db, "활동"),
       where("닉네임", "==", currentUser.닉네임),
       where("날짜", ">=", startDate),
       where("날짜", "<=", endDate)
     );
+
     const unsubActivities = onSnapshot(qActivities, (snap) => {
       const dataMap: any = {};
       snap.forEach(doc => { dataMap[doc.data().날짜] = { id: doc.id, ...doc.data() }; });
       
-      const combined = weekInfo.map(info => ({
-        day: info.요일,
-        date: info.일,
+      const combined = monthInfo.map(info => ({
         fullDate: info.날짜,
+        date: info.일,
+        isCurrentMonth: info.이달인가,
         상태: dataMap[info.날짜]?.상태 || 'none',
         imageUrl: dataMap[info.날짜]?.이미지URL || '',
         reason: dataMap[info.날짜]?.반려사유 || '',
@@ -491,6 +523,19 @@ export default function Home() {
             운동횟수: count,
             금액: penaltyAmount,
             상태: "미납",
+            생성시간: serverTimestamp()
+          }, { merge: true });
+        } else {
+          // New: Record achieved status even if penalty is 0
+          const penaltyId = `${mData.닉네임}_${startDate}`;
+          await setDoc(doc(db, "벌금", penaltyId), {
+            닉네임: mData.닉네임,
+            이름: mData.이름 || mData.닉네임,
+            아바타: mData.아바타 || mData.닉네임.substring(0,2).toUpperCase(),
+            주차: startDate,
+            운동횟수: count,
+            금액: 0,
+            상태: "완료",
             생성시간: serverTimestamp()
           }, { merge: true });
         }
@@ -1076,18 +1121,64 @@ export default function Home() {
               <div className="card" style={{ padding: "1.5rem" }}><div style={{ fontSize: "0.75rem", opacity: 0.6 }}>활동 승인</div><div style={{ fontSize: "1.5rem", fontWeight: 900 }}>{workoutCount} / 3</div></div>
             </section>
             
-            <section style={{ padding: "0 1.25rem", marginTop: "-0.5rem" }}>
-               <h3 style={{ fontSize: "1rem", fontWeight: 800, marginBottom: "1rem", opacity: 0.8 }}>요일별 활동 현황</h3>
-               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
-                 {attendance.map((day, i) => (
-                   <motion.div key={i} whileTap={{ scale: 0.95 }} onClick={() => setSelectedDay(day)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", padding: "0.75rem 0", borderRadius: "1rem", border: day.상태 === '반려' ? "1px solid var(--error)" : "1px solid var(--glass-border)", background: day.상태 === '반려' ? "rgba(239, 68, 68, 0.05)" : "transparent", cursor: "pointer", opacity: day.상태 === 'none' ? 0.3 : 1 }}>
-                     <span style={{ fontSize: "0.6rem", fontWeight: 700 }}>{day.day}</span>
-                     {day.상태 === '승인' ? <CheckCircle2 size={16} color="var(--success)" /> : 
-                      day.상태 === '반려' ? <AlertCircle size={16} color="var(--error)" /> : 
-                      day.상태 === '대기' ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2 }}><RefreshCw size={14} color="var(--primary)" /></motion.div> :
-                      <span style={{ fontWeight: 800, fontSize: "0.85rem" }}>{day.date}</span>}
-                   </motion.div>
+            <section className="card" style={{ margin: "0 1.25rem", padding: "1.5rem" }}>
+               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                     <Trophy size={18} color="var(--primary)" />
+                     <h3 style={{ fontWeight: 900, fontSize: "1.1rem" }}>나의 운동 현황</h3>
+                  </div>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 800, opacity: 0.4 }}>
+                    이번 주 {workoutCount}회 완료
+                  </div>
+               </div>
+
+               {/* --- Month Calendar Grid --- */}
+               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", textAlign: "center", marginBottom: "0.5rem" }}>
+                 {['M','T','W','T','F','S','S'].map((d, i) => (
+                   <span key={i} style={{ fontSize: "0.6rem", fontWeight: 800, opacity: 0.3 }}>{d}</span>
                  ))}
+               </div>
+               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
+                  {attendance.map((day, i) => {
+                    const isCurrentWeek = weekInfo.some(w => w.날짜 === day.fullDate);
+                    return (
+                      <motion.div 
+                        key={i}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          if (day.id) {
+                            setSelectedDay(day);
+                          } else if (day.isCurrentMonth) {
+                            // Can only upload for current month days if No entry exists
+                            setShowUpload({ ...day, day: ['일','월','화','수','목','금','토'][new Date(day.fullDate).getDay()] });
+                          }
+                        }}
+                        style={{ 
+                          aspectRatio: "1/1", borderRadius: "0.8rem", 
+                          background: isCurrentWeek ? "rgba(56, 189, 248, 0.15)" : "rgba(0,0,0,0.03)",
+                          border: isCurrentWeek ? "1px solid rgba(56, 189, 248, 0.3)" : "none",
+                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                          position: "relative", cursor: "pointer",
+                          opacity: day.isCurrentMonth ? 1 : 0.2
+                        }}
+                      >
+                        <span style={{ fontSize: "0.75rem", fontWeight: 800, opacity: isCurrentWeek ? 1 : 0.4, marginBottom: "2px" }}>{day.date}</span>
+                        {day.상태 === '승인' ? <Check size={14} color="var(--primary)" strokeWidth={4} /> : 
+                         day.상태 === '반려' ? <AlertCircle size={14} color="var(--error)" /> : 
+                         day.상태 === '대기' ? <RefreshCw size={12} color="var(--primary)" className="animate-spin" /> : null}
+                      </motion.div>
+                    );
+                  })}
+               </div>
+               
+               <div style={{ marginTop: "1.5rem", padding: "1rem", borderRadius: "1rem", background: "rgba(56, 189, 248, 0.05)", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                  <div style={{ width: "2.5rem", height: "2.5rem", borderRadius: "50%", background: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+                     <Trophy size={20} />
+                  </div>
+                  <div>
+                     <p style={{ fontSize: "0.85rem", fontWeight: 800 }}>이번 주 목표까지 <span style={{ color: "var(--primary)" }}>{Math.max(0, 3 - workoutCount)}회</span> 남았습니다!</p>
+                     <p style={{ fontSize: "0.7rem", opacity: 0.5 }}>{workoutCount >= 3 ? "목표를 달성하셨습니다! 수고하셨습니다 👏" : "3회 이상 운동 시 벌금이 면제됩니다."}</p>
+                  </div>
                </div>
             </section>
 
@@ -1553,15 +1644,14 @@ export default function Home() {
                 {/* 벌금확인 탭 */}
                 {adminApprovalTab === "벌금확인" && (
                   <>
-                    <div style={{ background: "var(--secondary)", padding: "1rem", borderRadius: "1rem", marginBottom: "1rem" }}>
-                      <p style={{ fontSize: "0.75rem", opacity: 0.6, fontWeight: 800 }}>지난주 기준 목표 미달자(3회 미만)들의 벌금 납부 현황입니다.</p>
+                    <div style={{ background: "rgba(56, 189, 248, 0.05)", padding: "1rem", borderRadius: "1rem", marginBottom: "1rem", border: "1px solid rgba(56, 189, 248, 0.1)" }}>
+                      <p style={{ fontSize: "0.75rem", opacity: 0.7, fontWeight: 800, lineHeight: 1.5 }}>지난주 기준 모든 멤버의 정산 현황입니다. <br/>목표 달성자는 자동으로 완료 처리됩니다. ✨</p>
                     </div>
                     {members
                       .map(m => {
                         const count = allMembersLastWeekCounts[m.닉네임] || 0;
                         const penaltyAmount = Math.max(0, 3 - count) * 2000;
-                        if (penaltyAmount === 0) return null;
-
+                        
                         const lastWeekDays = getLastWeekRange(mockNow);
                         const weekId = lastWeekDays[0];
                         const penaltyRecord = penalties.find(p => p.닉네임 === m.닉네임 && p.주차 === weekId);
@@ -1570,38 +1660,41 @@ export default function Home() {
                           ...m,
                           count,
                           penaltyAmount,
-                          status: penaltyRecord?.상태 || "미납",
+                          status: penaltyRecord?.상태 || (penaltyAmount === 0 ? "완료" : "미납"),
                           recordId: penaltyRecord?.id
                         };
                       })
-                      .filter(Boolean)
                       .sort((a: any, b: any) => {
-                        // Sort by status: 납부확인중 > 미납 > 완납
-                        const order: any = { "납부확인중": 0, "미납": 1, "완납": 2 };
+                        const order: any = { "납부확인중": 0, "미납": 1, "완료": 2, "완납": 3 };
                         return order[a.status] - order[b.status];
                       })
                       .map((item: any) => (
-                        <div key={item.닉네임} className="card" style={{ padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", flex: 1 }}>
+                        <div key={item.닉네임} className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", flex: 1, minWidth: 0 }}>
                              <div style={{ 
                                width: "2.5rem", height: "2.5rem", borderRadius: "50%", 
-                               background: item.배경색 || "var(--secondary)", 
+                               background: item.배경색 || "var(--secondary)", flexShrink: 0,
                                color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
                                fontWeight: 800, fontSize: "0.85rem", overflow: "hidden" 
                              }}>
                                 {item.아바타 && item.아바타.startsWith('http') ? <img src={item.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : item.아바타}
                              </div>
-                             <div>
-                                <div style={{ fontWeight: 900, fontSize: "0.9rem" }}>{item.닉네임}</div>
-                                <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>{item.count}회 / {item.penaltyAmount.toLocaleString()}원</div>
+                             <div style={{ minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                  <span style={{ fontWeight: 900, fontSize: "0.95rem" }}>{item.닉네임}</span>
+                                  {item.penaltyAmount === 0 && <span style={{ fontSize: "0.6rem", background: "rgba(34, 197, 94, 0.1)", color: "var(--success)", padding: "2px 5px", borderRadius: "5px", fontWeight: 800 }}>완료</span>}
+                                </div>
+                                <div style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "2px" }}>
+                                  {item.penaltyAmount === 0 ? "3회 달성! 수고하셨습니다 👏" : `${item.count}회 / ${item.penaltyAmount.toLocaleString()}원`}
+                                </div>
                              </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexShrink: 0 }}>
                              <button 
                                onClick={() => { setAdminViewUserCalendar(item); fetchUserLastWeekCalendar(item.닉네임); }}
-                               style={{ padding: "0.4rem 0.6rem", fontSize: "0.65rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.05)", fontWeight: 800 }}
-                             >기록조회</button>
-                             <div style={{ fontSize: "0.7rem", color: item.status === '완납' ? "var(--success)" : "var(--error)", fontWeight: 800, textAlign: "right", margin: "0 0.4rem" }}>
+                               style={{ padding: "0.45rem 0.65rem", fontSize: "0.68rem", borderRadius: "0.6rem", background: "rgba(0,0,0,0.04)", fontWeight: 800 }}
+                             >기록</button>
+                             <div style={{ fontSize: "0.7rem", color: (item.status === '완납' || item.status === '완료') ? "var(--success)" : "var(--error)", fontWeight: 800, margin: "0 0.1rem" }}>
                                {item.status}
                              </div>
                              {item.status === "납부확인중" && item.recordId && (
@@ -1610,7 +1703,7 @@ export default function Home() {
                              {item.status === "미납" && (
                                <button onClick={() => handleAdminManualConfirmPenalty(item)} className="btn-primary" style={{ padding: "0.5rem 0.8rem", fontSize: "0.75rem", borderRadius: "0.7rem", fontWeight: 800 }}>완납</button>
                              )}
-                             {item.status === "완납" && <CheckCircle2 size={24} color="var(--success)" />}
+                             {(item.status === "완납" || item.status === "완료") && <Check size={20} color="var(--success)" strokeWidth={3} />}
                           </div>
                         </div>
                       ))
