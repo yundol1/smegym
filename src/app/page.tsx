@@ -1810,18 +1810,17 @@ export default function Home() {
                               <Copy size={16} />
                             </button>
                          </div>
-                         <p style={{ fontSize: "0.75rem", opacity: 0.5 }}>입금 후 아래 버튼을 눌러 확인을 요청해 주세요.</p>
+                         <p style={{ fontSize: "0.75rem", opacity: 0.6, fontWeight: 800 }}>입금 시 닉네임을 꼭 기재해 주세요! <br/>관리자가 입금 확인 후 즉시 완료 처리해 드립니다. 🙏</p>
                       </div>
                      
                      {(() => {
-                        const myPenalty = penalties.find(p => p.닉네임 === currentUser.닉네임 && p.주차 === getLastWeekRange()[0]);
-                        if (!myPenalty) {
-                           return <button onClick={handlePenaltyPaymentRequest} className="btn-primary" style={{ padding: "1.25rem", borderRadius: "1.25rem", fontWeight: 900, fontSize: "1rem" }}>납부 완료 및 확인 요청</button>;
+                        const myPenalty = penalties.find(p => p.닉네임 === currentUser.닉네임 && p.주차 === getLastWeekRange(mockNow)[0]);
+                        const status = myPenalty?.상태 || "미납";
+                        
+                        if (status === "미납" || status === "납부확인중") {
+                           return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--error)", color: "white", fontWeight: 900, textAlign: "center", boxShadow: "0 10px 20px rgba(239, 68, 68, 0.2)" }}>미납 (입금 대기 중)</div>;
                         }
-                        if (myPenalty.상태 === "납부확인중") {
-                           return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--secondary)", color: "white", fontWeight: 900, textAlign: "center" }}>관리자 확인 대기 중... ⏳</div>;
-                        }
-                        return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--success)", color: "white", fontWeight: 900, textAlign: "center" }}>납부 완료! 고생하셨습니다 ✨</div>;
+                        return <div style={{ padding: "1.25rem", borderRadius: "1.25rem", background: "var(--success)", color: "white", fontWeight: 900, textAlign: "center", boxShadow: "0 10px 20px rgba(34, 197, 94, 0.2)" }}>납부 완료! 고생하셨습니다 ✨</div>;
                      })()}
                   </div>
                 ) : (
