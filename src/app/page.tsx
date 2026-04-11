@@ -193,9 +193,10 @@ export default function Home() {
     };
   }, []);
 
-  const workoutCount = attendance.filter(d => d.상태 === '승인').length;
-  const penalty = Math.max(0, 3 - workoutCount) * 2000;
-  const hasRejection = attendance.some(d => d.상태 === '반려');
+   const weekDates = weekInfo.map(w => w.날짜);
+   const workoutCount = attendance.filter(d => d.상태 === '승인' && weekDates.includes(d.fullDate)).length;
+   const penalty = Math.max(0, 3 - workoutCount) * 2000;
+   const hasRejection = attendance.some(d => d.상태 === '반려' && weekDates.includes(d.fullDate));
 
   // --- Initial Admin Provisioning & Session Check ---
   useEffect(() => {
