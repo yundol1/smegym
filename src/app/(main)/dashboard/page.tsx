@@ -172,6 +172,7 @@ export default function DashboardPage() {
 
   return (
     <main
+      data-testid="dashboard"
       style={{
         padding: "1.5rem 0",
         display: "flex",
@@ -231,6 +232,7 @@ export default function DashboardPage() {
       {/* Notice Banner */}
       {notice && (
         <motion.div
+          data-testid="notice-banner"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
@@ -276,7 +278,7 @@ export default function DashboardPage() {
           gap: "0.5rem",
         }}
       >
-        <div style={{ position: "relative", width: ringSize, height: ringSize }}>
+        <div data-testid="progress-ring" style={{ position: "relative", width: ringSize, height: ringSize }}>
           <svg
             width={ringSize}
             height={ringSize}
@@ -408,6 +410,7 @@ export default function DashboardPage() {
 
       {/* Stats Row - 3 inline stats */}
       <motion.section
+        data-testid="stats-row"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
@@ -475,6 +478,7 @@ export default function DashboardPage() {
 
       {/* FAB Button */}
       <motion.button
+        data-testid="cta-button"
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         onClick={() => router.push("/workout")}

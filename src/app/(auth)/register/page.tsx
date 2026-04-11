@@ -178,6 +178,7 @@ export default function RegisterPage() {
   if (success) {
     return (
       <div
+        data-testid="register-success"
         style={{
           width: "100%",
           maxWidth: "400px",
@@ -276,6 +277,7 @@ export default function RegisterPage() {
           </label>
           <input
             id="nickname"
+            data-testid="register-nickname"
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
@@ -293,6 +295,7 @@ export default function RegisterPage() {
           </label>
           <input
             id="password"
+            data-testid="register-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -311,6 +314,7 @@ export default function RegisterPage() {
           </label>
           <input
             id="confirmPassword"
+            data-testid="register-confirm-password"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -420,6 +424,7 @@ export default function RegisterPage() {
 
         {error && (
           <p
+            data-testid="register-error"
             style={{
               color: "#FF5252",
               fontSize: "0.875rem",
@@ -437,6 +442,7 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={isLoading}
+          data-testid="register-button"
           className="btn-primary"
           style={{
             width: "100%",

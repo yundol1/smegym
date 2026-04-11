@@ -259,6 +259,7 @@ export default function ExemptionsPage() {
         </div>
 
         <form
+          data-testid="exemption-form"
           onSubmit={handleSubmit}
           style={{
             display: "flex",
@@ -287,6 +288,7 @@ export default function ExemptionsPage() {
               면제 날짜
             </label>
             <input
+              data-testid="exemption-dates"
               type="text"
               value={dates}
               onChange={(e) => setDates(e.target.value)}
@@ -334,6 +336,7 @@ export default function ExemptionsPage() {
               사유
             </label>
             <textarea
+              data-testid="exemption-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="면제 사유를 입력해주세요"
@@ -363,6 +366,7 @@ export default function ExemptionsPage() {
           </div>
 
           <motion.button
+            data-testid="exemption-submit"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
@@ -438,6 +442,7 @@ export default function ExemptionsPage() {
 
       {/* Application History */}
       <section
+        data-testid="exemption-history"
         style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
       >
         <div

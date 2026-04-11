@@ -149,6 +149,7 @@ export default function LoginPage() {
           </label>
           <input
             id="nickname"
+            data-testid="nickname-input"
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
@@ -173,6 +174,7 @@ export default function LoginPage() {
           </label>
           <input
             id="password"
+            data-testid="password-input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -203,6 +205,7 @@ export default function LoginPage() {
         >
           <input
             type="checkbox"
+            data-testid="auto-login-checkbox"
             checked={autoLogin}
             onChange={(e) => setAutoLogin(e.target.checked)}
             style={{
@@ -216,6 +219,7 @@ export default function LoginPage() {
 
         {error && (
           <p
+            data-testid="error-message"
             style={{
               color: "#FF5252",
               fontSize: "0.875rem",
@@ -233,6 +237,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isLoading}
+          data-testid="login-button"
           className="btn-primary"
           style={{
             width: "100%",

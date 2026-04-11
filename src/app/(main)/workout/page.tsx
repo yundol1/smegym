@@ -292,6 +292,7 @@ export default function WorkoutPage() {
           return (
             <motion.div
               key={day.dayOfWeek}
+              data-testid={`day-card-${day.dayOfWeek}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
@@ -411,6 +412,7 @@ export default function WorkoutPage() {
             onClick={() => !uploading && setShowModal(false)}
           >
             <motion.div
+              data-testid="upload-modal"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -461,6 +463,7 @@ export default function WorkoutPage() {
               {/* Photo Upload Area */}
               <input
                 ref={fileInputRef}
+                data-testid="file-input"
                 type="file"
                 accept="image/*"
                 onChange={handleFileSelect}
@@ -551,6 +554,7 @@ export default function WorkoutPage() {
                   </span>
                 </div>
                 <button
+                  data-testid="gallery-toggle"
                   onClick={() => setIsPublic(!isPublic)}
                   style={{
                     width: "3rem",
@@ -628,6 +632,7 @@ export default function WorkoutPage() {
 
               {/* Submit Button */}
               <motion.button
+                data-testid="upload-submit"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
