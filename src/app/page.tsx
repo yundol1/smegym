@@ -341,8 +341,9 @@ export default function Home() {
 
   // Fetch Last Week workout counts
   useEffect(() => {
-    if (!currentUser) return;
-    const lastWeekDaysInfo = getLastWeekRangeInfo(mockNow);
+    if (!currentUser || !globalBaseDate) return;
+    const baseDate = new Date(globalBaseDate);
+    const lastWeekDaysInfo = getLastWeekRangeInfo(baseDate);
     const lastWeekStart = lastWeekDaysInfo[0].날짜;
     const lastWeekEnd = lastWeekDaysInfo[6].날짜;
     
@@ -386,7 +387,7 @@ export default function Home() {
         setLastWeekWorkoutCount(combined.filter(d => d.상태 === '승인').length);
       });
     }
-  }, [currentUser]);
+  }, [currentUser, globalBaseDate]);
 
   const handlePenaltyPaymentRequest = async () => {
     if (!currentUser) return;
