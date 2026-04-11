@@ -1114,7 +1114,10 @@ export default function Home() {
                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                      <Trophy size={18} color="var(--primary)" />
-                     <h3 style={{ fontWeight: 900, fontSize: "1.1rem" }}>나의 운동 현황</h3>
+                      <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--primary)", marginBottom: "0.2rem", opacity: 0.8 }}>나의 운동 현황</div>
+                      <h3 style={{ fontSize: "1.4rem", fontWeight: 900 }}>
+                        {mockNow.getFullYear()}년 <span style={{ color: "var(--primary)" }}>{mockNow.getMonth() + 1}월</span>
+                      </h3>
                   </div>
                   <div style={{ fontSize: "0.72rem", fontWeight: 800, opacity: 0.4 }}>
                     이번 주 {workoutCount}회 완료
