@@ -167,6 +167,14 @@ export default function Home() {
   const [showComments, setShowComments] = useState<any>(null);
   const [commentInput, setCommentInput] = useState("");
   const [inlineInputs, setInlineInputs] = useState<any>({});
+  
+  // Notice System State
+  const [notices, setNotices] = useState<any[]>([]);
+  const [isNoticeRegOpen, setIsNoticeRegOpen] = useState(false);
+  const [isNoticeHistoryOpen, setIsNoticeHistoryOpen] = useState(false);
+  const [newNoticeTitle, setNewNoticeTitle] = useState("");
+  const [newNoticeContent, setNewNoticeContent] = useState("");
+
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [globalBaseDate, setGlobalBaseDate] = useState<string | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<any>(null);
@@ -337,8 +345,16 @@ export default function Home() {
       setPenalties(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // 6. Listen for Announcements (공지)
+    const qNotices = query(collection(db, "공지"), orderBy("생성시간", "desc"));
+    const unsubNotices = onSnapshot(qNotices, (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setNotices(list);
+    });
+
     return () => {
-      unsubActivities(); unsubMembers(); unsubPosts(); unsubPenalties();
+      unsubActivities(); unsubMembers(); unsubPosts(); unsubPenalties(); unsubNotices();
       if (currentUser.관리자여부) {
         if (unsubPendingA) unsubPendingA();
         if (unsubPendingM) unsubPendingM();
@@ -752,6 +768,28 @@ export default function Home() {
       await updateDoc(doc(db, "멤버", nickname), { 승인상태: "승인" });
       setToast(`[${nickname}]님의 가입이 승인되었습니다! 🎉`);
     } catch (err) { console.error(err); }
+  };
+
+  const handleAddNotice = async () => {
+    if (!newNoticeTitle.trim() || !newNoticeContent.trim()) {
+      setToast("제목과 내용을 입력해주세요. ⚠️");
+      return;
+    }
+    try {
+      await addDoc(collection(db, "공지"), {
+        제목: newNoticeTitle,
+        내용: newNoticeContent,
+        작성자: currentUser.닉네임,
+        생성시간: serverTimestamp()
+      });
+      setToast("공지가 등록되었습니다! 📢");
+      setNewNoticeTitle("");
+      setNewNoticeContent("");
+      setIsNoticeRegOpen(false);
+    } catch (err) {
+      console.error(err);
+      setToast("공지 등록 실패 ❌");
+    }
   };
 
   const handleDeleteProfileImage = async () => {
@@ -2154,6 +2192,67 @@ export default function Home() {
       </AnimatePresence>
 
 
+      <AnimatePresence>
+        {isNoticeRegOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+             <div className="card" style={{ width: "100%", maxWidth: "400px", padding: "2rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                   <h3 style={{ fontWeight: 900 }}>공지사항 등록</h3>
+                   <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => setIsNoticeRegOpen(false)} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 800, opacity: 0.5 }}>공지 제목</label>
+                      <input 
+                        value={newNoticeTitle} 
+                        onChange={(e) => setNewNoticeTitle(e.target.value)} 
+                        placeholder="공지 제목을 입력하세요." 
+                        style={{ width: "100%", padding: "1rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none" }} 
+                      />
+                   </div>
+                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 800, opacity: 0.5 }}>공지 내용</label>
+                      <textarea 
+                        value={newNoticeContent} 
+                        onChange={(e) => setNewNoticeContent(e.target.value)} 
+                        placeholder="공지 내용을 입력하세요." 
+                        style={{ width: "100%", height: "150px", padding: "1rem", borderRadius: "1rem", border: "1px solid var(--glass-border)", background: "rgba(0,0,0,0.02)", outline: "none", resize: "none" }} 
+                      />
+                   </div>
+                   <button onClick={handleAddNotice} style={{ width: "100%", padding: "1.1rem", borderRadius: "1.2rem", background: "var(--primary)", color: "white", fontWeight: 900, marginTop: "0.5rem" }}>공지 게시하기</button>
+                </div>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isNoticeHistoryOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+             <div className="card" style={{ width: "100%", maxWidth: "460px", maxHeight: "80vh", padding: "2rem", display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+                   <h3 style={{ fontWeight: 900, fontSize: "1.2rem" }}>전체 공지 내역</h3>
+                   <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => setIsNoticeHistoryOpen(false)} />
+                </div>
+                <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                   {notices.map((n, i) => (
+                     <div key={i} style={{ padding: "1.5rem", borderRadius: "1.25rem", background: "rgba(0,0,0,0.02)", border: "1px solid var(--glass-border)" }}>
+                        <div style={{ fontSize: "0.95rem", fontWeight: 900, marginBottom: "0.6rem" }}>{n.제목}</div>
+                        <p style={{ fontSize: "0.85rem", opacity: 0.7, lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: "1rem" }}>{n.내용}</p>
+                        <div style={{ fontSize: "0.7rem", opacity: 0.4, fontWeight: 700 }}>
+                          {n.생성시간?.toDate ? n.생성시간.toDate().toLocaleString() : "시간 정보 없음"}
+                        </div>
+                     </div>
+                   ))}
+                   {notices.length === 0 && (
+                     <div style={{ textAlign: "center", padding: "4rem 0", opacity: 0.3 }}>등록된 공지가 없습니다.</div>
+                   )}
+                </div>
+                <button onClick={() => setIsNoticeHistoryOpen(false)} style={{ width: "100%", padding: "1rem", borderRadius: "1rem", background: "var(--primary)", color: "white", fontWeight: 900, marginTop: "1.5rem" }}>닫기</button>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {adminViewUserCalendar && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 8000, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
