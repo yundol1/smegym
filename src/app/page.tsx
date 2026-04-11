@@ -1132,13 +1132,11 @@ export default function Home() {
                      const isCurrentWeek = weekInfo.some(w => w.날짜 === day.fullDate);
                      
                      // 클릭 가능 여부 판단
-                     const todayStr = new Date().toLocaleDateString('en-CA');
+                     const d = new Date();
+                     const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                      const isFuture = day.fullDate > todayStr;
-                     const currentMonday = getWeekRange(mockNow)[0].날짜;
-                     const targetMonday = getWeekRange(new Date(day.fullDate))[0].날짜;
-                     const isWrongWeek = targetMonday !== currentMonday;
                      const hasRecord = day.상태 !== 'none';
-                     const canClick = hasRecord || (isCurrentWeek && !isFuture && !isWrongWeek);
+                     const canClick = hasRecord || (isCurrentWeek && !isFuture);
 
                      return (
                        <motion.div 
