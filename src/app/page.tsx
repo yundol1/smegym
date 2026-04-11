@@ -175,6 +175,8 @@ export default function Home() {
   const [newNoticeTitle, setNewNoticeTitle] = useState("");
   const [newNoticeContent, setNewNoticeContent] = useState("");
 
+  const [isGradeTableOpen, setIsGradeTableOpen] = useState(false);
+
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [globalBaseDate, setGlobalBaseDate] = useState<string | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<any>(null);
@@ -942,15 +944,19 @@ export default function Home() {
             <div style={{ flex: 1, display: "flex", justifyContent: "space-between", paddingRight: "0.5rem" }}>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{userPosts.length}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>게시물</div></div>
                <div style={{ textAlign: "center" }}><div style={{ fontWeight: 900, fontSize: "1.1rem" }}>{member.운동횟수 || 0}</div><div style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>운동횟수</div></div>
-               <div style={{ textAlign: "center" }}>
+               <div 
+                 onClick={() => setIsGradeTableOpen(true)}
+                 style={{ textAlign: "center", cursor: "pointer", transition: "0.3s" }}
+               >
                   {(() => {
                     const level = getPassionLevel(member.운동횟수 || 0);
                     return (
                       <>
-                        <div style={{ fontWeight: 900, fontSize: "1.1rem", color: level.color }}>
-                          <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>LV.</span>{level.lv}
+                        <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#475569", display: "flex", alignItems: "baseline", justifyContent: "center", gap: "1px" }}>
+                          <span style={{ fontSize: "0.6rem", opacity: 0.4, fontWeight: 800 }}>LV.</span>
+                          <span style={{ color: "#1e293b" }}>{level.lv}</span>
                         </div>
-                        <div style={{ fontSize: "0.7rem", fontWeight: 800, color: level.color }}>{level.label}</div>
+                        <div style={{ fontSize: "0.72rem", fontWeight: 800, color: level.color, marginTop: "1px" }}>{level.label}</div>
                       </>
                     );
                   })()}
@@ -1118,8 +1124,20 @@ export default function Home() {
       {/* Top Header */}
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 1.25rem" }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
-           <h1 onClick={() => {setActiveTab("home"); setMenuView(null);}} style={{ fontSize: "1.1rem", fontWeight: 900, color: "var(--primary)", cursor: "pointer" }}>SME CLUB</h1>
-           <span style={{ fontSize: "0.7rem", opacity: 0.5, fontWeight: 700 }}>이번 주 활동 ({weekInfo[0].일}일 ~ {weekInfo[6].일}일)</span>
+           <h1 onClick={() => {setActiveTab("home"); setMenuView(null);}} style={{ fontSize: "1.2rem", fontWeight: 900, color: "var(--primary)", cursor: "pointer", letterSpacing: "-0.5px" }}>SME GYM 2.0</h1>
+           {currentUser && (
+             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.2rem" }}>
+                <div style={{ width: "1.1rem", height: "1.1rem", borderRadius: "50%", background: currentUser.배경색 || "var(--secondary)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                   {currentUser.아바타 && currentUser.아바타.startsWith('http') ? 
+                     <img src={currentUser.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${currentUser.아바타줌 || 1.2})` }} /> : 
+                     <div style={{ fontSize: "0.5rem", fontWeight: 800, color: "white" }}>{currentUser.아바타}</div>}
+                </div>
+                <span style={{ fontSize: "0.72rem", fontWeight: 800, opacity: 0.8 }}>{currentUser.닉네임}</span>
+                <span style={{ fontSize: "0.65rem", fontWeight: 800, color: getPassionLevel(currentUser.운동횟수 || 0).color, background: "rgba(0,0,0,0.05)", padding: "1px 6px", borderRadius: "4px" }}>
+                  {getPassionLevel(currentUser.운동횟수 || 0).label}
+                </span>
+             </div>
+           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
            {currentUser?.관리자여부 && (
@@ -2191,6 +2209,44 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+
+      <AnimatePresence>
+        {isGradeTableOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9500, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+             <div className="card" style={{ width: "100%", maxWidth: "380px", padding: "2rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                      <Trophy size={22} color="var(--primary)" />
+                      <h3 style={{ fontWeight: 900, fontSize: "1.2rem" }}>열정 등급 기준표</h3>
+                   </div>
+                   <X size={24} style={{ cursor: "pointer", opacity: 0.3 }} onClick={() => setIsGradeTableOpen(false)} />
+                </div>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                   {[
+                     { lv: "1", label: "존못", range: "0 ~ 5회", color: "#94a3b8" },
+                     { lv: "2", label: "그냥못", range: "6 ~ 15회", color: "#64748b" },
+                     { lv: "3", label: "평범", range: "16 ~ 30회", color: "#10b981" },
+                     { lv: "4", label: "훈훈", range: "31 ~ 60회", color: "#fbbf24" },
+                     { lv: "5", label: "역대", range: "61 ~ 100회", color: "#ef4444" },
+                     { lv: "6", label: "퀸", range: "101 ~ 150회", color: "#3b82f6" },
+                     { lv: "MAX", label: "고고보이", range: "151회+", color: "#f59e0b" },
+                   ].map((g, i) => (
+                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.8rem 1rem", borderRadius: "1rem", background: "rgba(0,0,0,0.02)", border: "1px solid var(--glass-border)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                           <span style={{ fontSize: "0.65rem", fontWeight: 900, color: "#94a3b8" }}>LV.{g.lv}</span>
+                           <span style={{ fontWeight: 900, fontSize: "0.95rem", color: g.color }}>{g.label}</span>
+                        </div>
+                        <span style={{ fontSize: "0.85rem", fontWeight: 800, opacity: 0.5 }}>{g.range}</span>
+                     </div>
+                   ))}
+                </div>
+                
+                <button onClick={() => setIsGradeTableOpen(false)} style={{ width: "100%", padding: "1.1rem", borderRadius: "1.2rem", background: "var(--primary)", color: "white", fontWeight: 900, marginTop: "0.5rem" }}>확인</button>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isNoticeRegOpen && (
