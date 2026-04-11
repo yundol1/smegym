@@ -1129,27 +1129,38 @@ export default function Home() {
                </div>
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem" }}>
                   {attendance.map((day, i) => {
-                    const isCurrentWeek = weekInfo.some(w => w.날짜 === day.fullDate);
-                    return (
-                      <motion.div 
-                        key={i}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          if (day.id) {
-                            setSelectedDay(day);
-                          } else if (day.isCurrentMonth) {
-                            // Can only upload for current month days if No entry exists
-                            setShowUpload({ ...day, day: ['일','월','화','수','목','금','토'][new Date(day.fullDate).getDay()] });
-                          }
-                        }}
-                        style={{ 
-                          aspectRatio: "1/1", borderRadius: "0.8rem", 
-                          background: isCurrentWeek ? "rgba(56, 189, 248, 0.15)" : "rgba(0,0,0,0.03)",
-                          border: isCurrentWeek ? "1px solid rgba(56, 189, 248, 0.3)" : "none",
-                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                          position: "relative", cursor: "pointer",
-                          opacity: day.isCurrentMonth ? 1 : 0.2
-                        }}
+                     const isCurrentWeek = weekInfo.some(w => w.날짜 === day.fullDate);
+                     
+                     // 클릭 가능 여부 판단
+                     const todayStr = new Date().toLocaleDateString('en-CA');
+                     const isFuture = day.fullDate > todayStr;
+                     const currentMonday = getWeekRange(mockNow)[0].날짜;
+                     const targetMonday = getWeekRange(new Date(day.fullDate))[0].날짜;
+                     const isWrongWeek = targetMonday !== currentMonday;
+                     const hasRecord = day.상태 !== 'none';
+                     const canClick = hasRecord || (isCurrentWeek && !isFuture && !isWrongWeek);
+
+                     return (
+                       <motion.div 
+                         key={i}
+                         whileTap={canClick ? { scale: 0.95 } : {}}
+                         onClick={() => {
+                           if (!canClick) return;
+                           if (day.id) {
+                             setSelectedDay(day);
+                           } else {
+                             setShowUpload({ ...day, day: ['일','월','화','수','목','금','토'][new Date(day.fullDate).getDay()] });
+                           }
+                         }}
+                         style={{ 
+                           aspectRatio: "1/1", borderRadius: "0.8rem", 
+                           background: isCurrentWeek ? "rgba(56, 189, 248, 0.15)" : "rgba(0,0,0,0.03)",
+                           border: isCurrentWeek ? "1px solid rgba(56, 189, 248, 0.3)" : "none",
+                           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                           position: "relative", cursor: canClick ? "pointer" : "default",
+                           opacity: !canClick ? (isCurrentWeek ? 0.3 : 0.15) : (day.isCurrentMonth ? 1 : 0.4),
+                           transition: "all 0.2s"
+                         }}
                       >
                         <span style={{ fontSize: "0.75rem", fontWeight: 800, opacity: isCurrentWeek ? 1 : 0.4, marginBottom: "2px" }}>{day.date}</span>
                         {day.상태 === '승인' ? <Check size={14} color="var(--primary)" strokeWidth={4} /> : 
