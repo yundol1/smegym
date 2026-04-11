@@ -129,6 +129,7 @@ export default function Home() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [showComments, setShowComments] = useState<any>(null);
   const [commentInput, setCommentInput] = useState("");
+  const [inlineInputs, setInlineInputs] = useState<any>({});
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [globalBaseDate, setGlobalBaseDate] = useState<string | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<any>(null);
