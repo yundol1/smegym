@@ -229,7 +229,7 @@ export default function Home() {
             비밀번호: "admin9569",
             관리자여부: true,
             아바타: "AD",
-            인사말: "SME 클럽 관리자입니다.",
+            인사말: "SME GYM 관리자입니다.",
             승인상태: "승인", // Admin is pre-approved
             운동횟수: 0,
             생성일: serverTimestamp()
@@ -1152,27 +1152,29 @@ export default function Home() {
           transition={{ duration: 0.6 }}
           style={{ marginBottom: "3rem" }}
         >
-          <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>🏋️</div>
           <h1 style={{ 
             fontSize: "2.8rem", fontWeight: 900, lineHeight: 1.1, marginBottom: "0.8rem",
             background: "linear-gradient(135deg, #ffffff 0%, #38bdf8 60%, #6366f1 100%)",
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"
           }}>
-            SME<br/>CLUB
+            SME<br/>GYM
           </h1>
           <p style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.45)", fontWeight: 600, letterSpacing: "0.05em" }}>
-            운동 관리의 시작
+            {authMode === "login" ? "운동 관리의 시작" : "새로운 시작을 환영합니다"}
           </p>
         </motion.div>
 
         {/* Form */}
-        <motion.form
-          onSubmit={handleAuth}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-        >
+        <AnimatePresence mode="wait">
+          <motion.form
+            key={authMode}
+            onSubmit={handleAuth}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
           <div style={{ position: "relative" }}>
             <Users size={18} style={{ position: "absolute", left: "1.1rem", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.35)" }} />
             <input
@@ -1235,6 +1237,7 @@ export default function Home() {
             {authMode === "login" ? "아직 회원이 아니신가요? → 회원가입" : "이미 회원이신가요? → 로그인"}
           </button>
         </motion.form>
+        </AnimatePresence>
 
         {/* Toast */}
         <AnimatePresence>
