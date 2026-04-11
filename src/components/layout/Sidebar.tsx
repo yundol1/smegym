@@ -102,8 +102,15 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
         <div className="sidebar__logo">
           {!collapsed && (
-            <Link href="/dashboard" className="sidebar__logo-link">
-              <span className="gradient-text">SME GYM</span>
+            <Link
+              href="/dashboard"
+              className="sidebar__logo-link"
+              style={{
+                color: "#00E676",
+                textShadow: "0 0 20px rgba(0, 230, 118, 0.3)",
+              }}
+            >
+              SME
             </Link>
           )}
           <button
@@ -159,7 +166,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         </nav>
       </aside>
 
-      {/* Mobile Bottom Tab Bar */}
+      {/* Mobile Floating Pill Nav Bar */}
       <nav className="mobile-tab-bar">
         {mobileTabItems.map((item) => (
           <Link

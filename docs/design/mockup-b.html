@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SME GYM - Design B: Light Clean</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F4F6;
+    --surface: #FFFFFF;
+    --border: rgba(0, 0, 0, 0.06);
+    --primary: #3182F6;
+    --primary-light: rgba(49, 130, 246, 0.08);
+    --primary-medium: rgba(49, 130, 246, 0.15);
+    --success: #20C997;
+    --success-light: rgba(32, 201, 151, 0.1);
+    --warning: #FF6B2C;
+    --warning-light: rgba(255, 107, 44, 0.1);
+    --error: #FF4949;
+    --error-light: rgba(255, 73, 73, 0.1);
+    --purple: #8B5CF6;
+    --purple-light: rgba(139, 92, 246, 0.1);
+    --text: #191F28;
+    --text-sub: #8B95A1;
+    --text-muted: #B0B8C1;
+    --radius: 16px;
+    --radius-sm: 12px;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { max-width: 430px; margin: 0 auto; padding: 0 16px; position: relative; }
+
+  /* ===== Header ===== */
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 24px 4px 20px;
+  }
+  .header-left h2 { font-size: 13px; color: var(--text-sub); font-weight: 400; letter-spacing: -0.2px; }
+  .header-left h1 { font-size: 22px; font-weight: 700; margin-top: 4px; letter-spacing: -0.5px; }
+  .header-left h1 span { color: var(--primary); }
+  .avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, #3182F6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 18px; color: #fff;
+    box-shadow: 0 2px 8px rgba(49, 130, 246, 0.25);
+  }
+
+  /* ===== Notice Banner ===== */
+  .notice {
+    background: var(--surface);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+    font-size: 13px; color: var(--text-sub);
+    box-shadow: var(--shadow);
+  }
+  .notice-icon { font-size: 18px; }
+  .notice strong { color: var(--text); font-weight: 600; }
+
+  /* ===== Stats Grid ===== */
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-icon {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+  .stat-label { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; font-weight: 400; }
+  .stat-value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+  .stat-value.primary { color: var(--primary); }
+  .stat-value.warning { color: var(--warning); }
+  .stat-value.success { color: var(--success); }
+  .stat-value.purple { color: var(--purple); }
+  .stat-unit { font-size: 14px; font-weight: 400; color: var(--text-sub); margin-left: 2px; }
+
+  /* ===== Weekly Calendar ===== */
+  .section-title {
+    font-size: 15px; font-weight: 600;
+    margin-bottom: 14px;
+    padding: 0 4px;
+    display: flex; align-items: center; gap: 8px;
+    letter-spacing: -0.3px;
+  }
+  .section-title .icon { font-size: 18px; }
+
+  .week-calendar {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px 16px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .week-header {
+    font-size: 13px; color: var(--text-sub);
+    margin-bottom: 16px; text-align: center;
+    font-weight: 500;
+  }
+  .week-days {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .day-col { text-align: center; }
+  .day-label { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+  .day-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    margin: 0 auto 4px;
+  }
+  .day-dot.approved { background: var(--success); }
+  .day-dot.pending { background: var(--warning); }
+  .day-dot.rejected { background: var(--error); }
+  .day-dot.exempt { background: var(--purple); }
+  .day-dot.empty { background: var(--text-muted); opacity: 0.3; }
+  .day-num {
+    font-size: 15px; font-weight: 600;
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto;
+    color: var(--text);
+  }
+  .day-num.today {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(49, 130, 246, 0.3);
+  }
+
+  /* Calendar Legend */
+  .calendar-legend {
+    display: flex; justify-content: center; gap: 14px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; color: var(--text-sub);
+  }
+  .legend-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .legend-dot.green { background: var(--success); }
+  .legend-dot.yellow { background: var(--warning); }
+  .legend-dot.red { background: var(--error); }
+  .legend-dot.purple { background: var(--purple); }
+
+  /* ===== CTA Button ===== */
+  .cta-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    padding: 16px;
+    background: var(--primary);
+    border: none; border-radius: var(--radius);
+    color: white; font-size: 16px; font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 24px;
+    font-family: inherit;
+    box-shadow: 0 4px 16px rgba(49, 130, 246, 0.3);
+    transition: all 0.2s;
+    letter-spacing: -0.3px;
+  }
+  .cta-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(49, 130, 246, 0.4); }
+  .cta-btn:active { transform: translateY(0); }
+
+  /* ===== Recent Activity ===== */
+  .activity-list { margin-bottom: 100px; }
+  .activity-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .activity-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-icon {
+    width: 42px; height: 42px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .activity-icon.workout { background: var(--success-light); }
+  .activity-icon.gallery { background: var(--primary-light); }
+  .activity-icon.fine { background: var(--warning-light); }
+  .activity-info { flex: 1; }
+  .activity-info h4 { font-size: 14px; font-weight: 500; letter-spacing: -0.2px; }
+  .activity-info p { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+  .activity-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+  /* ===== Bottom Nav ===== */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 430px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-around;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 12px;
+    font-size: 10px; color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+    font-weight: 500;
+  }
+  .nav-item.active { color: var(--primary); }
+  .nav-item .nav-icon { font-size: 22px; }
+
+  /* ===== Page Divider ===== */
+  .page-divider {
+    margin: 40px 0;
+    padding: 30px 0;
+    border-top: 2px dashed var(--text-muted);
+    text-align: center;
+  }
+  .page-divider h3 {
+    font-size: 18px;
+    color: var(--primary);
+    margin-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .page-divider p { font-size: 13px; color: var(--text-sub); }
+
+  /* ===== Workout Page ===== */
+  .workout-grid {
+    display: flex; flex-direction: column; gap: 10px;
+    margin-bottom: 20px;
+  }
+  .workout-day-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: var(--shadow);
+  }
+  .workout-day-card .day-badge {
+    width: 50px; height: 50px; border-radius: 14px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px;
+    background: var(--bg);
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .workout-day-card .day-badge .badge-date { font-size: 10px; color: var(--text-sub); font-weight: 400; margin-top: 1px; }
+  .workout-day-card .day-info { flex: 1; }
+  .workout-day-card .day-info h4 { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; }
+  .workout-day-card .day-info p { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+  .workout-day-card .status-badge {
+    padding: 5px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge.approved { background: var(--success-light); color: var(--success); }
+  .status-badge.pending { background: var(--warning-light); color: var(--warning); }
+  .status-badge.upload { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+  .status-badge.exempt { background: var(--purple-light); color: var(--purple); }
+  .status-badge.unchecked { background: var(--bg); color: var(--text-muted); }
+
+  /* ===== Gallery ===== */
+  .gallery-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 20px;
+  }
+  .gallery-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .gallery-img {
+    width: 100%; height: 150px;
+    background: linear-gradient(135deg, #E8F0FE, #F0E6FF);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+  .gallery-img.warm { background: linear-gradient(135deg, #FFF3E0, #FFE0E0); }
+  .gallery-img.cool { background: linear-gradient(135deg, #E0F7FA, #E8F5E9); }
+  .gallery-img.purple { background: linear-gradient(135deg, #F3E5F5, #E8EAF6); }
+  .gallery-meta {
+    padding: 12px;
+  }
+  .gallery-meta h4 { font-size: 13px; font-weight: 600; }
+  .gallery-meta p { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+  .gallery-reactions {
+    display: flex; gap: 6px; margin-top: 8px;
+  }
+  .reaction-chip {
+    display: flex; align-items: center; gap: 3px;
+    padding: 3px 8px;
+    background: var(--bg);
+    border-radius: 12px;
+    font-size: 12px; color: var(--text-sub);
+  }
+
+  /* ===== Ranking ===== */
+  .rank-list { margin-bottom: 20px; }
+  .rank-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+  }
+  .rank-item.me {
+    border: 1.5px solid var(--primary);
+    background: rgba(49, 130, 246, 0.03);
+  }
+  .rank-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+    background: var(--bg); color: var(--text-sub);
+    flex-shrink: 0;
+  }
+  .rank-item:nth-child(1) .rank-num { background: linear-gradient(135deg, #FFD700, #FFA500); color: #fff; box-shadow: 0 2px 8px rgba(255, 165, 0, 0.3); }
+  .rank-item:nth-child(2) .rank-num { background: linear-gradient(135deg, #C0C0C0, #A8A8A8); color: #fff; }
+  .rank-item:nth-child(3) .rank-num { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
+  .rank-name { flex: 1; font-size: 15px; font-weight: 500; }
+  .rank-count { font-size: 16px; font-weight: 700; color: var(--primary); }
+  .rank-medal { font-size: 18px; margin-right: -4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===== SCREEN 1: DASHBOARD ===== -->
+  <div class="header">
+    <div class="header-left">
+      <h2>좋은 아침이에요</h2>
+      <h1><span>원석</span>님, 오늘도 화이팅!</h1>
+    </div>
+    <div class="avatar">W</div>
+  </div>
+
+  <div class="notice">
+    <span class="notice-icon">📢</span>
+    <div><strong>공지</strong> 이번 주 정모는 토요일 오후 3시입니다.</div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">🏋️</div>
+      <div class="stat-label">금주 운동</div>
+      <div class="stat-value primary">4<span class="stat-unit">회</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">예상 벌금</div>
+      <div class="stat-value success">0<span class="stat-unit">원</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-label">스트릭</div>
+      <div class="stat-value warning">12<span class="stat-unit">일</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🏆</div>
+      <div class="stat-label">랭킹</div>
+      <div class="stat-value purple">3<span class="stat-unit">위</span></div>
+    </div>
+  </div>
+
+  <div class="section-title"><span class="icon">📅</span> 3월 4주차</div>
+  <div class="week-calendar">
+    <div class="week-days">
+      <div class="day-col">
+        <div class="day-label">월</div>
+        <div class="day-dot approved"></div>
+        <div class="day-num">23</div>
+      </div>
+      <div class="day-col">
+        <div class="day-label">화</div>
+        <div class="day-dot approved"></div>
+        <div class="day-num">24</div>
+      </div>
+      <div class="day-col">
+        <div class="day-label">수</div>
+        <div class="day-dot pending"></div>
+        <div class="day-num">25</div>
+      </div>
+      <div class="day-col">
+        <div class="day-label">목</div>
+        <div class="day-dot approved"></div>
+        <div class="day-num today">26</div>
+      </div>
+      <div class="day-col">
+        <div class="day-label">금</div>
+        <div class="day-dot empty"></div>
+        <div class="day-num">27</div>
+      </div>
+      <div class="day-col">
+        <div class="day-label">토</div>
+        <div class="day-dot rejected"></div>
+        <div class="day-num">28</div>
+      </div>
+      <div class="day-col">
+        <div class="day-label">일</div>
+        <div class="day-dot exempt"></div>
+        <div class="day-num">29</div>
+      </div>
+    </div>
+    <div class="calendar-legend">
+      <div class="legend-item"><div class="legend-dot green"></div>승인</div>
+      <div class="legend-item"><div class="legend-dot yellow"></div>대기</div>
+      <div class="legend-item"><div class="legend-dot red"></div>반려</div>
+      <div class="legend-item"><div class="legend-dot purple"></div>면제</div>
+    </div>
+  </div>
+
+  <button class="cta-btn">📸 운동 인증하기</button>
+
+  <div class="section-title"><span class="icon">⚡</span> 최근 활동</div>
+  <div class="activity-card">
+    <div class="activity-item">
+      <div class="activity-icon workout">💪</div>
+      <div class="activity-info"><h4>목요일 운동 인증 승인</h4><p>관리자가 인증을 승인했습니다</p></div>
+      <div class="activity-time">2시간 전</div>
+    </div>
+    <div class="activity-item">
+      <div class="activity-icon gallery">🔥</div>
+      <div class="activity-info"><h4>영준님이 리액션을 남겼어요</h4><p>수요일 인증 사진에 🔥</p></div>
+      <div class="activity-time">5시간 전</div>
+    </div>
+    <div class="activity-item">
+      <div class="activity-icon fine">💰</div>
+      <div class="activity-info"><h4>지난주 벌금 정산 완료</h4><p>2,000원 납부 확인됨</p></div>
+      <div class="activity-time">어제</div>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN 2: WORKOUT CHECK-IN ===== -->
+  <div class="page-divider">
+    <h3>운동 인증 화면</h3>
+    <p>요일별 인증 상태 및 업로드</p>
+  </div>
+
+  <div class="section-title"><span class="icon">🏋️</span> 3월 4주차 운동 인증</div>
+  <div class="workout-grid">
+    <div class="workout-day-card">
+      <div class="day-badge">월<div class="badge-date">3/23</div></div>
+      <div class="day-info"><h4>월요일</h4><p>관리자 승인 · 03/23 09:30</p></div>
+      <div class="status-badge approved">승인됨</div>
+    </div>
+    <div class="workout-day-card">
+      <div class="day-badge">화<div class="badge-date">3/24</div></div>
+      <div class="day-info"><h4>화요일</h4><p>관리자 승인 · 03/24 10:15</p></div>
+      <div class="status-badge approved">승인됨</div>
+    </div>
+    <div class="workout-day-card">
+      <div class="day-badge">수<div class="badge-date">3/25</div></div>
+      <div class="day-info"><h4>수요일</h4><p>검토를 기다리는 중...</p></div>
+      <div class="status-badge pending">검토 대기</div>
+    </div>
+    <div class="workout-day-card">
+      <div class="day-badge" style="background: var(--primary-light); color: var(--primary);">목<div class="badge-date" style="color: var(--primary);">3/26</div></div>
+      <div class="day-info"><h4>목요일 (오늘)</h4><p>사진을 업로드해주세요</p></div>
+      <div class="status-badge upload">업로드</div>
+    </div>
+    <div class="workout-day-card">
+      <div class="day-badge">금<div class="badge-date">3/27</div></div>
+      <div class="day-info"><h4>금요일</h4><p>아직 인증하지 않았어요</p></div>
+      <div class="status-badge unchecked">미인증</div>
+    </div>
+    <div class="workout-day-card">
+      <div class="day-badge" style="background: var(--purple-light);">토<div class="badge-date">3/28</div></div>
+      <div class="day-info"><h4>토요일</h4><p>면제 승인됨</p></div>
+      <div class="status-badge exempt">면제</div>
+    </div>
+    <div class="workout-day-card">
+      <div class="day-badge">일<div class="badge-date">3/29</div></div>
+      <div class="day-info"><h4>일요일</h4><p>아직 인증하지 않았어요</p></div>
+      <div class="status-badge unchecked">미인증</div>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN 3: GALLERY ===== -->
+  <div class="page-divider">
+    <h3>갤러리 화면</h3>
+    <p>운동 인증 사진 공유 + 리액션</p>
+  </div>
+
+  <div class="section-title"><span class="icon">🖼️</span> 운동 갤러리</div>
+  <div class="gallery-grid">
+    <div class="gallery-card">
+      <div class="gallery-img cool">🏃</div>
+      <div class="gallery-meta">
+        <h4>영준</h4>
+        <p>월요일 · 러닝 5km</p>
+        <div class="gallery-reactions">
+          <span class="reaction-chip">🔥 3</span>
+          <span class="reaction-chip">💪 5</span>
+        </div>
+      </div>
+    </div>
+    <div class="gallery-card">
+      <div class="gallery-img warm">🏋️</div>
+      <div class="gallery-meta">
+        <h4>지은</h4>
+        <p>화요일 · 웨이트</p>
+        <div class="gallery-reactions">
+          <span class="reaction-chip">🔥 7</span>
+          <span class="reaction-chip">🌶️ 2</span>
+        </div>
+      </div>
+    </div>
+    <div class="gallery-card">
+      <div class="gallery-img purple">🧘</div>
+      <div class="gallery-meta">
+        <h4>원석</h4>
+        <p>수요일 · 요가</p>
+        <div class="gallery-reactions">
+          <span class="reaction-chip">💪 4</span>
+          <span class="reaction-chip">🔥 2</span>
+        </div>
+      </div>
+    </div>
+    <div class="gallery-card">
+      <div class="gallery-img">🚴</div>
+      <div class="gallery-meta">
+        <h4>민수</h4>
+        <p>목요일 · 자전거</p>
+        <div class="gallery-reactions">
+          <span class="reaction-chip">🔥 2</span>
+          <span class="reaction-chip">💪 3</span>
+          <span class="reaction-chip">🌶️ 1</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN 4: RANKING ===== -->
+  <div class="page-divider">
+    <h3>랭킹 화면</h3>
+    <p>누적 운동 횟수 기준 순위</p>
+  </div>
+
+  <div class="section-title"><span class="icon">🏆</span> 2026 운동 랭킹</div>
+  <div class="rank-list">
+    <div class="rank-item">
+      <div class="rank-num">1</div>
+      <span class="rank-medal">🥇</span>
+      <div class="rank-name">영준</div>
+      <div class="rank-count">87회</div>
+    </div>
+    <div class="rank-item">
+      <div class="rank-num">2</div>
+      <span class="rank-medal">🥈</span>
+      <div class="rank-name">지은</div>
+      <div class="rank-count">82회</div>
+    </div>
+    <div class="rank-item me">
+      <div class="rank-num">3</div>
+      <span class="rank-medal">🥉</span>
+      <div class="rank-name">원석 (나)</div>
+      <div class="rank-count">78회</div>
+    </div>
+    <div class="rank-item">
+      <div class="rank-num">4</div>
+      <div class="rank-name" style="margin-left: 22px;">민수</div>
+      <div class="rank-count">75회</div>
+    </div>
+    <div class="rank-item">
+      <div class="rank-num">5</div>
+      <div class="rank-name" style="margin-left: 22px;">수진</div>
+      <div class="rank-count">71회</div>
+    </div>
+    <div class="rank-item">
+      <div class="rank-num">6</div>
+      <div class="rank-name" style="margin-left: 22px;">현우</div>
+      <div class="rank-count">68회</div>
+    </div>
+  </div>
+
+  <div style="height: 80px;"></div>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <a class="nav-item active"><div class="nav-icon">🏠</div>홈</a>
+    <a class="nav-item"><div class="nav-icon">📷</div>인증</a>
+    <a class="nav-item"><div class="nav-icon">🖼️</div>갤러리</a>
+    <a class="nav-item"><div class="nav-icon">🏆</div>랭킹</a>
+    <a class="nav-item"><div class="nav-icon">⚙️</div>설정</a>
+  </nav>
+</div>
+
+</body>
+</html>

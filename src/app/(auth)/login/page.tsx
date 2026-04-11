@@ -6,6 +6,28 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@/types/database";
 
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0.875rem 1rem",
+  background: "#1A1A1A",
+  border: "1px solid #222222",
+  borderRadius: "14px",
+  color: "#FFFFFF",
+  fontSize: "0.9375rem",
+  outline: "none",
+  transition: "border-color 0.2s, box-shadow 0.2s",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "0.8125rem",
+  color: "#666666",
+  marginBottom: "0.375rem",
+  fontWeight: 600,
+  letterSpacing: "0.02em",
+  textTransform: "uppercase" as const,
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -82,9 +104,6 @@ export default function LoginPage() {
 
       // Handle auto-login preference
       if (!autoLogin) {
-        // If auto-login is off, the session will expire when the browser closes.
-        // Supabase doesn't natively support session-only cookies in browser client,
-        // so we store a flag to sign out on next load if needed.
         sessionStorage.setItem("smegym_session_only", "true");
       } else {
         sessionStorage.removeItem("smegym_session_only");
@@ -102,21 +121,22 @@ export default function LoginPage() {
       style={{
         width: "100%",
         maxWidth: "400px",
-        background: "var(--glass-bg)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid var(--glass-border)",
-        borderRadius: "1.5rem",
+        background: "#1A1A1A",
+        border: "1px solid #222222",
+        borderRadius: "var(--radius, 20px)",
         padding: "2rem",
       }}
     >
       <h2
         style={{
           fontSize: "1.5rem",
-          fontWeight: 700,
-          color: "var(--foreground)",
+          fontWeight: 800,
+          fontFamily: "var(--font-heading)",
+          color: "#FFFFFF",
           marginBottom: "1.5rem",
           textAlign: "center",
+          letterSpacing: "0.02em",
+          textTransform: "uppercase",
         }}
       >
         로그인
@@ -124,15 +144,7 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <div>
-          <label
-            htmlFor="nickname"
-            style={{
-              display: "block",
-              fontSize: "0.875rem",
-              color: "rgba(248, 250, 252, 0.7)",
-              marginBottom: "0.375rem",
-            }}
-          >
+          <label htmlFor="nickname" style={labelStyle}>
             닉네임
           </label>
           <input
@@ -143,32 +155,20 @@ export default function LoginPage() {
             required
             autoComplete="username"
             placeholder="닉네임을 입력하세요"
-            style={{
-              width: "100%",
-              padding: "0.75rem 1rem",
-              background: "rgba(15, 23, 42, 0.8)",
-              border: "1px solid var(--glass-border)",
-              borderRadius: "0.75rem",
-              color: "var(--foreground)",
-              fontSize: "0.9375rem",
-              outline: "none",
-              transition: "border-color 0.2s",
+            style={inputStyle}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "#00E676";
+              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0, 230, 118, 0.15)";
             }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "#222222";
+              e.currentTarget.style.boxShadow = "none";
+            }}
           />
         </div>
 
         <div>
-          <label
-            htmlFor="password"
-            style={{
-              display: "block",
-              fontSize: "0.875rem",
-              color: "rgba(248, 250, 252, 0.7)",
-              marginBottom: "0.375rem",
-            }}
-          >
+          <label htmlFor="password" style={labelStyle}>
             비밀번호
           </label>
           <input
@@ -179,19 +179,15 @@ export default function LoginPage() {
             required
             autoComplete="current-password"
             placeholder="비밀번호를 입력하세요"
-            style={{
-              width: "100%",
-              padding: "0.75rem 1rem",
-              background: "rgba(15, 23, 42, 0.8)",
-              border: "1px solid var(--glass-border)",
-              borderRadius: "0.75rem",
-              color: "var(--foreground)",
-              fontSize: "0.9375rem",
-              outline: "none",
-              transition: "border-color 0.2s",
+            style={inputStyle}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "#00E676";
+              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0, 230, 118, 0.15)";
             }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "#222222";
+              e.currentTarget.style.boxShadow = "none";
+            }}
           />
         </div>
 
@@ -201,7 +197,7 @@ export default function LoginPage() {
             alignItems: "center",
             gap: "0.5rem",
             fontSize: "0.875rem",
-            color: "rgba(248, 250, 252, 0.7)",
+            color: "#666666",
             cursor: "pointer",
           }}
         >
@@ -212,7 +208,7 @@ export default function LoginPage() {
             style={{
               width: "1rem",
               height: "1rem",
-              accentColor: "var(--primary)",
+              accentColor: "#00E676",
             }}
           />
           자동 로그인
@@ -221,12 +217,13 @@ export default function LoginPage() {
         {error && (
           <p
             style={{
-              color: "var(--error)",
+              color: "#FF5252",
               fontSize: "0.875rem",
               textAlign: "center",
-              padding: "0.5rem",
-              background: "rgba(239, 68, 68, 0.1)",
-              borderRadius: "0.5rem",
+              padding: "0.625rem",
+              background: "rgba(255, 82, 82, 0.08)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255, 82, 82, 0.15)",
             }}
           >
             {error}
@@ -260,7 +257,8 @@ export default function LoginPage() {
         <Link
           href="/register"
           style={{
-            color: "var(--primary)",
+            color: "#00E676",
+            fontWeight: 600,
             transition: "opacity 0.2s",
           }}
         >
@@ -269,7 +267,7 @@ export default function LoginPage() {
         <Link
           href="/forgot-password"
           style={{
-            color: "rgba(248, 250, 252, 0.5)",
+            color: "#666666",
             transition: "opacity 0.2s",
           }}
         >

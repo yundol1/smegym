@@ -129,9 +129,9 @@ export default function FinesPage() {
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
         >
-          <Dumbbell size={32} style={{ color: "var(--primary)" }} />
+          <Dumbbell size={32} style={{ color: "#00E676" }} />
         </motion.div>
-        <p style={{ marginTop: "1rem", opacity: 0.6 }}>로딩 중...</p>
+        <p style={{ marginTop: "1rem", color: "#666666" }}>로딩 중...</p>
       </main>
     );
   }
@@ -155,25 +155,36 @@ export default function FinesPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "var(--foreground)",
+            color: "#FFFFFF",
             opacity: 0.7,
           }}
         >
           <ChevronLeft size={24} />
         </button>
-        <h1 style={{ fontSize: "1.25rem", fontWeight: 700 }}>벌금 현황</h1>
+        <h1
+          style={{
+            fontSize: "1.25rem",
+            fontWeight: 800,
+            fontFamily: "var(--font-heading)",
+            color: "#FFFFFF",
+          }}
+        >
+          벌금 현황
+        </h1>
       </header>
 
       {/* Current Week Status */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card"
         style={{
           padding: "1.25rem",
           display: "flex",
           flexDirection: "column",
           gap: "1rem",
+          background: "#1A1A1A",
+          borderRadius: "var(--radius)",
+          border: "1px solid #222222",
         }}
       >
         <div
@@ -181,11 +192,11 @@ export default function FinesPage() {
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            color: "var(--primary)",
+            color: "#00E676",
           }}
         >
           <CalendarCheck size={18} />
-          <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+          <span style={{ fontSize: "0.875rem", fontWeight: 700, fontFamily: "var(--font-heading)" }}>
             금주 운동 현황
           </span>
         </div>
@@ -198,28 +209,36 @@ export default function FinesPage() {
         >
           <div>
             <span
-              style={{ fontSize: "0.75rem", opacity: 0.5, display: "block" }}
+              style={{ fontSize: "0.75rem", color: "#666666", display: "block" }}
             >
               인정 횟수
             </span>
-            <span style={{ fontSize: "1.5rem", fontWeight: 700 }}>
+            <span
+              style={{
+                fontSize: "1.75rem",
+                fontWeight: 900,
+                fontFamily: "var(--font-heading)",
+                color: "#FFFFFF",
+              }}
+            >
               {currentWeekFine.workoutCount}회
             </span>
           </div>
           <div style={{ textAlign: "right" }}>
             <span
-              style={{ fontSize: "0.75rem", opacity: 0.5, display: "block" }}
+              style={{ fontSize: "0.75rem", color: "#666666", display: "block" }}
             >
               예상 벌금
             </span>
             <span
               style={{
-                fontSize: "1.5rem",
-                fontWeight: 700,
+                fontSize: "1.75rem",
+                fontWeight: 900,
+                fontFamily: "var(--font-heading)",
                 color:
                   currentWeekFine.fineAmount > 0
-                    ? "var(--error)"
-                    : "var(--success)",
+                    ? "#FF5252"
+                    : "#00E676",
               }}
             >
               {currentWeekFine.fineAmount > 0
@@ -233,7 +252,7 @@ export default function FinesPage() {
           style={{
             height: "0.375rem",
             borderRadius: "1rem",
-            background: "rgba(255,255,255,0.05)",
+            background: "#222222",
             overflow: "hidden",
           }}
         >
@@ -248,12 +267,12 @@ export default function FinesPage() {
               borderRadius: "1rem",
               background:
                 currentWeekFine.workoutCount >= 3
-                  ? "var(--success)"
-                  : "var(--warning)",
+                  ? "linear-gradient(90deg, #00E676, #00B0FF)"
+                  : "#FFD600",
             }}
           />
         </div>
-        <span style={{ fontSize: "0.6875rem", opacity: 0.4 }}>
+        <span style={{ fontSize: "0.6875rem", color: "#444444" }}>
           주 3회 이상 운동 시 벌금 면제
         </span>
       </motion.section>
@@ -264,12 +283,14 @@ export default function FinesPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="card"
           style={{
             padding: "1.25rem",
             display: "flex",
             flexDirection: "column",
             gap: "0.75rem",
+            background: "#1A1A1A",
+            borderRadius: "var(--radius)",
+            border: "1px solid #222222",
           }}
         >
           <div
@@ -277,11 +298,11 @@ export default function FinesPage() {
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
-              color: "var(--accent)",
+              color: "#00B0FF",
             }}
           >
             <Banknote size={18} />
-            <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+            <span style={{ fontSize: "0.875rem", fontWeight: 700, fontFamily: "var(--font-heading)" }}>
               지난주 벌금
             </span>
           </div>
@@ -296,13 +317,20 @@ export default function FinesPage() {
               <span
                 style={{
                   fontSize: "0.75rem",
-                  opacity: 0.5,
+                  color: "#666666",
                   display: "block",
                 }}
               >
                 {(lastWeekFine.weeks as { title: string } | null)?.title ?? "지난주"}
               </span>
-              <span style={{ fontSize: "1.25rem", fontWeight: 700 }}>
+              <span
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 800,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FFFFFF",
+                }}
+              >
                 {lastWeekFine.fine_amount > 0
                   ? `${lastWeekFine.fine_amount.toLocaleString()}원`
                   : "벌금 없음"}
@@ -316,11 +344,11 @@ export default function FinesPage() {
                 padding: "0.375rem 0.75rem",
                 borderRadius: "2rem",
                 background: lastWeekFine.is_paid
-                  ? "rgba(34,197,94,0.15)"
-                  : "rgba(239,68,68,0.15)",
-                color: lastWeekFine.is_paid ? "#22c55e" : "#ef4444",
+                  ? "rgba(0,230,118,0.15)"
+                  : "rgba(255,82,82,0.15)",
+                color: lastWeekFine.is_paid ? "#00E676" : "#FF5252",
                 fontSize: "0.75rem",
-                fontWeight: 600,
+                fontWeight: 700,
               }}
             >
               {lastWeekFine.is_paid ? (
@@ -359,39 +387,42 @@ export default function FinesPage() {
           {
             label: "누적 벌금",
             value: `${totalFines.toLocaleString()}원`,
-            color: "var(--error)",
+            color: "#FF5252",
           },
           {
             label: "납부 완료",
             value: `${totalPaid.toLocaleString()}원`,
-            color: "var(--success)",
+            color: "#00E676",
           },
           {
             label: "미납 잔액",
             value: `${(totalFines - totalPaid).toLocaleString()}원`,
-            color: "var(--warning)",
+            color: "#FFD600",
           },
         ].map((stat, i) => (
           <div
             key={i}
-            className="card"
             style={{
               padding: "0.875rem",
               display: "flex",
               flexDirection: "column",
               gap: "0.375rem",
               textAlign: "center",
+              background: "#1A1A1A",
+              borderRadius: "16px",
+              border: "1px solid #222222",
             }}
           >
             <span
-              style={{ fontSize: "0.6875rem", opacity: 0.5, fontWeight: 500 }}
+              style={{ fontSize: "0.6875rem", color: "#666666", fontWeight: 600 }}
             >
               {stat.label}
             </span>
             <span
               style={{
-                fontSize: "1rem",
-                fontWeight: 700,
+                fontSize: "1.125rem",
+                fontWeight: 900,
+                fontFamily: "var(--font-heading)",
                 color: stat.color,
               }}
             >
@@ -415,32 +446,43 @@ export default function FinesPage() {
             gap: "0.5rem",
           }}
         >
-          <TrendingDown size={18} style={{ color: "var(--primary)" }} />
-          <h3 style={{ fontSize: "1rem", fontWeight: 600 }}>
+          <TrendingDown size={18} style={{ color: "#00E676" }} />
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: 700,
+              fontFamily: "var(--font-heading)",
+              color: "#FFFFFF",
+            }}
+          >
             최근 벌금 이력
           </h3>
         </div>
 
         {fineHistory.length === 0 ? (
           <div
-            className="card"
             style={{
               padding: "2rem",
               textAlign: "center",
-              opacity: 0.5,
+              color: "#666666",
               fontSize: "0.875rem",
+              background: "#1A1A1A",
+              borderRadius: "var(--radius)",
+              border: "1px solid #222222",
             }}
           >
             벌금 이력이 없습니다
           </div>
         ) : (
           <div
-            className="card"
             style={{
               padding: "1.25rem",
               display: "flex",
               flexDirection: "column",
               gap: "1rem",
+              background: "#1A1A1A",
+              borderRadius: "var(--radius)",
+              border: "1px solid #222222",
             }}
           >
             {/* Bar Chart */}
@@ -459,10 +501,10 @@ export default function FinesPage() {
                     : 4;
                 const barColor =
                   fine.fine_amount === 0
-                    ? "var(--success)"
+                    ? "#00E676"
                     : fine.is_paid
-                      ? "var(--primary)"
-                      : "var(--error)";
+                      ? "#00B0FF"
+                      : "#FF5252";
 
                 return (
                   <motion.div
@@ -472,10 +514,11 @@ export default function FinesPage() {
                     transition={{ delay: i * 0.05, duration: 0.5 }}
                     style={{
                       flex: 1,
-                      borderRadius: "0.25rem 0.25rem 0 0",
+                      borderRadius: "4px 4px 0 0",
                       background: barColor,
                       minWidth: 0,
                       position: "relative",
+                      boxShadow: fine.fine_amount === 0 ? "0 0 10px rgba(0,230,118,0.3)" : "none",
                     }}
                     title={`${(fine.weeks as { title: string } | null)?.title ?? ""}: ${fine.fine_amount.toLocaleString()}원`}
                   />
@@ -493,9 +536,9 @@ export default function FinesPage() {
               }}
             >
               {[
-                { label: "벌금 없음", color: "var(--success)" },
-                { label: "납부 완료", color: "var(--primary)" },
-                { label: "미납", color: "var(--error)" },
+                { label: "벌금 없음", color: "#00E676" },
+                { label: "납부 완료", color: "#00B0FF" },
+                { label: "미납", color: "#FF5252" },
               ].map((item, i) => (
                 <div
                   key={i}
@@ -504,7 +547,7 @@ export default function FinesPage() {
                     alignItems: "center",
                     gap: "0.375rem",
                     fontSize: "0.6875rem",
-                    opacity: 0.6,
+                    color: "#666666",
                   }}
                 >
                   <div
@@ -537,7 +580,7 @@ export default function FinesPage() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     padding: "0.625rem 0",
-                    borderBottom: "1px solid rgba(255,255,255,0.04)",
+                    borderBottom: "1px solid #222222",
                     fontSize: "0.8125rem",
                   }}
                 >
@@ -548,10 +591,10 @@ export default function FinesPage() {
                       gap: "0.5rem",
                     }}
                   >
-                    <span style={{ opacity: 0.5 }}>
+                    <span style={{ color: "#666666" }}>
                       {(fine.weeks as { title: string } | null)?.title ?? "-"}
                     </span>
-                    <span style={{ opacity: 0.4, fontSize: "0.6875rem" }}>
+                    <span style={{ color: "#444444", fontSize: "0.6875rem" }}>
                       {fine.workout_count}회 운동
                     </span>
                   </div>
@@ -564,11 +607,12 @@ export default function FinesPage() {
                   >
                     <span
                       style={{
-                        fontWeight: 600,
+                        fontWeight: 800,
+                        fontFamily: "var(--font-heading)",
                         color:
                           fine.fine_amount > 0
-                            ? "var(--error)"
-                            : "var(--success)",
+                            ? "#FF5252"
+                            : "#00E676",
                       }}
                     >
                       {fine.fine_amount > 0
@@ -582,10 +626,10 @@ export default function FinesPage() {
                           padding: "0.125rem 0.375rem",
                           borderRadius: "0.25rem",
                           background: fine.is_paid
-                            ? "rgba(34,197,94,0.15)"
-                            : "rgba(239,68,68,0.15)",
-                          color: fine.is_paid ? "#22c55e" : "#ef4444",
-                          fontWeight: 600,
+                            ? "rgba(0,230,118,0.15)"
+                            : "rgba(255,82,82,0.15)",
+                          color: fine.is_paid ? "#00E676" : "#FF5252",
+                          fontWeight: 700,
                         }}
                       >
                         {fine.is_paid ? "납부" : "미납"}

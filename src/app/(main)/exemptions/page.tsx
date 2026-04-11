@@ -124,23 +124,23 @@ export default function ExemptionsPage() {
         return {
           icon: <Clock size={14} />,
           label: "검토중",
-          color: "#eab308",
-          bg: "rgba(234,179,8,0.15)",
+          color: "#00B0FF",
+          bg: "rgba(0,176,255,0.15)",
         };
       case "approved":
         return {
           icon: <CheckCircle2 size={14} />,
           label: "승인됨",
-          color: "#22c55e",
-          bg: "rgba(34,197,94,0.15)",
+          color: "#00E676",
+          bg: "rgba(0,230,118,0.15)",
           isNew: !notified,
         };
       case "rejected":
         return {
           icon: <XCircle size={14} />,
           label: "거절됨",
-          color: "#ef4444",
-          bg: "rgba(239,68,68,0.15)",
+          color: "#FF9100",
+          bg: "rgba(255,145,0,0.15)",
           isNew: !notified,
         };
     }
@@ -162,9 +162,9 @@ export default function ExemptionsPage() {
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
         >
-          <Dumbbell size={32} style={{ color: "var(--primary)" }} />
+          <Dumbbell size={32} style={{ color: "#00E676" }} />
         </motion.div>
-        <p style={{ marginTop: "1rem", opacity: 0.6 }}>로딩 중...</p>
+        <p style={{ marginTop: "1rem", color: "#666666" }}>로딩 중...</p>
       </main>
     );
   }
@@ -193,13 +193,22 @@ export default function ExemptionsPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "var(--foreground)",
+              color: "#FFFFFF",
               opacity: 0.7,
             }}
           >
             <ChevronLeft size={24} />
           </button>
-          <h1 style={{ fontSize: "1.25rem", fontWeight: 700 }}>면제 신청</h1>
+          <h1
+            style={{
+              fontSize: "1.25rem",
+              fontWeight: 800,
+              fontFamily: "var(--font-heading)",
+              color: "#FFFFFF",
+            }}
+          >
+            면제 신청
+          </h1>
         </div>
         {unreadCount > 0 && (
           <div
@@ -209,10 +218,10 @@ export default function ExemptionsPage() {
               gap: "0.375rem",
               padding: "0.25rem 0.625rem",
               borderRadius: "2rem",
-              background: "rgba(56,189,248,0.15)",
-              color: "var(--primary)",
+              background: "rgba(0,176,255,0.15)",
+              color: "#00B0FF",
               fontSize: "0.6875rem",
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
             <Bell size={12} />
@@ -225,12 +234,14 @@ export default function ExemptionsPage() {
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card"
         style={{
           padding: "1.25rem",
           display: "flex",
           flexDirection: "column",
           gap: "1rem",
+          background: "#1A1A1A",
+          borderRadius: "var(--radius)",
+          border: "1px solid #222222",
         }}
       >
         <div
@@ -238,11 +249,11 @@ export default function ExemptionsPage() {
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            color: "var(--primary)",
+            color: "#00E676",
           }}
         >
           <CalendarPlus size={18} />
-          <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+          <span style={{ fontSize: "0.875rem", fontWeight: 700, fontFamily: "var(--font-heading)" }}>
             면제 신청하기
           </span>
         </div>
@@ -265,8 +276,8 @@ export default function ExemptionsPage() {
             <label
               style={{
                 fontSize: "0.8125rem",
-                fontWeight: 500,
-                opacity: 0.7,
+                fontWeight: 600,
+                color: "#666666",
                 display: "flex",
                 alignItems: "center",
                 gap: "0.375rem",
@@ -284,12 +295,20 @@ export default function ExemptionsPage() {
               style={{
                 width: "100%",
                 padding: "0.75rem",
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid var(--glass-border)",
-                borderRadius: "0.75rem",
-                color: "var(--foreground)",
+                background: "#222222",
+                border: "1px solid #333333",
+                borderRadius: "12px",
+                color: "#FFFFFF",
                 fontFamily: "inherit",
                 fontSize: "0.875rem",
+                outline: "none",
+                transition: "border-color 0.2s ease",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "#00E676";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "#333333";
               }}
             />
           </div>
@@ -304,8 +323,8 @@ export default function ExemptionsPage() {
             <label
               style={{
                 fontSize: "0.8125rem",
-                fontWeight: 500,
-                opacity: 0.7,
+                fontWeight: 600,
+                color: "#666666",
                 display: "flex",
                 alignItems: "center",
                 gap: "0.375rem",
@@ -324,13 +343,21 @@ export default function ExemptionsPage() {
                 width: "100%",
                 minHeight: "5rem",
                 padding: "0.75rem",
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid var(--glass-border)",
-                borderRadius: "0.75rem",
-                color: "var(--foreground)",
+                background: "#222222",
+                border: "1px solid #333333",
+                borderRadius: "12px",
+                color: "#FFFFFF",
                 fontFamily: "inherit",
                 fontSize: "0.875rem",
                 resize: "vertical",
+                outline: "none",
+                transition: "border-color 0.2s ease",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "#00E676";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "#333333";
               }}
             />
           </div>
@@ -340,10 +367,11 @@ export default function ExemptionsPage() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={submitting || !dates.trim() || !reason.trim()}
-            className="btn-primary"
             style={{
               padding: "0.875rem",
               fontSize: "0.9375rem",
+              fontWeight: 700,
+              fontFamily: "var(--font-heading)",
               width: "100%",
               opacity:
                 submitting || !dates.trim() || !reason.trim() ? 0.5 : 1,
@@ -351,6 +379,12 @@ export default function ExemptionsPage() {
               alignItems: "center",
               justifyContent: "center",
               gap: "0.5rem",
+              background: "#00E676",
+              color: "#0A0A0A",
+              borderRadius: "var(--radius)",
+              border: "none",
+              cursor: submitting || !dates.trim() || !reason.trim() ? "not-allowed" : "pointer",
+              boxShadow: "0 0 30px rgba(0, 230, 118, 0.3)",
             }}
           >
             {submitting ? (
@@ -385,11 +419,11 @@ export default function ExemptionsPage() {
               exit={{ opacity: 0, y: -10 }}
               style={{
                 padding: "0.75rem 1rem",
-                borderRadius: "0.75rem",
-                background: "rgba(34,197,94,0.15)",
-                color: "#22c55e",
+                borderRadius: "12px",
+                background: "rgba(0,230,118,0.15)",
+                color: "#00E676",
                 fontSize: "0.8125rem",
-                fontWeight: 500,
+                fontWeight: 600,
                 display: "flex",
                 alignItems: "center",
                 gap: "0.5rem",
@@ -413,18 +447,29 @@ export default function ExemptionsPage() {
             gap: "0.5rem",
           }}
         >
-          <ShieldCheck size={18} style={{ color: "var(--accent)" }} />
-          <h3 style={{ fontSize: "1rem", fontWeight: 600 }}>신청 이력</h3>
+          <ShieldCheck size={18} style={{ color: "#00B0FF" }} />
+          <h3
+            style={{
+              fontSize: "1rem",
+              fontWeight: 700,
+              fontFamily: "var(--font-heading)",
+              color: "#FFFFFF",
+            }}
+          >
+            신청 이력
+          </h3>
         </div>
 
         {exemptions.length === 0 ? (
           <div
-            className="card"
             style={{
               padding: "2rem",
               textAlign: "center",
-              opacity: 0.5,
+              color: "#666666",
               fontSize: "0.875rem",
+              background: "#1A1A1A",
+              borderRadius: "var(--radius)",
+              border: "1px solid #222222",
             }}
           >
             면제 신청 이력이 없습니다
@@ -449,7 +494,6 @@ export default function ExemptionsPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="card"
                   style={{
                     padding: "1rem 1.25rem",
                     display: "flex",
@@ -457,6 +501,11 @@ export default function ExemptionsPage() {
                     gap: "0.625rem",
                     borderLeft: `3px solid ${badge.color}`,
                     position: "relative",
+                    background: "#1A1A1A",
+                    borderRadius: "0 var(--radius) var(--radius) 0",
+                    border: "1px solid #222222",
+                    borderLeftColor: badge.color,
+                    borderLeftWidth: "3px",
                   }}
                 >
                   {/* New badge */}
@@ -469,7 +518,8 @@ export default function ExemptionsPage() {
                         width: "0.5rem",
                         height: "0.5rem",
                         borderRadius: "50%",
-                        background: "var(--primary)",
+                        background: "#00E676",
+                        boxShadow: "0 0 8px rgba(0,230,118,0.5)",
                       }}
                     />
                   )}
@@ -491,7 +541,9 @@ export default function ExemptionsPage() {
                       <span
                         style={{
                           fontSize: "0.9375rem",
-                          fontWeight: 600,
+                          fontWeight: 700,
+                          fontFamily: "var(--font-heading)",
+                          color: "#FFFFFF",
                         }}
                       >
                         {exemption.dates}
@@ -499,7 +551,7 @@ export default function ExemptionsPage() {
                       <span
                         style={{
                           fontSize: "0.75rem",
-                          opacity: 0.4,
+                          color: "#444444",
                         }}
                       >
                         {format(
@@ -519,7 +571,7 @@ export default function ExemptionsPage() {
                         background: badge.bg,
                         color: badge.color,
                         fontSize: "0.6875rem",
-                        fontWeight: 600,
+                        fontWeight: 700,
                       }}
                     >
                       {badge.icon}
@@ -530,7 +582,7 @@ export default function ExemptionsPage() {
                   <p
                     style={{
                       fontSize: "0.8125rem",
-                      opacity: 0.65,
+                      color: "#666666",
                       lineHeight: 1.5,
                     }}
                   >

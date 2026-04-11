@@ -8,9 +8,8 @@ import {
   Flame,
   Trophy,
   Banknote,
-  ChevronRight,
   Megaphone,
-  CalendarCheck,
+  User as UserIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, Week, CheckIn, Notice } from "@/types/database";
@@ -18,21 +17,6 @@ import type { User, Week, CheckIn, Notice } from "@/types/database";
 type CheckStatus = "O" | "△" | "X" | "☆" | null;
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
-
-function getStatusDisplay(status: CheckStatus) {
-  switch (status) {
-    case "O":
-      return { label: "O", color: "#22c55e", bg: "rgba(34,197,94,0.15)" };
-    case "△":
-      return { label: "△", color: "#eab308", bg: "rgba(234,179,8,0.15)" };
-    case "X":
-      return { label: "X", color: "#ef4444", bg: "rgba(239,68,68,0.15)" };
-    case "☆":
-      return { label: "☆", color: "#a855f7", bg: "rgba(168,85,247,0.15)" };
-    default:
-      return { label: "", color: "#64748b", bg: "rgba(100,116,139,0.1)" };
-  }
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -143,11 +127,25 @@ export default function DashboardPage() {
   const exemptCount = checkIns.filter((c) => c.status === "☆").length;
   const effectiveCount = approvedCount + exemptCount;
   const fine = effectiveCount < 3 ? (3 - effectiveCount) * 2000 : 0;
+  const todayDow = new Date().getDay(); // 0=Sun
+  const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Mon
 
   const dayStatusMap: Record<number, CheckStatus> = {};
   for (const ci of checkIns) {
     dayStatusMap[ci.day_of_week] = ci.status;
   }
+
+  // Count completed days
+  const completedDays = checkIns.filter((c) => c.status === "O" || c.status === "☆").length;
+  const totalDays = 7;
+
+  // SVG circular progress ring
+  const ringSize = 220;
+  const strokeWidth = 14;
+  const radius = (ringSize - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = completedDays / totalDays;
+  const strokeDashoffset = circumference * (1 - progress);
 
   if (loading) {
     return (
@@ -165,9 +163,9 @@ export default function DashboardPage() {
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
         >
-          <Dumbbell size={32} style={{ color: "var(--primary)" }} />
+          <Dumbbell size={32} style={{ color: "#00E676" }} />
         </motion.div>
-        <p style={{ marginTop: "1rem", opacity: 0.6 }}>로딩 중...</p>
+        <p style={{ marginTop: "1rem", color: "#666666" }}>로딩 중...</p>
       </main>
     );
   }
@@ -178,10 +176,10 @@ export default function DashboardPage() {
         padding: "1.5rem 0",
         display: "flex",
         flexDirection: "column",
-        gap: "1.5rem",
+        gap: "1.75rem",
       }}
     >
-      {/* Welcome Header */}
+      {/* Header: SME logo + profile */}
       <header
         style={{
           display: "flex",
@@ -189,16 +187,17 @@ export default function DashboardPage() {
           alignItems: "center",
         }}
       >
-        <div>
-          <h2
-            style={{ fontSize: "0.875rem", opacity: 0.6, fontWeight: 400 }}
-          >
-            안녕하세요,
-          </h2>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>
-            {user?.nickname ?? "회원"}님
-          </h1>
-        </div>
+        <h1
+          style={{
+            fontSize: "1.75rem",
+            fontWeight: 900,
+            fontFamily: "var(--font-heading)",
+            color: "#00E676",
+            letterSpacing: "-0.03em",
+          }}
+        >
+          SME
+        </h1>
         {user?.profile_image_url ? (
           <img
             src={user.profile_image_url}
@@ -208,12 +207,11 @@ export default function DashboardPage() {
               height: "2.75rem",
               borderRadius: "50%",
               objectFit: "cover",
-              border: "2px solid var(--glass-border)",
+              border: "2px solid #222222",
             }}
           />
         ) : (
           <div
-            className="glass"
             style={{
               width: "2.75rem",
               height: "2.75rem",
@@ -221,12 +219,11 @@ export default function DashboardPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "1.25rem",
-              fontWeight: 700,
-              color: "var(--primary)",
+              background: "#1A1A1A",
+              border: "2px solid #222222",
             }}
           >
-            {user?.nickname?.charAt(0) ?? "?"}
+            <UserIcon size={20} style={{ color: "#666666" }} />
           </div>
         )}
       </header>
@@ -236,18 +233,20 @@ export default function DashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass"
           style={{
             padding: "0.875rem 1rem",
             display: "flex",
             alignItems: "flex-start",
             gap: "0.75rem",
+            background: "#1A1A1A",
+            borderRadius: "var(--radius)",
+            border: "1px solid #222222",
           }}
         >
           <Megaphone
             size={18}
             style={{
-              color: "var(--warning)",
+              color: "#FFD600",
               flexShrink: 0,
               marginTop: "0.125rem",
             }}
@@ -256,6 +255,7 @@ export default function DashboardPage() {
             style={{
               fontSize: "0.8125rem",
               lineHeight: 1.5,
+              color: "#FFFFFF",
               opacity: 0.85,
             }}
           >
@@ -264,156 +264,241 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Stats Cards */}
+      {/* Large Circular Progress Ring */}
+      <motion.section
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "0.5rem",
+        }}
+      >
+        <div style={{ position: "relative", width: ringSize, height: ringSize }}>
+          <svg
+            width={ringSize}
+            height={ringSize}
+            viewBox={`0 0 ${ringSize} ${ringSize}`}
+            style={{ transform: "rotate(-90deg)" }}
+          >
+            <defs>
+              <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#00E676" />
+                <stop offset="100%" stopColor="#00B0FF" />
+              </linearGradient>
+            </defs>
+            {/* Background ring */}
+            <circle
+              cx={ringSize / 2}
+              cy={ringSize / 2}
+              r={radius}
+              fill="none"
+              stroke="#222222"
+              strokeWidth={strokeWidth}
+            />
+            {/* Progress ring */}
+            <motion.circle
+              cx={ringSize / 2}
+              cy={ringSize / 2}
+              r={radius}
+              fill="none"
+              stroke="url(#ringGradient)"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset }}
+              transition={{ duration: 1, ease: "easeOut" }}
+            />
+          </svg>
+          {/* Center text */}
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "3rem",
+                fontWeight: 900,
+                fontFamily: "var(--font-heading)",
+                color: "#FFFFFF",
+                lineHeight: 1,
+              }}
+            >
+              {completedDays}
+              <span style={{ color: "#444444", fontSize: "1.5rem" }}>/</span>
+              <span style={{ color: "#444444", fontSize: "1.5rem" }}>{totalDays}</span>
+            </span>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                color: "#666666",
+                fontWeight: 500,
+                marginTop: "0.25rem",
+              }}
+            >
+              {currentWeek?.title ?? "이번 주"}
+            </span>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Day Pills Row */}
       <section
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "0.75rem",
+          display: "flex",
+          justifyContent: "center",
+          gap: "0.5rem",
+        }}
+      >
+        {DAY_LABELS.map((dayLabel, i) => {
+          const dayNum = i + 1;
+          const status = dayStatusMap[dayNum] ?? null;
+          const isCompleted = status === "O" || status === "☆";
+          const isToday = i === todayIdx;
+
+          let bg = "#1A1A1A";
+          let border = "2px solid transparent";
+          let textColor = "#444444";
+
+          if (isCompleted) {
+            bg = "#00E676";
+            textColor = "#0A0A0A";
+          } else if (isToday) {
+            bg = "transparent";
+            border = "2px solid #00E676";
+            textColor = "#00E676";
+          }
+
+          return (
+            <motion.div
+              key={i}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: i * 0.05 }}
+              style={{
+                width: "2.5rem",
+                height: "2.5rem",
+                borderRadius: "50%",
+                background: bg,
+                border,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                color: textColor,
+                fontFamily: "var(--font-heading)",
+              }}
+            >
+              {dayLabel}
+            </motion.div>
+          );
+        })}
+      </section>
+
+      {/* Stats Row - 3 inline stats */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        style={{
+          background: "#1A1A1A",
+          borderRadius: "var(--radius)",
+          padding: "1.25rem 1rem",
+          display: "flex",
+          justifyContent: "space-around",
+          alignItems: "center",
+          border: "1px solid #222222",
         }}
       >
         {[
           {
-            icon: <CalendarCheck size={18} />,
-            label: "금주 운동횟수",
-            value: `${approvedCount}회`,
-            color: "var(--primary)",
-          },
-          {
-            icon: <Banknote size={18} />,
-            label: "예상 벌금",
-            value: fine > 0 ? `${fine.toLocaleString()}원` : "없음",
-            color: fine > 0 ? "var(--error)" : "var(--success)",
-          },
-          {
-            icon: <Flame size={18} />,
-            label: "현재 스트릭",
+            emoji: "🔥",
+            label: "연속",
             value: `${streak}일`,
-            color: "var(--warning)",
           },
           {
-            icon: <Trophy size={18} />,
-            label: "내 랭킹",
-            value: rank ? `${rank}위` : "-",
-            color: "var(--accent)",
+            emoji: "💰",
+            label: "벌금",
+            value: fine > 0 ? `${fine.toLocaleString()}원` : "없음",
           },
-        ].map((stat, i) => (
-          <motion.div
+          {
+            emoji: "🏆",
+            label: "랭킹",
+            value: rank ? `${rank}위` : "-",
+          },
+        ].map((stat, i, arr) => (
+          <div
             key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08 }}
-            className="card"
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: "0.5rem",
-              padding: "1rem",
+              alignItems: "center",
+              gap: "0.375rem",
+              flex: 1,
+              borderRight: i < arr.length - 1 ? "1px solid #222222" : "none",
             }}
           >
-            <div
+            <span style={{ fontSize: "1.25rem" }}>{stat.emoji}</span>
+            <span
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                color: stat.color,
+                fontSize: "1.25rem",
+                fontWeight: 800,
+                fontFamily: "var(--font-heading)",
+                color: "#FFFFFF",
               }}
             >
-              {stat.icon}
-              <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>
-                {stat.label}
-              </span>
-            </div>
-            <span style={{ fontSize: "1.375rem", fontWeight: 700 }}>
               {stat.value}
             </span>
-          </motion.div>
+            <span
+              style={{
+                fontSize: "0.6875rem",
+                color: "#666666",
+                fontWeight: 500,
+              }}
+            >
+              {stat.label}
+            </span>
+          </div>
         ))}
-      </section>
+      </motion.section>
 
-      {/* Weekly Calendar Grid */}
-      <section
-        style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
-      >
-        <h3 style={{ fontSize: "1rem", fontWeight: 600 }}>
-          {currentWeek?.title ?? "이번 주"} 출석 현황
-        </h3>
-        <div
-          className="card"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "1rem",
-          }}
-        >
-          {DAY_LABELS.map((dayLabel, i) => {
-            const dayNum = i + 1;
-            const status = dayStatusMap[dayNum] ?? null;
-            const display = getStatusDisplay(status);
-
-            return (
-              <motion.div
-                key={i}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: i * 0.05 }}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.375rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "0.6875rem",
-                    opacity: 0.5,
-                    fontWeight: 600,
-                  }}
-                >
-                  {dayLabel}
-                </span>
-                <div
-                  style={{
-                    width: "2.25rem",
-                    height: "2.25rem",
-                    borderRadius: "0.625rem",
-                    background: display.bg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.9375rem",
-                    fontWeight: 700,
-                    color: display.color,
-                  }}
-                >
-                  {display.label}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Quick Action */}
+      {/* FAB Button */}
       <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="btn-primary"
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
         onClick={() => router.push("/workout")}
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: "0.75rem",
-          padding: "1rem",
-          fontSize: "1rem",
+          padding: "1.125rem",
+          fontSize: "1.0625rem",
+          fontWeight: 700,
+          fontFamily: "var(--font-heading)",
           width: "100%",
+          background: "#00E676",
+          color: "#0A0A0A",
+          borderRadius: "var(--radius)",
+          border: "none",
+          cursor: "pointer",
+          boxShadow: "0 0 30px rgba(0, 230, 118, 0.3)",
+          letterSpacing: "-0.01em",
         }}
       >
-        <Dumbbell size={20} />
-        운동 인증하기
-        <ChevronRight size={18} />
+        <span style={{ fontSize: "1.25rem" }}>{"📷"}</span>
+        인증하기
       </motion.button>
     </main>
   );

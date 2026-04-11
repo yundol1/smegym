@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
-import { Noto_Sans_KR } from "next/font/google";
+import { Outfit, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["300", "400", "600", "700", "800", "900"],
+  display: "swap",
+  variable: "--font-outfit",
+});
 
 const notoSansKR = Noto_Sans_KR({
   subsets: ["latin"],
@@ -20,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={notoSansKR.variable}>
+    <html lang="ko" className={`${outfit.variable} ${notoSansKR.variable}`}>
       <body>{children}</body>
     </html>
   );

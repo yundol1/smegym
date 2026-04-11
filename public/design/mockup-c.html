@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SME GYM - Sporty Dark Theme Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0A0A0A;
+    --surface: #1A1A1A;
+    --surface-light: #222222;
+    --primary: #00E676;
+    --secondary: #00B0FF;
+    --text: #FFFFFF;
+    --text-sub: #666666;
+    --text-dim: #444444;
+    --radius: 20px;
+  }
+
+  body {
+    background: #000;
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .phone-frame {
+    width: 100%;
+    max-width: 430px;
+    background: var(--bg);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ── Divider ── */
+  .screen-divider {
+    width: 100%;
+    padding: 60px 24px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .screen-divider .line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--text-dim), transparent);
+  }
+  .screen-divider .label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-sub);
+  }
+
+  /* ══════════════════════════════════════
+     SCREEN 1 — DASHBOARD
+     ══════════════════════════════════════ */
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px 8px;
+  }
+  .logo {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 28px;
+    color: var(--primary);
+    letter-spacing: 4px;
+  }
+  .profile-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border: 2px solid var(--surface-light);
+  }
+
+  /* Progress Ring */
+  .ring-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 0 16px;
+  }
+  .ring-wrap {
+    position: relative;
+    width: 220px;
+    height: 220px;
+  }
+  .ring-wrap svg {
+    width: 220px;
+    height: 220px;
+    transform: rotate(-90deg);
+  }
+  .ring-bg {
+    fill: none;
+    stroke: var(--surface);
+    stroke-width: 10;
+  }
+  .ring-progress {
+    fill: none;
+    stroke: url(#ringGrad);
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 565.48;
+    stroke-dashoffset: 242.35; /* 4/7 ≈ 57% → offset = 565.48 * 0.4286 ≈ 242.35 from end */
+    transition: stroke-dashoffset 1s ease;
+  }
+  .ring-center-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .ring-number {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 56px;
+    line-height: 1;
+    color: var(--text);
+  }
+  .ring-number span {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-sub);
+  }
+  .ring-label {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-top: 4px;
+    font-weight: 500;
+  }
+  .week-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-sub);
+    margin-top: 16px;
+    letter-spacing: 1px;
+  }
+
+  /* Day Pills */
+  .day-pills {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px 24px;
+  }
+  .day-pill {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+  .day-pill.completed {
+    background: var(--primary);
+    color: #0A0A0A;
+  }
+  .day-pill.today {
+    background: transparent;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+  }
+  .day-pill.future {
+    background: var(--surface);
+    color: var(--text-dim);
+  }
+
+  /* Stats Row */
+  .stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: 16px 24px;
+    margin: 0 24px;
+    background: var(--surface);
+    border-radius: var(--radius);
+  }
+  .stat-item {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    position: relative;
+  }
+  .stat-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 24px;
+    background: var(--text-dim);
+  }
+  .stat-emoji {
+    font-size: 20px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--text);
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-top: 2px;
+    font-weight: 500;
+  }
+
+  /* Floating Action Button */
+  .fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 28px auto 0;
+    padding: 16px 40px;
+    background: var(--primary);
+    color: #0A0A0A;
+    border: none;
+    border-radius: 60px;
+    font-size: 16px;
+    font-weight: 800;
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(0, 230, 118, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .fab:hover {
+    transform: scale(1.04);
+    box-shadow: 0 0 40px rgba(0, 230, 118, 0.5);
+  }
+
+  /* ══════════════════════════════════════
+     SCREEN 2 — WORKOUT
+     ══════════════════════════════════════ */
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 800;
+    padding: 0 24px;
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+
+  .day-cards-scroll {
+    display: flex;
+    gap: 14px;
+    padding: 0 24px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .day-cards-scroll::-webkit-scrollbar { display: none; }
+
+  .day-card {
+    flex: 0 0 140px;
+    height: 200px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    scroll-snap-align: start;
+    position: relative;
+    overflow: hidden;
+    transition: border 0.2s;
+  }
+  .day-card.active {
+    border: 2px solid var(--primary);
+  }
+  .day-card.done {
+    border: 1px solid rgba(0,230,118,0.2);
+  }
+  .day-card.upcoming {
+    border: 1px solid var(--surface-light);
+  }
+  .day-card .day-num {
+    font-family: 'Outfit', sans-serif;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--text);
+  }
+  .day-card .day-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 1px;
+  }
+  .day-card .day-status {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: inline-block;
+    width: fit-content;
+  }
+  .day-status.verified {
+    background: rgba(0,230,118,0.15);
+    color: var(--primary);
+  }
+  .day-status.pending {
+    background: rgba(0,176,255,0.15);
+    color: var(--secondary);
+  }
+  .day-status.rest {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-dim);
+  }
+  .day-card .thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--surface-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    position: absolute;
+    top: 16px;
+    right: 16px;
+  }
+
+  /* Upload Modal */
+  .upload-modal {
+    margin: 28px 24px 0;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 24px;
+    border: 1px solid var(--surface-light);
+  }
+  .upload-image-area {
+    width: 100%;
+    height: 200px;
+    background: var(--bg);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--text-dim);
+    margin-bottom: 20px;
+  }
+  .upload-image-area .icon { font-size: 36px; margin-bottom: 8px; }
+  .upload-image-area .text {
+    font-size: 13px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  .upload-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .upload-row .label {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .toggle-track {
+    width: 48px;
+    height: 28px;
+    background: var(--primary);
+    border-radius: 20px;
+    position: relative;
+  }
+  .toggle-knob {
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .upload-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--surface-light);
+    border-radius: 14px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    outline: none;
+  }
+  .upload-input::placeholder { color: var(--text-dim); }
+  .upload-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--primary);
+    color: #0A0A0A;
+    border: none;
+    border-radius: 16px;
+    font-size: 15px;
+    font-weight: 800;
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+  }
+
+  /* ══════════════════════════════════════
+     SCREEN 3 — ACTIVITY FEED
+     ══════════════════════════════════════ */
+
+  .feed-list {
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .feed-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    gap: 14px;
+    border: 1px solid var(--surface-light);
+    transition: border-color 0.2s;
+  }
+  .feed-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .feed-avatar.green { background: rgba(0,230,118,0.15); color: var(--primary); }
+  .feed-avatar.blue { background: rgba(0,176,255,0.15); color: var(--secondary); }
+  .feed-avatar.purple { background: rgba(156,39,176,0.15); color: #CE93D8; }
+  .feed-avatar.orange { background: rgba(255,152,0,0.15); color: #FFB74D; }
+
+  .feed-body { flex: 1; }
+  .feed-name {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .feed-type {
+    font-size: 12px;
+    color: var(--primary);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .feed-time {
+    font-size: 11px;
+    color: var(--text-sub);
+  }
+  .feed-reactions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .reaction {
+    background: var(--bg);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .reaction .count {
+    color: var(--text-sub);
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  /* ══════════════════════════════════════
+     SCREEN 4 — RANKING
+     ══════════════════════════════════════ */
+
+  .podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px 24px 0;
+    margin-bottom: 24px;
+  }
+  .podium-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .podium-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  .podium-item.first .podium-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 26px;
+  }
+  .podium-name {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .podium-score {
+    font-size: 11px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  .podium-bar {
+    width: 90px;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 14px;
+    font-size: 28px;
+    font-weight: 900;
+    font-family: 'Outfit', sans-serif;
+  }
+  .podium-item.first .podium-bar {
+    width: 100px;
+    height: 140px;
+    background: linear-gradient(180deg, rgba(0,230,118,0.3) 0%, rgba(0,230,118,0.05) 100%);
+    color: var(--primary);
+  }
+  .podium-item.second .podium-bar {
+    height: 100px;
+    background: linear-gradient(180deg, rgba(0,176,255,0.25) 0%, rgba(0,176,255,0.05) 100%);
+    color: var(--secondary);
+  }
+  .podium-item.third .podium-bar {
+    height: 75px;
+    background: linear-gradient(180deg, rgba(255,152,0,0.2) 0%, rgba(255,152,0,0.05) 100%);
+    color: #FFB74D;
+  }
+  .podium-crown { font-size: 24px; margin-bottom: -4px; }
+
+  .rank-list {
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .rank-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 16px 20px;
+  }
+  .rank-num {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-sub);
+    width: 24px;
+    text-align: center;
+  }
+  .rank-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-sub);
+  }
+  .rank-info { flex: 1; }
+  .rank-name {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .rank-streak {
+    font-size: 11px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  .rank-score {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  /* ── Bottom Nav ── */
+  .bottom-fade {
+    height: 120px;
+    background: linear-gradient(to bottom, transparent, #0A0A0A);
+    position: relative;
+  }
+  .pill-nav {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30,30,30,0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 40px;
+    padding: 10px 8px;
+    display: flex;
+    gap: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    z-index: 100;
+  }
+  .pill-nav-item {
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .pill-nav-item.active {
+    background: var(--primary);
+    color: #0A0A0A;
+    font-weight: 800;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN 1 — DASHBOARD
+       ═══════════════════════════════════════════ -->
+
+  <div class="screen-divider">
+    <div class="line"></div>
+    <div class="label">Dashboard</div>
+    <div class="line"></div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">SME</div>
+    <div class="profile-icon">👤</div>
+  </div>
+
+  <!-- Progress Ring -->
+  <div class="ring-container">
+    <div class="ring-wrap">
+      <svg viewBox="0 0 200 200">
+        <defs>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#00E676"/>
+            <stop offset="100%" stop-color="#00B0FF"/>
+          </linearGradient>
+        </defs>
+        <circle class="ring-bg" cx="100" cy="100" r="90"/>
+        <circle class="ring-progress" cx="100" cy="100" r="90"/>
+      </svg>
+      <div class="ring-center-text">
+        <div class="ring-number">4<span>/7</span></div>
+        <div class="ring-label">COMPLETED</div>
+      </div>
+    </div>
+    <div class="week-label">이번 주 운동</div>
+  </div>
+
+  <!-- Day Pills -->
+  <div class="day-pills">
+    <div class="day-pill completed">월</div>
+    <div class="day-pill completed">화</div>
+    <div class="day-pill completed">수</div>
+    <div class="day-pill today">목</div>
+    <div class="day-pill completed">금</div>
+    <div class="day-pill future">토</div>
+    <div class="day-pill future">일</div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-item">
+      <span class="stat-emoji">🔥</span>
+      <div class="stat-value">12일</div>
+      <div class="stat-label">연속</div>
+    </div>
+    <div class="stat-item">
+      <span class="stat-emoji">💰</span>
+      <div class="stat-value">0원</div>
+      <div class="stat-label">벌금</div>
+    </div>
+    <div class="stat-item">
+      <span class="stat-emoji">🏆</span>
+      <div class="stat-value">3위</div>
+      <div class="stat-label">랭킹</div>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab">📷 인증하기</button>
+
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN 2 — WORKOUT
+       ═══════════════════════════════════════════ -->
+
+  <div class="screen-divider">
+    <div class="line"></div>
+    <div class="label">Workout</div>
+    <div class="line"></div>
+  </div>
+
+  <div class="section-title">일별 운동 기록</div>
+
+  <div class="day-cards-scroll">
+    <div class="day-card done">
+      <div>
+        <div class="day-name">MON</div>
+        <div class="day-num">23</div>
+      </div>
+      <div class="thumb">📸</div>
+      <div class="day-status verified">✅ 인증완료</div>
+    </div>
+    <div class="day-card active">
+      <div>
+        <div class="day-name">TUE</div>
+        <div class="day-num">24</div>
+      </div>
+      <div class="thumb">🏋️</div>
+      <div class="day-status pending">⏳ 대기중</div>
+    </div>
+    <div class="day-card upcoming">
+      <div>
+        <div class="day-name">WED</div>
+        <div class="day-num">25</div>
+      </div>
+      <div class="thumb" style="opacity:0.3">📷</div>
+      <div class="day-status rest">— 예정</div>
+    </div>
+    <div class="day-card upcoming">
+      <div>
+        <div class="day-name">THU</div>
+        <div class="day-num">26</div>
+      </div>
+      <div class="thumb" style="opacity:0.3">📷</div>
+      <div class="day-status rest">— 예정</div>
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div class="upload-modal">
+    <div class="upload-image-area">
+      <div class="icon">📷</div>
+      <div class="text">사진을 업로드하세요</div>
+    </div>
+    <div class="upload-row">
+      <div class="label">공개 피드에 공유</div>
+      <div class="toggle-track"><div class="toggle-knob"></div></div>
+    </div>
+    <input class="upload-input" placeholder="오늘의 운동 한마디..." />
+    <button class="upload-btn">🚀 인증 제출하기</button>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN 3 — ACTIVITY FEED
+       ═══════════════════════════════════════════ -->
+
+  <div class="screen-divider">
+    <div class="line"></div>
+    <div class="label">Activity Feed</div>
+    <div class="line"></div>
+  </div>
+
+  <div class="section-title">최근 활동</div>
+
+  <div class="feed-list">
+    <!-- Card 1 -->
+    <div class="feed-card">
+      <div class="feed-avatar green">J</div>
+      <div class="feed-body">
+        <div class="feed-name">정민수</div>
+        <div class="feed-type">💪 웨이트 트레이닝</div>
+        <div class="feed-time">15분 전</div>
+        <div class="feed-reactions">
+          <div class="reaction">🔥 <span class="count">4</span></div>
+          <div class="reaction">💪 <span class="count">7</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Card 2 -->
+    <div class="feed-card">
+      <div class="feed-avatar blue">K</div>
+      <div class="feed-body">
+        <div class="feed-name">김서연</div>
+        <div class="feed-type">🏃 러닝 5km</div>
+        <div class="feed-time">1시간 전</div>
+        <div class="feed-reactions">
+          <div class="reaction">👏 <span class="count">3</span></div>
+          <div class="reaction">🔥 <span class="count">5</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Card 3 -->
+    <div class="feed-card">
+      <div class="feed-avatar purple">L</div>
+      <div class="feed-body">
+        <div class="feed-name">이하늘</div>
+        <div class="feed-type">🧘 요가 & 스트레칭</div>
+        <div class="feed-time">3시간 전</div>
+        <div class="feed-reactions">
+          <div class="reaction">❤️ <span class="count">6</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Card 4 -->
+    <div class="feed-card">
+      <div class="feed-avatar orange">P</div>
+      <div class="feed-body">
+        <div class="feed-name">박준호</div>
+        <div class="feed-type">🚴 사이클링 20km</div>
+        <div class="feed-time">5시간 전</div>
+        <div class="feed-reactions">
+          <div class="reaction">🔥 <span class="count">9</span></div>
+          <div class="reaction">💪 <span class="count">2</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════
+       SCREEN 4 — RANKING
+       ═══════════════════════════════════════════ -->
+
+  <div class="screen-divider">
+    <div class="line"></div>
+    <div class="label">Ranking</div>
+    <div class="line"></div>
+  </div>
+
+  <div class="section-title">이번 주 랭킹 🏆</div>
+
+  <!-- Podium -->
+  <div class="podium">
+    <!-- 2nd Place -->
+    <div class="podium-item second">
+      <div class="podium-avatar" style="background:rgba(0,176,255,0.15);color:var(--secondary);">K</div>
+      <div class="podium-name">김서연</div>
+      <div class="podium-score">6일 완료</div>
+      <div class="podium-bar">2</div>
+    </div>
+    <!-- 1st Place -->
+    <div class="podium-item first">
+      <div class="podium-crown">👑</div>
+      <div class="podium-avatar" style="background:rgba(0,230,118,0.2);color:var(--primary);">J</div>
+      <div class="podium-name">정민수</div>
+      <div class="podium-score">7일 완료</div>
+      <div class="podium-bar">1</div>
+    </div>
+    <!-- 3rd Place -->
+    <div class="podium-item third">
+      <div class="podium-avatar" style="background:rgba(255,152,0,0.15);color:#FFB74D;">L</div>
+      <div class="podium-name">이하늘</div>
+      <div class="podium-score">5일 완료</div>
+      <div class="podium-bar">3</div>
+    </div>
+  </div>
+
+  <!-- Rank List -->
+  <div class="rank-list">
+    <div class="rank-item">
+      <div class="rank-num">4</div>
+      <div class="rank-avatar">P</div>
+      <div class="rank-info">
+        <div class="rank-name">박준호</div>
+        <div class="rank-streak">🔥 8일 연속</div>
+      </div>
+      <div class="rank-score">4일</div>
+    </div>
+    <div class="rank-item">
+      <div class="rank-num">5</div>
+      <div class="rank-avatar">C</div>
+      <div class="rank-info">
+        <div class="rank-name">최유진</div>
+        <div class="rank-streak">🔥 5일 연속</div>
+      </div>
+      <div class="rank-score">3일</div>
+    </div>
+    <div class="rank-item">
+      <div class="rank-num">6</div>
+      <div class="rank-avatar">H</div>
+      <div class="rank-info">
+        <div class="rank-name">한소희</div>
+        <div class="rank-streak">🔥 2일 연속</div>
+      </div>
+      <div class="rank-score">2일</div>
+    </div>
+    <div class="rank-item">
+      <div class="rank-num">7</div>
+      <div class="rank-avatar">S</div>
+      <div class="rank-info">
+        <div class="rank-name">송태민</div>
+        <div class="rank-streak">—</div>
+      </div>
+      <div class="rank-score">1일</div>
+    </div>
+  </div>
+
+  <!-- Bottom Fade -->
+  <div class="bottom-fade"></div>
+  <div style="height:80px;"></div>
+
+</div><!-- /phone-frame -->
+
+<!-- Floating Pill Nav -->
+<div class="pill-nav">
+  <div class="pill-nav-item active">🏠 홈</div>
+  <div class="pill-nav-item">🏋️ 운동</div>
+  <div class="pill-nav-item">📊 피드</div>
+  <div class="pill-nav-item">🏆 랭킹</div>
+</div>
+
+</body>
+</html>

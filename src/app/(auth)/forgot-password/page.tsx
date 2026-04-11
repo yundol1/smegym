@@ -9,21 +9,34 @@ type Step = "nickname" | "security" | "reset";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "0.75rem 1rem",
-  background: "rgba(15, 23, 42, 0.8)",
-  border: "1px solid var(--glass-border)",
-  borderRadius: "0.75rem",
-  color: "var(--foreground)",
+  padding: "0.875rem 1rem",
+  background: "#1A1A1A",
+  border: "1px solid #222222",
+  borderRadius: "14px",
+  color: "#FFFFFF",
   fontSize: "0.9375rem",
   outline: "none",
-  transition: "border-color 0.2s",
+  transition: "border-color 0.2s, box-shadow 0.2s",
 };
 
 const labelStyle: React.CSSProperties = {
   display: "block",
-  fontSize: "0.875rem",
-  color: "rgba(248, 250, 252, 0.7)",
+  fontSize: "0.8125rem",
+  color: "#666666",
   marginBottom: "0.375rem",
+  fontWeight: 600,
+  letterSpacing: "0.02em",
+  textTransform: "uppercase" as const,
+};
+
+const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+  e.currentTarget.style.borderColor = "#00E676";
+  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0, 230, 118, 0.15)";
+};
+
+const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+  e.currentTarget.style.borderColor = "#222222";
+  e.currentTarget.style.boxShadow = "none";
 };
 
 export default function ForgotPasswordPage() {
@@ -106,28 +119,8 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      // Sign in as the user first to get a valid session for password update.
-      // We use the admin API approach: sign in with the stored email pattern,
-      // then update the password via Supabase auth.
-      // Since we verified the security question, we use a server-side approach
-      // via Supabase's admin API. However, since this is client-side,
-      // we'll call a custom RPC or use the updateUser method.
-      //
-      // For the client-side flow, we need a valid session.
-      // We'll use Supabase's password reset via signInWithPassword won't work
-      // without the old password. Instead, we rely on an edge function or RPC.
-      //
-      // Practical approach: use Supabase admin client on server side.
-      // For now, we call a Supabase RPC function that handles password reset.
-
       const email = `${nickname}@smegym.noreply.com`;
 
-      // Attempt to use Supabase's built-in password update
-      // This requires the user to be authenticated, so we use a workaround:
-      // We call a database function that returns a password reset token,
-      // or we use the Supabase Admin API via an API route.
-
-      // Fallback approach: call an API endpoint that uses the service role key
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,11 +153,9 @@ export default function ForgotPasswordPage() {
         style={{
           width: "100%",
           maxWidth: "400px",
-          background: "var(--glass-bg)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid var(--glass-border)",
-          borderRadius: "1.5rem",
+          background: "#1A1A1A",
+          border: "1px solid #222222",
+          borderRadius: "var(--radius, 20px)",
           padding: "2rem",
           textAlign: "center",
         }}
@@ -174,12 +165,13 @@ export default function ForgotPasswordPage() {
             width: "4rem",
             height: "4rem",
             borderRadius: "50%",
-            background: "rgba(34, 197, 94, 0.15)",
+            background: "rgba(0, 230, 118, 0.12)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             margin: "0 auto 1rem",
             fontSize: "1.5rem",
+            color: "#00E676",
           }}
         >
           ✓
@@ -187,16 +179,18 @@ export default function ForgotPasswordPage() {
         <h2
           style={{
             fontSize: "1.25rem",
-            fontWeight: 700,
-            color: "var(--foreground)",
+            fontWeight: 800,
+            fontFamily: "var(--font-heading)",
+            color: "#FFFFFF",
             marginBottom: "0.75rem",
+            textTransform: "uppercase",
           }}
         >
           비밀번호 변경 완료
         </h2>
         <p
           style={{
-            color: "rgba(248, 250, 252, 0.7)",
+            color: "#666666",
             fontSize: "0.9375rem",
             marginBottom: "1.5rem",
           }}
@@ -223,21 +217,22 @@ export default function ForgotPasswordPage() {
       style={{
         width: "100%",
         maxWidth: "400px",
-        background: "var(--glass-bg)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid var(--glass-border)",
-        borderRadius: "1.5rem",
+        background: "#1A1A1A",
+        border: "1px solid #222222",
+        borderRadius: "var(--radius, 20px)",
         padding: "2rem",
       }}
     >
       <h2
         style={{
           fontSize: "1.5rem",
-          fontWeight: 700,
-          color: "var(--foreground)",
+          fontWeight: 800,
+          fontFamily: "var(--font-heading)",
+          color: "#FFFFFF",
           marginBottom: "0.5rem",
           textAlign: "center",
+          letterSpacing: "0.02em",
+          textTransform: "uppercase",
         }}
       >
         비밀번호 찾기
@@ -261,9 +256,13 @@ export default function ForgotPasswordPage() {
               borderRadius: "0.125rem",
               background:
                 (["nickname", "security", "reset"] as Step[]).indexOf(step) >= i
-                  ? "var(--primary)"
-                  : "rgba(255, 255, 255, 0.1)",
+                  ? "#00E676"
+                  : "#222222",
               transition: "background 0.3s",
+              boxShadow:
+                (["nickname", "security", "reset"] as Step[]).indexOf(step) >= i
+                  ? "0 0 8px rgba(0, 230, 118, 0.3)"
+                  : "none",
             }}
           />
         ))}
@@ -277,7 +276,7 @@ export default function ForgotPasswordPage() {
           <p
             style={{
               fontSize: "0.875rem",
-              color: "rgba(248, 250, 252, 0.6)",
+              color: "#666666",
               textAlign: "center",
               marginBottom: "0.5rem",
             }}
@@ -296,20 +295,21 @@ export default function ForgotPasswordPage() {
               required
               placeholder="닉네임을 입력하세요"
               style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
           </div>
 
           {error && (
             <p
               style={{
-                color: "var(--error)",
+                color: "#FF5252",
                 fontSize: "0.875rem",
                 textAlign: "center",
-                padding: "0.5rem",
-                background: "rgba(239, 68, 68, 0.1)",
-                borderRadius: "0.5rem",
+                padding: "0.625rem",
+                background: "rgba(255, 82, 82, 0.08)",
+                borderRadius: "12px",
+                border: "1px solid rgba(255, 82, 82, 0.15)",
               }}
             >
               {error}
@@ -341,15 +341,15 @@ export default function ForgotPasswordPage() {
           <div
             style={{
               padding: "0.75rem 1rem",
-              background: "rgba(56, 189, 248, 0.08)",
-              borderRadius: "0.75rem",
-              border: "1px solid rgba(56, 189, 248, 0.15)",
+              background: "rgba(0, 176, 255, 0.06)",
+              borderRadius: "14px",
+              border: "1px solid rgba(0, 176, 255, 0.12)",
             }}
           >
             <p
               style={{
                 fontSize: "0.8125rem",
-                color: "rgba(248, 250, 252, 0.5)",
+                color: "#666666",
                 marginBottom: "0.25rem",
               }}
             >
@@ -358,7 +358,7 @@ export default function ForgotPasswordPage() {
             <p
               style={{
                 fontSize: "0.9375rem",
-                color: "var(--foreground)",
+                color: "#FFFFFF",
                 fontWeight: 600,
               }}
             >
@@ -378,20 +378,21 @@ export default function ForgotPasswordPage() {
               required
               placeholder="답변을 입력하세요"
               style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
           </div>
 
           {error && (
             <p
               style={{
-                color: "var(--error)",
+                color: "#FF5252",
                 fontSize: "0.875rem",
                 textAlign: "center",
-                padding: "0.5rem",
-                background: "rgba(239, 68, 68, 0.1)",
-                borderRadius: "0.5rem",
+                padding: "0.625rem",
+                background: "rgba(255, 82, 82, 0.08)",
+                borderRadius: "12px",
+                border: "1px solid rgba(255, 82, 82, 0.15)",
               }}
             >
               {error}
@@ -409,10 +410,11 @@ export default function ForgotPasswordPage() {
                 flex: 1,
                 padding: "0.875rem",
                 fontSize: "1rem",
-                background: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid var(--glass-border)",
-                borderRadius: "0.75rem",
-                color: "var(--foreground)",
+                background: "#222222",
+                border: "1px solid #333333",
+                borderRadius: "var(--radius, 20px)",
+                color: "#FFFFFF",
+                fontWeight: 600,
               }}
             >
               이전
@@ -440,7 +442,7 @@ export default function ForgotPasswordPage() {
           <p
             style={{
               fontSize: "0.875rem",
-              color: "rgba(248, 250, 252, 0.6)",
+              color: "#666666",
               textAlign: "center",
               marginBottom: "0.5rem",
             }}
@@ -461,8 +463,8 @@ export default function ForgotPasswordPage() {
               placeholder="최소 6자 이상"
               autoComplete="new-password"
               style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
           </div>
 
@@ -479,20 +481,21 @@ export default function ForgotPasswordPage() {
               placeholder="비밀번호를 다시 입력"
               autoComplete="new-password"
               style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
           </div>
 
           {error && (
             <p
               style={{
-                color: "var(--error)",
+                color: "#FF5252",
                 fontSize: "0.875rem",
                 textAlign: "center",
-                padding: "0.5rem",
-                background: "rgba(239, 68, 68, 0.1)",
-                borderRadius: "0.5rem",
+                padding: "0.625rem",
+                background: "rgba(255, 82, 82, 0.08)",
+                borderRadius: "12px",
+                border: "1px solid rgba(255, 82, 82, 0.15)",
               }}
             >
               {error}
@@ -510,10 +513,11 @@ export default function ForgotPasswordPage() {
                 flex: 1,
                 padding: "0.875rem",
                 fontSize: "1rem",
-                background: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid var(--glass-border)",
-                borderRadius: "0.75rem",
-                color: "var(--foreground)",
+                background: "#222222",
+                border: "1px solid #333333",
+                borderRadius: "var(--radius, 20px)",
+                color: "#FFFFFF",
+                fontWeight: 600,
               }}
             >
               이전
@@ -543,7 +547,7 @@ export default function ForgotPasswordPage() {
           fontSize: "0.875rem",
         }}
       >
-        <Link href="/login" style={{ color: "var(--primary)" }}>
+        <Link href="/login" style={{ color: "#00E676", fontWeight: 600 }}>
           로그인으로 돌아가기
         </Link>
       </div>

@@ -15,21 +15,24 @@ const SECURITY_QUESTIONS = [
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "0.75rem 1rem",
-  background: "rgba(15, 23, 42, 0.8)",
-  border: "1px solid var(--glass-border)",
-  borderRadius: "0.75rem",
-  color: "var(--foreground)",
+  padding: "0.875rem 1rem",
+  background: "#1A1A1A",
+  border: "1px solid #222222",
+  borderRadius: "14px",
+  color: "#FFFFFF",
   fontSize: "0.9375rem",
   outline: "none",
-  transition: "border-color 0.2s",
+  transition: "border-color 0.2s, box-shadow 0.2s",
 };
 
 const labelStyle: React.CSSProperties = {
   display: "block",
-  fontSize: "0.875rem",
-  color: "rgba(248, 250, 252, 0.7)",
+  fontSize: "0.8125rem",
+  color: "#666666",
   marginBottom: "0.375rem",
+  fontWeight: 600,
+  letterSpacing: "0.02em",
+  textTransform: "uppercase" as const,
 };
 
 export default function RegisterPage() {
@@ -54,6 +57,16 @@ export default function RegisterPage() {
       setPreviewUrl(url);
     }
   }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.currentTarget.style.borderColor = "#00E676";
+    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0, 230, 118, 0.15)";
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.currentTarget.style.borderColor = "#222222";
+    e.currentTarget.style.boxShadow = "none";
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -168,11 +181,9 @@ export default function RegisterPage() {
         style={{
           width: "100%",
           maxWidth: "400px",
-          background: "var(--glass-bg)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid var(--glass-border)",
-          borderRadius: "1.5rem",
+          background: "#1A1A1A",
+          border: "1px solid #222222",
+          borderRadius: "var(--radius, 20px)",
           padding: "2rem",
           textAlign: "center",
         }}
@@ -182,12 +193,13 @@ export default function RegisterPage() {
             width: "4rem",
             height: "4rem",
             borderRadius: "50%",
-            background: "rgba(34, 197, 94, 0.15)",
+            background: "rgba(0, 230, 118, 0.12)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             margin: "0 auto 1rem",
             fontSize: "1.5rem",
+            color: "#00E676",
           }}
         >
           ✓
@@ -195,16 +207,18 @@ export default function RegisterPage() {
         <h2
           style={{
             fontSize: "1.25rem",
-            fontWeight: 700,
-            color: "var(--foreground)",
+            fontWeight: 800,
+            fontFamily: "var(--font-heading)",
+            color: "#FFFFFF",
             marginBottom: "0.75rem",
+            textTransform: "uppercase",
           }}
         >
           가입 신청 완료
         </h2>
         <p
           style={{
-            color: "rgba(248, 250, 252, 0.7)",
+            color: "#666666",
             fontSize: "0.9375rem",
             lineHeight: 1.6,
             marginBottom: "1.5rem",
@@ -234,21 +248,22 @@ export default function RegisterPage() {
       style={{
         width: "100%",
         maxWidth: "400px",
-        background: "var(--glass-bg)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        border: "1px solid var(--glass-border)",
-        borderRadius: "1.5rem",
+        background: "#1A1A1A",
+        border: "1px solid #222222",
+        borderRadius: "var(--radius, 20px)",
         padding: "2rem",
       }}
     >
       <h2
         style={{
           fontSize: "1.5rem",
-          fontWeight: 700,
-          color: "var(--foreground)",
+          fontWeight: 800,
+          fontFamily: "var(--font-heading)",
+          color: "#FFFFFF",
           marginBottom: "1.5rem",
           textAlign: "center",
+          letterSpacing: "0.02em",
+          textTransform: "uppercase",
         }}
       >
         회원가입
@@ -267,8 +282,8 @@ export default function RegisterPage() {
             required
             placeholder="사용할 닉네임"
             style={inputStyle}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
         </div>
 
@@ -285,8 +300,8 @@ export default function RegisterPage() {
             placeholder="최소 6자 이상"
             autoComplete="new-password"
             style={inputStyle}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
         </div>
 
@@ -303,8 +318,8 @@ export default function RegisterPage() {
             placeholder="비밀번호를 다시 입력"
             autoComplete="new-password"
             style={inputStyle}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
         </div>
 
@@ -320,11 +335,13 @@ export default function RegisterPage() {
               ...inputStyle,
               appearance: "none",
               backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666666' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",
               backgroundRepeat: "no-repeat",
               backgroundPosition: "right 1rem center",
               paddingRight: "2.5rem",
             }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           >
             {SECURITY_QUESTIONS.map((q) => (
               <option key={q} value={q}>
@@ -346,8 +363,8 @@ export default function RegisterPage() {
             required
             placeholder="답변을 입력하세요"
             style={inputStyle}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--primary)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--glass-border)")}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
         </div>
 
@@ -371,7 +388,7 @@ export default function RegisterPage() {
                   height: "3.5rem",
                   borderRadius: "50%",
                   objectFit: "cover",
-                  border: "2px solid var(--glass-border)",
+                  border: "2px solid #222222",
                 }}
               />
             )}
@@ -379,10 +396,10 @@ export default function RegisterPage() {
               style={{
                 flex: 1,
                 padding: "0.625rem 1rem",
-                background: "rgba(15, 23, 42, 0.8)",
-                border: "1px dashed var(--glass-border)",
-                borderRadius: "0.75rem",
-                color: "rgba(248, 250, 252, 0.5)",
+                background: "#1A1A1A",
+                border: "1px dashed #444444",
+                borderRadius: "14px",
+                color: "#666666",
                 fontSize: "0.875rem",
                 textAlign: "center",
                 cursor: "pointer",
@@ -404,12 +421,13 @@ export default function RegisterPage() {
         {error && (
           <p
             style={{
-              color: "var(--error)",
+              color: "#FF5252",
               fontSize: "0.875rem",
               textAlign: "center",
-              padding: "0.5rem",
-              background: "rgba(239, 68, 68, 0.1)",
-              borderRadius: "0.5rem",
+              padding: "0.625rem",
+              background: "rgba(255, 82, 82, 0.08)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255, 82, 82, 0.15)",
             }}
           >
             {error}
@@ -439,8 +457,8 @@ export default function RegisterPage() {
           fontSize: "0.875rem",
         }}
       >
-        <span style={{ color: "rgba(248, 250, 252, 0.5)" }}>이미 계정이 있으신가요? </span>
-        <Link href="/login" style={{ color: "var(--primary)" }}>
+        <span style={{ color: "#666666" }}>이미 계정이 있으신가요? </span>
+        <Link href="/login" style={{ color: "#00E676", fontWeight: 600 }}>
           로그인
         </Link>
       </div>

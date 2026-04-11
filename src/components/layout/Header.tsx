@@ -88,9 +88,24 @@ export default function Header() {
       <h1 className="header__title">{pageTitle}</h1>
 
       <div className="header__actions">
-        <Link href="/notices" className="header__notification-btn" aria-label="알림">
+        <Link
+          href="/notices"
+          className="header__notification-btn"
+          aria-label="알림"
+          style={{
+            borderRadius: "12px",
+          }}
+        >
           <Bell size={20} />
-          {hasNotifications && <span className="header__notification-dot" />}
+          {hasNotifications && (
+            <span
+              className="header__notification-dot"
+              style={{
+                background: "#00E676",
+                boxShadow: "0 0 6px rgba(0, 230, 118, 0.5)",
+              }}
+            />
+          )}
         </Link>
 
         <Link href="/settings" className="header__profile">

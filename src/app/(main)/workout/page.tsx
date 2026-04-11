@@ -37,6 +37,7 @@ export default function WorkoutPage() {
   const router = useRouter();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null);
@@ -188,48 +189,18 @@ export default function WorkoutPage() {
     }
   }
 
-  function getStatusIcon(status: CheckStatus) {
+  function getStatusBadge(status: CheckStatus): { label: string; bg: string; color: string } {
     switch (status) {
       case "O":
-        return <CheckCircle2 size={20} style={{ color: "#22c55e" }} />;
+        return { label: "승인됨", bg: "rgba(0,230,118,0.2)", color: "#00E676" };
       case "△":
-        return <Clock size={20} style={{ color: "#eab308" }} />;
+        return { label: "대기중", bg: "rgba(0,176,255,0.2)", color: "#00B0FF" };
       case "X":
-        return <XCircle size={20} style={{ color: "#ef4444" }} />;
+        return { label: "반려", bg: "rgba(255,82,82,0.2)", color: "#FF5252" };
       case "☆":
-        return <Star size={20} style={{ color: "#a855f7" }} />;
+        return { label: "면제", bg: "rgba(0,230,118,0.15)", color: "#00E676" };
       default:
-        return null;
-    }
-  }
-
-  function getStatusLabel(status: CheckStatus) {
-    switch (status) {
-      case "O":
-        return "승인됨";
-      case "△":
-        return "검토 대기중";
-      case "X":
-        return "반려됨";
-      case "☆":
-        return "면제";
-      default:
-        return "미인증";
-    }
-  }
-
-  function getStatusColor(status: CheckStatus) {
-    switch (status) {
-      case "O":
-        return "#22c55e";
-      case "△":
-        return "#eab308";
-      case "X":
-        return "#ef4444";
-      case "☆":
-        return "#a855f7";
-      default:
-        return "#64748b";
+        return { label: "휴식", bg: "rgba(68,68,68,0.3)", color: "#444444" };
     }
   }
 
@@ -249,9 +220,9 @@ export default function WorkoutPage() {
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
         >
-          <Dumbbell size={32} style={{ color: "var(--primary)" }} />
+          <Dumbbell size={32} style={{ color: "#00E676" }} />
         </motion.div>
-        <p style={{ marginTop: "1rem", opacity: 0.6 }}>로딩 중...</p>
+        <p style={{ marginTop: "1rem", color: "#666666" }}>로딩 중...</p>
       </main>
     );
   }
@@ -275,125 +246,144 @@ export default function WorkoutPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "var(--foreground)",
+            color: "#FFFFFF",
             opacity: 0.7,
           }}
         >
           <ChevronLeft size={24} />
         </button>
         <div>
-          <h1 style={{ fontSize: "1.25rem", fontWeight: 700 }}>운동 인증</h1>
-          <p style={{ fontSize: "0.75rem", opacity: 0.5 }}>
+          <h1
+            style={{
+              fontSize: "1.25rem",
+              fontWeight: 800,
+              fontFamily: "var(--font-heading)",
+              color: "#FFFFFF",
+            }}
+          >
+            운동 인증
+          </h1>
+          <p style={{ fontSize: "0.75rem", color: "#666666" }}>
             {currentWeek?.title ?? "이번 주"}
           </p>
         </div>
       </header>
 
-      {/* Day Cards */}
+      {/* Horizontal Scrollable Day Cards */}
       <section
-        style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+        ref={scrollRef}
+        style={{
+          display: "flex",
+          gap: "0.75rem",
+          overflowX: "auto",
+          paddingBottom: "0.5rem",
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
+          msOverflowStyle: "none",
+          scrollbarWidth: "none",
+        }}
       >
         {days.map((day, i) => {
           const status = day.checkIn?.status ?? null;
-          const statusColor = getStatusColor(status);
+          const badge = getStatusBadge(status);
           const isClickable = !day.checkIn;
+          const hasImage = day.checkIn?.image_url;
 
           return (
             <motion.div
               key={day.dayOfWeek}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className="card"
               onClick={() => isClickable && handleDayClick(day)}
               style={{
-                padding: "1rem 1.25rem",
+                flex: "0 0 140px",
+                height: "200px",
+                background: "#1A1A1A",
+                borderRadius: "var(--radius)",
+                border: `1px solid ${status === "O" ? "rgba(0,230,118,0.3)" : "#222222"}`,
                 cursor: isClickable ? "pointer" : "default",
-                borderLeft: `3px solid ${statusColor}`,
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "space-between",
+                justifyContent: "center",
+                gap: "0.625rem",
+                padding: "1rem 0.75rem",
+                scrollSnapAlign: "start",
+                position: "relative",
+                overflow: "hidden",
+                transition: "border-color 0.2s ease",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1rem",
-                }}
-              >
+              {/* Photo thumbnail as background if available */}
+              {hasImage && (
                 <div
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    minWidth: "2.5rem",
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundImage: `url(${day.checkIn!.image_url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    opacity: 0.15,
                   }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.6875rem",
-                      opacity: 0.5,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {day.label}
-                  </span>
-                  <span style={{ fontSize: "1.125rem", fontWeight: 700 }}>
-                    {format(day.date, "d")}
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
-                  <span
-                    style={{
-                      fontSize: "0.8125rem",
-                      fontWeight: 600,
-                      color: statusColor,
-                    }}
-                  >
-                    {getStatusLabel(status)}
-                  </span>
-                  {status === "X" && day.checkIn?.reject_reason && (
-                    <span
-                      style={{
-                        fontSize: "0.6875rem",
-                        color: "#ef4444",
-                        opacity: 0.8,
-                      }}
-                    >
-                      사유: {day.checkIn.reject_reason}
-                    </span>
-                  )}
-                </div>
-              </div>
+                />
+              )}
 
-              <div
+              {/* Big day number */}
+              <span
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
+                  fontSize: "2.5rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FFFFFF",
+                  lineHeight: 1,
+                  position: "relative",
                 }}
               >
-                {status === "O" && day.checkIn?.image_url && (
-                  <img
-                    src={day.checkIn.image_url}
-                    alt="인증 사진"
-                    style={{
-                      width: "2.5rem",
-                      height: "2.5rem",
-                      borderRadius: "0.5rem",
-                      objectFit: "cover",
-                    }}
-                  />
-                )}
-                {getStatusIcon(status)}
-                {!day.checkIn && (
-                  <Camera
-                    size={20}
-                    style={{ color: "var(--primary)", opacity: 0.7 }}
-                  />
-                )}
+                {format(day.date, "d")}
+              </span>
+
+              {/* Day name */}
+              <span
+                style={{
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                  color: "#666666",
+                  position: "relative",
+                }}
+              >
+                {day.label}요일
+              </span>
+
+              {/* Status badge */}
+              <div
+                style={{
+                  padding: "0.25rem 0.75rem",
+                  borderRadius: "2rem",
+                  background: badge.bg,
+                  color: badge.color,
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  position: "relative",
+                }}
+              >
+                {badge.label}
               </div>
+
+              {/* Camera icon for unsubmitted */}
+              {!day.checkIn && (
+                <Camera
+                  size={16}
+                  style={{
+                    color: "#00E676",
+                    opacity: 0.5,
+                    position: "relative",
+                  }}
+                />
+              )}
             </motion.div>
           );
         })}
@@ -412,7 +402,7 @@ export default function WorkoutPage() {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "rgba(0,0,0,0.75)",
+              background: "rgba(0,0,0,0.85)",
               zIndex: 50,
               display: "flex",
               alignItems: "flex-end",
@@ -426,14 +416,16 @@ export default function WorkoutPage() {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="glass"
               style={{
                 width: "100%",
                 maxWidth: "480px",
                 maxHeight: "85vh",
                 overflowY: "auto",
                 padding: "1.5rem",
-                borderRadius: "1.5rem 1.5rem 0 0",
+                borderRadius: "var(--radius) var(--radius) 0 0",
+                background: "#1A1A1A",
+                border: "1px solid #222222",
+                borderBottom: "none",
                 display: "flex",
                 flexDirection: "column",
                 gap: "1.25rem",
@@ -447,13 +439,20 @@ export default function WorkoutPage() {
                   alignItems: "center",
                 }}
               >
-                <h2 style={{ fontSize: "1.125rem", fontWeight: 700 }}>
+                <h2
+                  style={{
+                    fontSize: "1.125rem",
+                    fontWeight: 800,
+                    fontFamily: "var(--font-heading)",
+                    color: "#FFFFFF",
+                  }}
+                >
                   {format(selectedDay.date, "M월 d일", { locale: ko })}{" "}
                   ({selectedDay.label}) 인증
                 </h2>
                 <button
                   onClick={() => !uploading && setShowModal(false)}
-                  style={{ color: "var(--foreground)", opacity: 0.5 }}
+                  style={{ color: "#666666" }}
                 >
                   <X size={22} />
                 </button>
@@ -477,7 +476,7 @@ export default function WorkoutPage() {
                       width: "100%",
                       maxHeight: "300px",
                       objectFit: "cover",
-                      borderRadius: "1rem",
+                      borderRadius: "16px",
                     }}
                   />
                   <button
@@ -506,19 +505,19 @@ export default function WorkoutPage() {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: "2px dashed var(--glass-border)",
-                    borderRadius: "1rem",
+                    border: "2px dashed #444444",
+                    borderRadius: "16px",
                     padding: "2.5rem",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     gap: "0.75rem",
-                    color: "var(--foreground)",
-                    opacity: 0.5,
+                    color: "#666666",
+                    background: "transparent",
                   }}
                 >
                   <Upload size={32} />
-                  <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
                     사진을 선택하세요
                   </span>
                 </button>
@@ -531,8 +530,8 @@ export default function WorkoutPage() {
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "0.75rem 1rem",
-                  background: "rgba(255,255,255,0.03)",
-                  borderRadius: "0.75rem",
+                  background: "#222222",
+                  borderRadius: "12px",
                 }}
               >
                 <div
@@ -543,11 +542,11 @@ export default function WorkoutPage() {
                   }}
                 >
                   {isPublic ? (
-                    <Eye size={18} style={{ color: "var(--primary)" }} />
+                    <Eye size={18} style={{ color: "#00E676" }} />
                   ) : (
-                    <EyeOff size={18} style={{ opacity: 0.5 }} />
+                    <EyeOff size={18} style={{ color: "#666666" }} />
                   )}
-                  <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                  <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "#FFFFFF" }}>
                     갤러리 공유
                   </span>
                 </div>
@@ -557,11 +556,11 @@ export default function WorkoutPage() {
                     width: "3rem",
                     height: "1.625rem",
                     borderRadius: "1rem",
-                    background: isPublic
-                      ? "var(--primary)"
-                      : "rgba(255,255,255,0.1)",
+                    background: isPublic ? "#00E676" : "#444444",
                     position: "relative",
                     transition: "background 0.2s ease",
+                    border: "none",
+                    cursor: "pointer",
                   }}
                 >
                   <div
@@ -592,11 +591,11 @@ export default function WorkoutPage() {
                     display: "flex",
                     alignItems: "center",
                     gap: "0.5rem",
-                    opacity: 0.7,
+                    color: "#666666",
                   }}
                 >
                   <FileText size={16} />
-                  <span style={{ fontSize: "0.8125rem", fontWeight: 500 }}>
+                  <span style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
                     인증 글 (선택)
                   </span>
                 </div>
@@ -609,13 +608,20 @@ export default function WorkoutPage() {
                     width: "100%",
                     minHeight: "5rem",
                     padding: "0.75rem",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid var(--glass-border)",
-                    borderRadius: "0.75rem",
-                    color: "var(--foreground)",
+                    background: "#222222",
+                    border: "1px solid #333333",
+                    borderRadius: "12px",
+                    color: "#FFFFFF",
                     fontFamily: "inherit",
                     fontSize: "0.875rem",
                     resize: "vertical",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "#00E676";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "#333333";
                   }}
                 />
               </div>
@@ -626,16 +632,23 @@ export default function WorkoutPage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
                 disabled={!selectedFile || uploading}
-                className="btn-primary"
                 style={{
-                  padding: "0.875rem",
+                  padding: "1rem",
                   fontSize: "1rem",
+                  fontWeight: 700,
+                  fontFamily: "var(--font-heading)",
                   width: "100%",
                   opacity: !selectedFile || uploading ? 0.5 : 1,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: "0.5rem",
+                  background: "#00E676",
+                  color: "#0A0A0A",
+                  borderRadius: "var(--radius)",
+                  border: "none",
+                  cursor: !selectedFile || uploading ? "not-allowed" : "pointer",
+                  boxShadow: "0 0 30px rgba(0, 230, 118, 0.3)",
                 }}
               >
                 {uploading ? (
