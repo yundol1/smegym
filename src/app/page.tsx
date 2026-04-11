@@ -1111,18 +1111,20 @@ export default function Home() {
             </section>
             
             <section className="card" style={{ margin: "0 1.25rem", padding: "1.5rem" }}>
-               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                     <Trophy size={18} color="var(--primary)" />
-                      <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--primary)", marginBottom: "0.2rem", opacity: 0.8 }}>나의 운동 현황</div>
-                      <h3 style={{ fontSize: "1.4rem", fontWeight: 900 }}>
+                <div style={{ marginBottom: "1.8rem" }}>
+                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}>
+                      <div style={{ width: "3px", height: "12px", background: "var(--primary)", borderRadius: "2px" }} />
+                      <span style={{ fontSize: "0.7rem", fontWeight: 800, opacity: 0.5, letterSpacing: "1px" }}>나의 운동 현황</span>
+                   </div>
+                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                      <h3 style={{ fontSize: "1.6rem", fontWeight: 900, letterSpacing: "-0.5px", lineHeight: 1 }}>
                         {mockNow.getFullYear()}년 <span style={{ color: "var(--primary)" }}>{mockNow.getMonth() + 1}월</span>
                       </h3>
-                  </div>
-                  <div style={{ fontSize: "0.72rem", fontWeight: 800, opacity: 0.4 }}>
-                    이번 주 {workoutCount}회 완료
-                  </div>
-               </div>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 800, opacity: 0.5 }}>
+                        이번 주 <span style={{ color: "var(--primary)", opacity: 1 }}>{workoutCount}회</span> 완료
+                      </div>
+                   </div>
+                </div>
 
                {/* --- Month Calendar Grid --- */}
                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.5rem", textAlign: "center", marginBottom: "0.5rem" }}>
@@ -1134,8 +1136,9 @@ export default function Home() {
                   {attendance.map((day, i) => {
                      const isCurrentWeek = weekInfo.some(w => w.날짜 === day.fullDate);
                      
-                     // 클릭 가능 여부 판단 (시스템 기준일 mockNow 기준)
-                     const todayStr = `${mockNow.getFullYear()}-${String(mockNow.getMonth() + 1).padStart(2, '0')}-${String(mockNow.getDate()).padStart(2, '0')}`;
+                     // 클릭 가능 여부 판단 (현실 시간 기준)
+                     const d = new Date();
+                     const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                      const isFuture = day.fullDate > todayStr;
                      const hasRecord = day.상태 !== 'none';
                      const canClick = hasRecord || (isCurrentWeek && !isFuture);
