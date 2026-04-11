@@ -830,6 +830,25 @@ export default function Home() {
     }
   };
 
+  const handleHidePenalty = async (nickname: string) => {
+    try {
+      const lastWeekDays = getLastWeekRange(mockNow);
+      const weekId = lastWeekDays[0];
+      const penaltyRef = doc(collection(db, "벌금"));
+      // We create a record specifically to mark it as excluded
+      await setDoc(penaltyRef, {
+        닉네임: nickname,
+        주차: weekId,
+        상태: "제외",
+        생성시간: serverTimestamp()
+      });
+      setToast(`${nickname}님의 이번 주 벌금 데이터가 제외되었습니다.`);
+    } catch (err) {
+      console.error(err);
+      setToast("제외 처리 중 오류 발생 ❌");
+    }
+  };
+
 
   const handleDeleteProfileImage = async () => {
     if (!currentUser) return;
