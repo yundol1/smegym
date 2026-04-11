@@ -142,7 +142,7 @@ export default function Home() {
   const [isNoticeOpen, setIsNoticeOpen] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<string | null>(null);
-  const [adminApprovalTab, setAdminApprovalTab] = useState<"가입검토" | "사진검토" | "면제검토" | "벌금확인">("가입검토");
+  const [adminApprovalTab, setAdminApprovalTab] = useState<"가입검토" | "사진검토" | "면제검토" | "벌금확인" | "멤버관리">("가입검토");
   const [penalties, setPenalties] = useState<any[]>([]);
   const [lastWeekWorkoutCount, setLastWeekWorkoutCount] = useState(0);
   const [allMembersLastWeekCounts, setAllMembersLastWeekCounts] = useState<any>({});
@@ -620,6 +620,12 @@ export default function Home() {
           return;
         }
 
+        // Case 3.5: Withdrawn account
+        if (userData.승인상태 === "탈퇴") {
+          setToast("탈퇴 처리된 계정입니다. 관리자에게 문의하세요. ❌");
+          return;
+        }
+
         // Case 4: All good — log in
         setCurrentUser(userData);
         if (rememberMe) localStorage.setItem("sme_session", JSON.stringify(userData));
@@ -793,6 +799,37 @@ export default function Home() {
       setToast("공지 등록 실패 ❌");
     }
   };
+
+  const handleToggleAdmin = async (targetNickname: string, currentStatus: boolean) => {
+    if (targetNickname === currentUser.닉네임) {
+      setToast("본인의 권한은 변경할 수 없습니다. ⚠️");
+      return;
+    }
+    try {
+      const userRef = doc(db, "멤버", targetNickname);
+      await updateDoc(userRef, { 관리자여부: !currentStatus });
+      setToast(`${targetNickname}님의 관리자 권한이 ${!currentStatus ? '부여' : '해제'}되었습니다.`);
+    } catch (err) {
+      console.error(err);
+      setToast("권한 설정 실패 ❌");
+    }
+  };
+
+  const handleUpdateMemberStatus = async (targetNickname: string, newStatus: string) => {
+    if (targetNickname === currentUser.닉네임) {
+      setToast("본인의 상태는 변경할 수 없습니다. ⚠️");
+      return;
+    }
+    try {
+      const userRef = doc(db, "멤버", targetNickname);
+      await updateDoc(userRef, { 승인상태: newStatus });
+      setToast(`${targetNickname}님이 ${newStatus === '탈퇴' ? '탈퇴 처리' : '복구'}되었습니다. ${newStatus === '탈퇴' ? '🚫' : '✨'}`);
+    } catch (err) {
+      console.error(err);
+      setToast("상태 업데이트 실패 ❌");
+    }
+  };
+
 
   const handleDeleteProfileImage = async () => {
     if (!currentUser) return;
@@ -1583,7 +1620,7 @@ export default function Home() {
                   borderBottom: "1px solid var(--glass-border)",
                   flexShrink: 0
                 }}>
-                  {["가입검토", "사진검토", "면제검토", "벌금확인"].map((tab) => (
+                  {["가입검토", "사진검토", "면제검토", "벌금확인", "멤버관리"].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setAdminApprovalTab(tab as any)}
@@ -1595,7 +1632,7 @@ export default function Home() {
                         transition: "0.2s", background: "none"
                       }}
                     >
-                      {tab === "벌금확인" ? "벌금" : tab.replace("검토","")}
+                      {tab === "벌금확인" ? "벌금" : (tab === "멤버관리" ? "멤버" : tab.replace("검토",""))}
                       {tab === "가입검토" && pendingMembers.length > 0 && (
                         <span style={{ background: "var(--error)", color: "white", padding: "1px 5px", borderRadius: "8px", fontSize: "0.55rem", marginLeft: "4px" }}>{pendingMembers.length}</span>
                       )}
@@ -1832,6 +1869,63 @@ export default function Home() {
                       ))}
                   </>
                 )}
+ 
+                {/* 멤버관리 탭 */}
+                {adminApprovalTab === "멤버관리" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                    {members
+                      .sort((a, b) => (a.닉네임 === currentUser?.닉네임 ? -1 : 1))
+                      .map((m, i) => (
+                        <div key={i} className="card" style={{ padding: "1.1rem", border: "1px solid var(--glass-border)", opacity: m.승인상태 === "탈퇴" ? 0.5 : 1 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                               <div style={{ 
+                                 width: "2.8rem", height: "2.8rem", borderRadius: "50%", 
+                                 background: m.배경색 || "var(--secondary)", flexShrink: 0,
+                                 color: "white", display: "flex", alignItems: "center", justifyContent: "center", 
+                                 fontWeight: 800, fontSize: "0.9rem", overflow: "hidden" 
+                               }}>
+                                  {m.아바타 && m.아바타.startsWith('http') ? <img src={m.아바타} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : m.아바타}
+                               </div>
+                               <div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "3px" }}>
+                                    <span style={{ fontWeight: 900, fontSize: "0.95rem" }}>{m.닉네임}</span>
+                                    {m.관리자여부 && <span style={{ fontSize: "0.6rem", background: "var(--primary)", color: "white", padding: "1px 5px", borderRadius: "5px", fontWeight: 800 }}>관리자</span>}
+                                    {m.승인상태 === "탈퇴" && <span style={{ fontSize: "0.6rem", background: "#ef4444", color: "white", padding: "1px 5px", borderRadius: "5px", fontWeight: 800 }}>탈퇴</span>}
+                                  </div>
+                                  <div style={{ fontSize: "0.72rem", fontWeight: 700, opacity: 0.5 }}>
+                                    LV.{getPassionLevel(m.운동횟수 || 0).lv} {getPassionLevel(m.운동횟수 || 0).label}
+                                  </div>
+                               </div>
+                            </div>
+                            
+                            <div style={{ display: "flex", gap: "0.4rem" }}>
+                               <button 
+                                 onClick={() => handleToggleAdmin(m.닉네임, m.관리자여부)}
+                                 style={{ 
+                                   padding: "0.5rem 0.7rem", fontSize: "0.72rem", borderRadius: "0.7rem", 
+                                   background: m.관리자여부 ? "rgba(0,0,0,0.05)" : "var(--primary)", 
+                                   color: m.관리자여부 ? "inherit" : "white", fontWeight: 800 
+                                 }}
+                               >
+                                 {m.관리자여부 ? "권한해제" : "관리자부여"}
+                               </button>
+                               {m.승인상태 === "탈퇴" ? (
+                                 <button 
+                                   onClick={() => handleUpdateMemberStatus(m.닉네임, "승인")}
+                                   style={{ padding: "0.5rem 0.7rem", fontSize: "0.72rem", borderRadius: "0.7rem", background: "#22c55e", color: "white", fontWeight: 800 }}
+                                 >복구</button>
+                               ) : (
+                                 <button 
+                                   onClick={() => handleUpdateMemberStatus(m.닉네임, "탈퇴")}
+                                   style={{ padding: "0.5rem 0.7rem", fontSize: "0.72rem", borderRadius: "0.7rem", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444", fontWeight: 800 }}
+                                 >탈퇴</button>
+                               )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
 
 
               </div>
