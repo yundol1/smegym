@@ -102,7 +102,7 @@ export async function GET(_request: NextRequest) {
           id: ci.id,
           userId: ci.user_id,
           nickname: userInfo?.nickname || "익명",
-          dayOfWeek: DAY_LABELS[ci.day_of_week] || `Day${ci.day_of_week}`,
+          dayOfWeek: DAY_LABELS[ci.day_of_week - 1] || `Day${ci.day_of_week}`,
           imageUrl: signedImageUrl,
           postContent: ci.post_content,
           createdAt: ci.created_at,

@@ -45,6 +45,10 @@ export async function proxy(request: NextRequest) {
       url.pathname = "/login";
       const response = NextResponse.redirect(url);
       response.cookies.delete("smegym_no_auto_login");
+      // Supabase signOut이 설정한 쿠키를 redirect 응답에 복사
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        response.cookies.set(cookie.name, cookie.value, cookie);
+      });
       return response;
     }
   }

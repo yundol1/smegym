@@ -36,7 +36,7 @@ const mainMenuItems: MenuItem[] = [
   { label: "벌금", icon: <Wallet size={20} />, href: "/fines" },
   { label: "면제신청", icon: <ShieldCheck size={20} />, href: "/exemptions" },
   { label: "챌린지", icon: <Target size={20} />, href: "/challenges" },
-  { label: "AI코치", icon: <Bot size={20} />, href: "/ai-coach" },
+  // { label: "AI코치", icon: <Bot size={20} />, href: "/ai-coach" }, // Phase 5에서 구현 예정
   { label: "공지사항", icon: <Bell size={20} />, href: "/notices" },
   { label: "설정", icon: <Settings size={20} />, href: "/settings" },
 ];
