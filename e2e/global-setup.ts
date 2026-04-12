@@ -20,6 +20,8 @@ async function loginAndSave(
   await page.goto(`${baseURL}/login`);
   await page.fill('[data-testid="nickname-input"]', nickname);
   await page.fill('[data-testid="password-input"]', password);
+  // 자동 로그인 체크 (테스트 세션 유지를 위해)
+  await page.check('[data-testid="auto-login-checkbox"]');
   await page.click('[data-testid="login-button"]');
   await page.waitForURL("**/dashboard", { timeout: 15000 });
 

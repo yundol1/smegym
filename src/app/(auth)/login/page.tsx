@@ -111,15 +111,15 @@ export default function LoginPage() {
         .eq("id", authData.user.id);
 
       // Handle auto-login preference
-      // 자동 로그인 해제 시: 브라우저/탭 종료 시 세션 삭제
       if (!autoLogin) {
+        // sessionStorage는 브라우저 종료 시 자동 삭제됨
+        // 다음 방문 시 이 플래그가 없으면 세션 정리 (proxy/layout에서 처리)
         sessionStorage.setItem("smegym_session_only", "true");
-        // beforeunload에서 signOut 호출하여 세션 정리
-        window.addEventListener("beforeunload", () => {
-          navigator.sendBeacon("/api/auth/signout");
-        });
+        // localStorage에도 표시하여 다음 세션에서 감지 가능
+        localStorage.setItem("smegym_no_auto_login", "true");
       } else {
         sessionStorage.removeItem("smegym_session_only");
+        localStorage.removeItem("smegym_no_auto_login");
       }
 
       router.push("/dashboard");
