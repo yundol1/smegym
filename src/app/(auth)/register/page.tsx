@@ -3,6 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+
+async function hashSecurityAnswer(answer: string): Promise<string> {
+  const normalized = answer.trim().toLowerCase();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(normalized);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 import type { User } from "@/types/database";
 
 const SECURITY_QUESTIONS = [
@@ -143,7 +152,7 @@ export default function RegisterPage() {
       // Upload profile photo if provided
       if (profilePhoto) {
         const fileExt = profilePhoto.name.split(".").pop();
-        const filePath = `${userId}.${fileExt}`;
+        const filePath = `${userId}/profile.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from("profile-photos")
@@ -164,7 +173,7 @@ export default function RegisterPage() {
         role: "pending",
         profile_image_url: profileImageUrl,
         security_question: securityQuestion,
-        security_answer: securityAnswer.trim().toLowerCase(),
+        security_answer: await hashSecurityAnswer(securityAnswer),
       } as never);
 
       if (insertError) {
