@@ -1,8 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import type { Database, Exemption, User } from "@/types/database";
 
 export async function GET() {
+  const serverSupabase = await createServerSupabase();
+  const { data: { user: authUser } } = await serverSupabase.auth.getUser();
+  if (!authUser) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+  const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
+  if (!profile || (profile as any).role !== "admin") {
+    return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+  }
+
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
     return NextResponse.json(
@@ -65,6 +76,16 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  const serverSupabase = await createServerSupabase();
+  const { data: { user: authUser } } = await serverSupabase.auth.getUser();
+  if (!authUser) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+  const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
+  if (!profile || (profile as any).role !== "admin") {
+    return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+  }
+
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
     return NextResponse.json(
@@ -128,7 +149,7 @@ export async function PATCH(request: NextRequest) {
           // dates is free-form text like "3/25(월), 3/26(화)"
           // Try to extract day-of-week indicators
           const dayMap: Record<string, number> = {
-            "월": 1, "화": 2, "수": 3, "목": 4, "금": 5, "토": 6, "일": 0,
+            "월": 1, "화": 2, "수": 3, "목": 4, "금": 5, "토": 6, "일": 7,
           };
 
           const dayMatches = exemption.dates.match(/[월화수목금토일]/g);

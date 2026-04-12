@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { addDays, format } from "date-fns";
 
 function getAdminClient() {
@@ -13,6 +15,16 @@ function getAdminClient() {
 }
 
 export async function POST(request: Request) {
+  const serverSupabase = await createServerSupabase();
+  const { data: { user: authUser } } = await serverSupabase.auth.getUser();
+  if (!authUser) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+  }
+  const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
+  if (!profile || (profile as any).role !== "admin") {
+    return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+  }
+
   const supabase = getAdminClient();
   if (!supabase) {
     return Response.json(
@@ -94,26 +106,12 @@ export async function POST(request: Request) {
       usersProcessed++;
     }
 
-    // 5. Create next week
+    // 5. Clear current week before creating next
     const nextStartDate = addDays(new Date(currentWeek.start_date), 7);
     const nextEndDate = addDays(new Date(currentWeek.end_date), 7);
     const nextTitle = `${format(nextStartDate, "M/d")} ~ ${format(nextEndDate, "M/d")}`;
 
-    const { error: insertWeekError } = await supabase.from("weeks").insert({
-      title: nextTitle,
-      start_date: format(nextStartDate, "yyyy-MM-dd"),
-      end_date: format(nextEndDate, "yyyy-MM-dd"),
-      is_current: true,
-    });
-
-    if (insertWeekError) {
-      return Response.json(
-        { error: "다음 주차 생성 실패: " + insertWeekError.message },
-        { status: 500 }
-      );
-    }
-
-    // 6. Update old week: set is_current=false, aggregated_at, aggregated_by
+    // First, update old week: set is_current=false, aggregated_at, aggregated_by
     const { error: updateError } = await supabase
       .from("weeks")
       .update({
@@ -126,6 +124,21 @@ export async function POST(request: Request) {
     if (updateError) {
       return Response.json(
         { error: "이전 주차 업데이트 실패: " + updateError.message },
+        { status: 500 }
+      );
+    }
+
+    // 6. Then create the next week with is_current=true
+    const { error: insertWeekError } = await supabase.from("weeks").insert({
+      title: nextTitle,
+      start_date: format(nextStartDate, "yyyy-MM-dd"),
+      end_date: format(nextEndDate, "yyyy-MM-dd"),
+      is_current: true,
+    });
+
+    if (insertWeekError) {
+      return Response.json(
+        { error: "다음 주차 생성 실패: " + insertWeekError.message },
         { status: 500 }
       );
     }

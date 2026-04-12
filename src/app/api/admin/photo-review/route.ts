@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerSupabase } from "@/lib/supabase/server";
 
 function getAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,6 +17,16 @@ const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
 export async function GET(_request: NextRequest) {
   try {
+    const serverSupabase = await createServerSupabase();
+    const { data: { user: authUser } } = await serverSupabase.auth.getUser();
+    if (!authUser) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+    const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
+    if (!profile || (profile as any).role !== "admin") {
+      return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+    }
+
     const supabaseAdmin = getAdminClient();
     if (!supabaseAdmin) {
       return Response.json(
@@ -112,6 +123,16 @@ export async function GET(_request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const serverSupabase = await createServerSupabase();
+    const { data: { user: authUser } } = await serverSupabase.auth.getUser();
+    if (!authUser) {
+      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
+    }
+    const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
+    if (!profile || (profile as any).role !== "admin") {
+      return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+    }
+
     const supabaseAdmin = getAdminClient();
     if (!supabaseAdmin) {
       return Response.json(
