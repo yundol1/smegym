@@ -165,6 +165,20 @@ export async function PATCH(request: NextRequest) {
 
     const now = new Date().toISOString();
 
+    // Fetch the check-in first to get user_id and week_id for fine recalc
+    const { data: checkInRecord, error: fetchError } = await supabaseAdmin
+      .from("check_ins")
+      .select("user_id, week_id")
+      .eq("id", checkInId)
+      .single();
+
+    if (fetchError || !checkInRecord) {
+      return Response.json(
+        { error: "체크인을 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
     if (decision === "approve") {
       const { error } = await supabaseAdmin
         .from("check_ins")
@@ -205,7 +219,40 @@ export async function PATCH(request: NextRequest) {
       await supabaseAdmin.from("reactions").delete().eq("check_in_id", checkInId);
     }
 
-    return Response.json({ success: true, decision });
+    // ── Blocker 5: Recalculate fine for this user+week after status change ──
+    const { count: workoutCount } = await supabaseAdmin
+      .from("check_ins")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", checkInRecord.user_id)
+      .eq("week_id", checkInRecord.week_id)
+      .in("status", ["O", "☆"]);
+
+    const wCount = workoutCount ?? 0;
+    const fineAmount = wCount < 3 ? (3 - wCount) * 2000 : 0;
+
+    const { error: fineUpsertError } = await supabaseAdmin
+      .from("fines")
+      .upsert(
+        {
+          user_id: checkInRecord.user_id,
+          week_id: checkInRecord.week_id,
+          workout_count: wCount,
+          fine_amount: fineAmount,
+        },
+        { onConflict: "user_id,week_id" }
+      );
+
+    if (fineUpsertError) {
+      // Fallback: try insert if upsert fails (no unique constraint scenario)
+      await supabaseAdmin.from("fines").insert({
+        user_id: checkInRecord.user_id,
+        week_id: checkInRecord.week_id,
+        workout_count: wCount,
+        fine_amount: fineAmount,
+      });
+    }
+
+    return Response.json({ success: true, decision, workoutCount: wCount, fineAmount });
   } catch (err) {
     console.error("Photo review PATCH error:", err);
     return Response.json(

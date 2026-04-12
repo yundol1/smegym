@@ -26,6 +26,59 @@ type CheckStatus = "O" | "△" | "X" | "☆" | null;
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+const COMPRESS_THRESHOLD = 2 * 1024 * 1024; // 2MB
+const MAX_IMAGE_WIDTH = 1920;
+
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width <= MAX_IMAGE_WIDTH) {
+        resolve(file);
+        return;
+      }
+      const ratio = MAX_IMAGE_WIDTH / width;
+      width = MAX_IMAGE_WIDTH;
+      height = Math.round(height * ratio);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const compressed = new File([blob], file.name, {
+            type: "image/jpeg",
+            lastModified: Date.now(),
+          });
+          resolve(compressed);
+        },
+        "image/jpeg",
+        0.85
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("이미지를 불러올 수 없습니다."));
+    };
+    img.src = url;
+  });
+}
+
 interface DayCard {
   dayOfWeek: number;
   label: string;
@@ -54,6 +107,7 @@ export default function WorkoutPage() {
   const [isPublic, setIsPublic] = useState(true);
   const [postContent, setPostContent] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -138,20 +192,47 @@ export default function WorkoutPage() {
   });
 
   function handleDayClick(day: DayCard) {
-    if (day.checkIn) return;
+    if (day.checkIn && day.checkIn.status !== "X") return;
     setSelectedDay(day);
     setSelectedFile(null);
     setPreviewUrl(null);
     setIsPublic(true);
     setPostContent("");
+    setFileError(null);
     setShowModal(true);
   }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setSelectedFile(file);
-    const url = URL.createObjectURL(file);
+    setFileError(null);
+
+    // Type validation
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setFileError("지원하지 않는 파일 형식입니다. (JPEG, PNG, WebP, HEIC만 가능)");
+      e.target.value = "";
+      return;
+    }
+
+    // Size validation
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError("파일 크기가 10MB를 초과합니다.");
+      e.target.value = "";
+      return;
+    }
+
+    // Compress if > 2MB
+    let processedFile = file;
+    if (file.size > COMPRESS_THRESHOLD && file.type !== "image/heic") {
+      try {
+        processedFile = await compressImage(file);
+      } catch {
+        // Use original if compression fails
+      }
+    }
+
+    setSelectedFile(processedFile);
+    const url = URL.createObjectURL(processedFile);
     setPreviewUrl(url);
   }
 
@@ -169,17 +250,33 @@ export default function WorkoutPage() {
 
       if (uploadError) throw uploadError;
 
-      const { error: insertError } = await supabase.from("check_ins").insert({
-        user_id: user.id,
-        week_id: currentWeek.id,
-        day_of_week: selectedDay.dayOfWeek,
-        status: "△",
-        image_url: filePath,
-        is_public: isPublic,
-        post_content: postContent.trim() || null,
-      } as never);
+      // If re-uploading after rejection, update existing record; otherwise insert new
+      if (selectedDay.checkIn && selectedDay.checkIn.status === "X") {
+        const { error: updateError } = await supabase
+          .from("check_ins")
+          .update({
+            status: "△",
+            image_url: filePath,
+            is_public: isPublic,
+            post_content: postContent.trim() || null,
+            reject_reason: null,
+          } as never)
+          .eq("id", selectedDay.checkIn.id);
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase.from("check_ins").insert({
+          user_id: user.id,
+          week_id: currentWeek.id,
+          day_of_week: selectedDay.dayOfWeek,
+          status: "△",
+          image_url: filePath,
+          is_public: isPublic,
+          post_content: postContent.trim() || null,
+        } as never);
+
+        if (insertError) throw insertError;
+      }
 
       // Reload check-ins
       const { data: updatedCheckIns } = (await supabase
@@ -308,7 +405,7 @@ export default function WorkoutPage() {
         {days.map((day, i) => {
           const status = day.checkIn?.status ?? null;
           const badge = getStatusBadge(status);
-          const isClickable = !day.checkIn;
+          const isClickable = !day.checkIn || status === "X";
           const todayDow = new Date().getDay();
           const todayIdx = todayDow === 0 ? 7 : todayDow;
           const isToday = day.dayOfWeek === todayIdx;
@@ -370,7 +467,7 @@ export default function WorkoutPage() {
               </div>
 
               {/* Status badge or Upload button */}
-              {day.checkIn ? (
+              {day.checkIn && status !== "X" ? (
                 <div
                   style={{
                     padding: "0.375rem 0.75rem",
@@ -384,6 +481,28 @@ export default function WorkoutPage() {
                 >
                   {badge.label}
                 </div>
+              ) : status === "X" ? (
+                <button
+                  onClick={() => handleDayClick(day)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    borderRadius: "2rem",
+                    background: "#FF5252",
+                    color: "#FFFFFF",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.375rem",
+                    whiteSpace: "nowrap",
+                    boxShadow: "0 0 15px rgba(255,82,82,0.2)",
+                  }}
+                >
+                  <Camera size={14} />
+                  재업로드
+                </button>
               ) : (
                 <button
                   onClick={() => handleDayClick(day)}
@@ -488,10 +607,26 @@ export default function WorkoutPage() {
                 ref={fileInputRef}
                 data-testid="file-input"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/heic"
                 onChange={handleFileSelect}
                 style={{ display: "none" }}
               />
+
+              {fileError && (
+                <div
+                  style={{
+                    padding: "0.75rem 1rem",
+                    borderRadius: "0.75rem",
+                    background: "rgba(255, 82, 82, 0.1)",
+                    border: "1px solid rgba(255, 82, 82, 0.3)",
+                    color: "#FF5252",
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {fileError}
+                </div>
+              )}
 
               {previewUrl ? (
                 <div style={{ position: "relative" }}>
