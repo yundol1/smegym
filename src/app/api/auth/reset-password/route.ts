@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "crypto";
 import type { Database } from "@/types/database";
 
 export async function POST(request: NextRequest) {
@@ -50,10 +51,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (
-      user.security_answer.trim().toLowerCase() !==
-      securityAnswer.trim().toLowerCase()
-    ) {
+    const inputHash = createHash("sha256").update(securityAnswer.trim().toLowerCase()).digest("hex");
+    if (inputHash !== user.security_answer) {
       return NextResponse.json(
         { error: "보안 답변이 일치하지 않습니다." },
         { status: 403 },

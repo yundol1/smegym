@@ -76,41 +76,35 @@ export default function DashboardPage() {
 
           if (weekCheckIns) setCheckIns(weekCheckIns);
 
-          // Calculate streak: count consecutive approved check-ins backwards
+          // Calculate streak: count consecutive days with 'O' or '☆', breaking on other status or gap
           const { data: allCheckIns } = (await supabase
             .from("check_ins")
             .select("*")
             .eq("user_id", authUser.id)
-            .eq("status" as string, "O")
             .order("created_at", { ascending: false })
             .limit(100)) as unknown as { data: CheckIn[] | null };
 
           if (allCheckIns) {
             let s = 0;
             for (const ci of allCheckIns) {
-              if (ci.status === "O") s++;
+              if (ci.status === "O" || ci.status === "☆") s++;
               else break;
             }
             setStreak(s);
           }
 
-          // Calculate rank for current week
-          const { data: allWeekCheckIns } = (await supabase
-            .from("check_ins")
-            .select("user_id, status")
-            .eq("week_id", weekData.id)
-            .eq("status" as string, "O")) as unknown as { data: Pick<CheckIn, "user_id" | "status">[] | null };
-
-          if (allWeekCheckIns) {
-            const countMap: Record<string, number> = {};
-            for (const ci of allWeekCheckIns) {
-              countMap[ci.user_id] = (countMap[ci.user_id] || 0) + 1;
+          // Fetch rank from /api/ranking
+          try {
+            const rankRes = await fetch("/api/ranking");
+            if (rankRes.ok) {
+              const rankData = await rankRes.json();
+              const myEntry = rankData.find(
+                (r: { userId: string; rank: number }) => r.userId === authUser.id
+              );
+              setRank(myEntry ? myEntry.rank : null);
             }
-            const sorted = Object.entries(countMap).sort(
-              ([, a], [, b]) => b - a
-            );
-            const myIdx = sorted.findIndex(([uid]) => uid === authUser.id);
-            setRank(myIdx >= 0 ? myIdx + 1 : null);
+          } catch {
+            // ranking fetch failed, leave rank as null
           }
         }
       } catch (err) {
