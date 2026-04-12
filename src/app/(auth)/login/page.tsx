@@ -112,14 +112,13 @@ export default function LoginPage() {
 
       // Handle auto-login preference
       if (!autoLogin) {
-        // sessionStorage는 브라우저 종료 시 자동 삭제됨
-        // 다음 방문 시 이 플래그가 없으면 세션 정리 (proxy/layout에서 처리)
-        sessionStorage.setItem("smegym_session_only", "true");
-        // localStorage에도 표시하여 다음 세션에서 감지 가능
-        localStorage.setItem("smegym_no_auto_login", "true");
+        // 세션 쿠키 (브라우저 종료 시 자동 삭제 — max-age/expires 없음)
+        document.cookie = "smegym_session_active=true; path=/; SameSite=Lax";
+        // 영구 쿠키 (자동 로그인 비활성화 표시)
+        document.cookie = "smegym_no_auto_login=true; path=/; SameSite=Lax; max-age=31536000";
       } else {
-        sessionStorage.removeItem("smegym_session_only");
-        localStorage.removeItem("smegym_no_auto_login");
+        document.cookie = "smegym_session_active=; path=/; max-age=0";
+        document.cookie = "smegym_no_auto_login=; path=/; max-age=0";
       }
 
       router.push("/dashboard");

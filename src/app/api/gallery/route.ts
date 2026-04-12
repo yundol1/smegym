@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       .from("check_ins")
       .select("id, user_id, day_of_week, status, image_url, is_public, post_content, created_at")
       .eq("is_public", true)
+      .eq("status", "O")
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -98,7 +99,8 @@ export async function GET(request: NextRequest) {
     const result = await Promise.all(
       checkIns.map(async (ci) => {
         let signedImageUrl: string | null = null;
-        if (ci.image_url) {
+        if (ci.image_url && ci.image_url.startsWith(ci.user_id + "/")) {
+          // image_url이 해당 유저의 폴더에 속하는지 검증
           const { data } = await supabaseAdmin.storage
             .from("workout-photos")
             .createSignedUrl(ci.image_url, 3600);

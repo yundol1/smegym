@@ -33,6 +33,22 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // 자동 로그인 해제 + 브라우저 재시작 감지
+  // smegym_no_auto_login(영구)은 있지만 smegym_session_active(세션)는 없으면 → 세션 만료
+  if (user) {
+    const noAutoLogin = request.cookies.get("smegym_no_auto_login")?.value;
+    const sessionActive = request.cookies.get("smegym_session_active")?.value;
+
+    if (noAutoLogin && !sessionActive) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      const response = NextResponse.redirect(url);
+      response.cookies.delete("smegym_no_auto_login");
+      return response;
+    }
+  }
+
   // 인증이 필요 없는 페이지
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/login") ||
