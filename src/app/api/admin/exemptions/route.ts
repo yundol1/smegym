@@ -137,52 +137,60 @@ export async function PATCH(request: NextRequest) {
         .single()) as unknown as { data: Pick<Exemption, "user_id" | "dates"> | null };
 
       if (exemption) {
-        // Get current week
-        const { data: currentWeek } = (await supabase
+        // Parse actual dates from the free-form text (e.g., "4/13(월), 4/14(화)" or "2026-04-13")
+        const dateRegex = /(\d{1,2})\/(\d{1,2})/g;
+        const parsedDates: Date[] = [];
+        let match;
+        while ((match = dateRegex.exec(exemption.dates)) !== null) {
+          const month = parseInt(match[1], 10);
+          const day = parseInt(match[2], 10);
+          const year = new Date().getFullYear();
+          parsedDates.push(new Date(year, month - 1, day));
+        }
+
+        // Fetch all weeks to find the correct one for each date
+        const { data: allWeeks } = (await supabase
           .from("weeks")
-          .select("id")
-          .eq("is_current" as string, true)
-          .single()) as unknown as { data: { id: string } | null };
+          .select("id, start_date, end_date")
+          .order("start_date", { ascending: false })
+          .limit(10)) as unknown as { data: { id: string; start_date: string; end_date: string }[] | null };
 
-        if (currentWeek) {
-          // Parse dates to determine day_of_week values
-          // dates is free-form text like "3/25(월), 3/26(화)"
-          // Try to extract day-of-week indicators
-          const dayMap: Record<string, number> = {
-            "월": 1, "화": 2, "수": 3, "목": 4, "금": 5, "토": 6, "일": 7,
-          };
+        if (allWeeks && parsedDates.length > 0) {
+          for (const exemptDate of parsedDates) {
+            // Find which week this date belongs to
+            const targetWeek = allWeeks.find((w: { id: string; start_date: string; end_date: string }) => {
+              const start = new Date(w.start_date);
+              const end = new Date(w.end_date);
+              return exemptDate >= start && exemptDate <= end;
+            });
 
-          const dayMatches = exemption.dates.match(/[월화수목금토일]/g);
-          if (dayMatches) {
-            const dayNumbers = [...new Set(dayMatches.map((d: string) => dayMap[d]))].filter(
-              (n) => n !== undefined,
-            );
+            if (!targetWeek) continue;
 
-            for (const dow of dayNumbers) {
-              // Check if a check_in record already exists
-              const { data: existing } = (await supabase
+            // Calculate day_of_week (1=Mon, 7=Sun)
+            const jsDay = exemptDate.getDay(); // 0=Sun
+            const dow = jsDay === 0 ? 7 : jsDay;
+
+            // Check if a check_in record already exists
+            const { data: existing } = (await supabase
+              .from("check_ins")
+              .select("id")
+              .eq("user_id" as string, exemption.user_id)
+              .eq("week_id" as string, targetWeek.id)
+              .eq("day_of_week" as string, dow)
+              .maybeSingle()) as unknown as { data: { id: string } | null };
+
+            if (existing) {
+              await supabase
                 .from("check_ins")
-                .select("id")
-                .eq("user_id" as string, exemption.user_id)
-                .eq("week_id" as string, currentWeek.id)
-                .eq("day_of_week" as string, dow)
-                .maybeSingle()) as unknown as { data: { id: string } | null };
-
-              if (existing) {
-                // Update existing record
-                await (supabase
-                  .from("check_ins") as any)
-                  .update({ status: "☆" })
-                  .eq("id", existing.id);
-              } else {
-                // Insert new record
-                await (supabase.from("check_ins") as any).insert({
-                  user_id: exemption.user_id,
-                  week_id: currentWeek.id,
-                  day_of_week: dow,
-                  status: "☆",
-                });
-              }
+                .update({ status: "☆" } as never)
+                .eq("id" as string, existing.id);
+            } else {
+              await supabase.from("check_ins").insert({
+                user_id: exemption.user_id,
+                week_id: targetWeek.id,
+                day_of_week: dow,
+                status: "☆",
+              } as never);
             }
           }
         }

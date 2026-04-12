@@ -71,9 +71,9 @@ export default function ExemptionsPage() {
             .filter((e) => !e.notified && e.status !== "pending")
             .map((e) => e.id);
 
-          await (supabase
-            .from("exemptions") as any)
-            .update({ notified: true })
+          await supabase
+            .from("exemptions")
+            .update({ notified: true } as never)
             .in("id", unreadIds);
         }
       }
@@ -99,7 +99,7 @@ export default function ExemptionsPage() {
         user_id: authUser.id,
         dates: dates.trim(),
         reason: reason.trim(),
-      } as any);
+      } as never);
 
       if (error) throw error;
 
