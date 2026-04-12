@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
   const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
-  if (!profile || (profile as any).role !== "admin") {
+  if (!profile || (profile as never as { role: string }).role !== "admin") {
     return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
   }
 
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
   const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
-  if (!profile || (profile as any).role !== "admin") {
+  if (!profile || (profile as never as { role: string }).role !== "admin") {
     return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
   }
 
@@ -154,16 +154,44 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { error: updateError } = await (supabase
-      .from("fines") as any)
+    // Fetch fine details before marking as paid
+    const { data: fineRecord } = (await supabase
+      .from("fines")
+      .select("fine_amount, user_id, week_id")
+      .eq("id", fineId)
+      .single()) as unknown as { data: { fine_amount: number; user_id: string; week_id: string } | null };
+
+    const { error: updateError } = await supabase
+      .from("fines")
       .update({
         is_paid: true,
         paid_at: new Date().toISOString(),
         confirmed_by: adminId,
-      })
+      } as never)
       .eq("id", fineId);
 
     if (updateError) throw updateError;
+
+    // Record the fine payment as a transaction
+    if (fineRecord) {
+      // Look up nickname and week title
+      const [userResult, weekResult] = await Promise.all([
+        supabase.from("users").select("nickname").eq("id", fineRecord.user_id).single() as unknown as Promise<{ data: { nickname: string } | null }>,
+        supabase.from("weeks").select("title").eq("id", fineRecord.week_id).single() as unknown as Promise<{ data: { title: string } | null }>,
+      ]);
+
+      const targetNickname = userResult.data?.nickname ?? "알 수 없음";
+      const weekTitle = weekResult.data?.title ?? "";
+
+      await supabase.from("transactions").insert({
+        description: `벌금 납부 - ${targetNickname}`,
+        income: fineRecord.fine_amount,
+        expense: 0,
+        balance: 0,
+        transacted_by: targetNickname,
+        note: weekTitle,
+      } as never);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

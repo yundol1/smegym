@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Calendar, Trophy, Loader2 } from "lucide-react";
 import { format } from "date-fns";
@@ -40,7 +40,7 @@ function getProgressPercent(challenge: Challenge, today: string): number {
 }
 
 export default function ChallengesPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("전체");

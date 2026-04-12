@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Bell, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Notice } from "@/types/database";
 
 export default function NoticesPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 

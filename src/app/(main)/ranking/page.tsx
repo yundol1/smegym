@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Trophy, Flame, Dumbbell, Crown, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -34,7 +34,7 @@ interface WeeklyStats {
 }
 
 export default function RankingPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

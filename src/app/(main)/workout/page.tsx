@@ -177,7 +177,7 @@ export default function WorkoutPage() {
         image_url: filePath,
         is_public: isPublic,
         post_content: postContent.trim() || null,
-      } as any);
+      } as never);
 
       if (insertError) throw insertError;
 

@@ -23,7 +23,7 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
     const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
-    if (!profile || (profile as any).role !== "admin") {
+    if (!profile || (profile as never as { role: string }).role !== "admin") {
       return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
     }
 
@@ -129,7 +129,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
     }
     const { data: profile } = await serverSupabase.from("users").select("role").eq("id", authUser.id).single();
-    if (!profile || (profile as any).role !== "admin") {
+    if (!profile || (profile as never as { role: string }).role !== "admin") {
       return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
     }
 
@@ -200,6 +200,9 @@ export async function PATCH(request: NextRequest) {
           { status: 500 }
         );
       }
+
+      // Clear all reactions for the rejected check-in
+      await supabaseAdmin.from("reactions").delete().eq("check_in_id", checkInId);
     }
 
     return Response.json({ success: true, decision });

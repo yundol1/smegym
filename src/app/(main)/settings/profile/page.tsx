@@ -96,11 +96,11 @@ export default function ProfileEditPage() {
       }
 
       // Update users table
-      const { error: updateError } = await (supabase
-        .from("users") as any)
+      const { error: updateError } = await supabase
+        .from("users")
         .update({
           profile_image_url: newProfileImageUrl,
-        })
+        } as never)
         .eq("id", user.id);
 
       if (updateError) {

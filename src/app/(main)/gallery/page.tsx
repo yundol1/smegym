@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Image as ImageIcon, RefreshCw, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -146,7 +146,7 @@ function SkeletonCard() {
 
 /* ─── Gallery Page ─── */
 export default function GalleryPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [checkIns, setCheckIns] = useState<GalleryCheckIn[]>([]);
   const [loading, setLoading] = useState(true);
