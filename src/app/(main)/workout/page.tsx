@@ -15,6 +15,7 @@ import {
   EyeOff,
   Dumbbell,
   ChevronLeft,
+  ChevronRight,
   FileText,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -93,12 +94,16 @@ export default function WorkoutPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const [user, setUser] = useState<User | null>(null);
+  const [weeks, setWeeks] = useState<Week[]>([]);
+  const [selectedWeekIdx, setSelectedWeekIdx] = useState(0);
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
   const [signedUrls, setSignedUrls] = useState<Record<number, string>>({});
+
+  const isCurrentWeek = selectedWeekIdx === 0;
 
   // Upload modal state
   const [selectedDay, setSelectedDay] = useState<DayCard | null>(null);
@@ -109,8 +114,9 @@ export default function WorkoutPage() {
   const [showModal, setShowModal] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
+  // Load user and weeks list on mount
   useEffect(() => {
-    async function loadData() {
+    async function loadInitial() {
       try {
         const {
           data: { user: authUser },
@@ -128,50 +134,87 @@ export default function WorkoutPage() {
 
         if (userData) setUser(userData);
 
-        const { data: weekData } = (await supabase
+        // Fetch last 4 weeks ordered by start_date DESC (index 0 = most recent / current)
+        const { data: weeksData } = (await supabase
           .from("weeks")
           .select("*")
-          .eq("is_current" as string, true)
-          .single()) as unknown as { data: Week | null };
+          .order("start_date", { ascending: false })
+          .limit(4)) as unknown as { data: Week[] | null };
 
-        if (weekData) {
-          setCurrentWeek(weekData);
-
-          const { data: weekCheckIns } = (await supabase
-            .from("check_ins")
-            .select("*")
-            .eq("user_id", authUser.id)
-            .eq("week_id", weekData.id)
-            .order("day_of_week", { ascending: true })) as unknown as {
-            data: CheckIn[] | null;
-          };
-
-          if (weekCheckIns) {
-            setCheckIns(weekCheckIns);
-            // Generate signed URLs for check-ins with images
-            const urls: Record<number, string> = {};
-            for (const ci of weekCheckIns) {
-              if (ci.image_url) {
-                const { data } = await supabase.storage
-                  .from("workout-photos")
-                  .createSignedUrl(ci.image_url, 3600);
-                if (data?.signedUrl) {
-                  urls[ci.day_of_week] = data.signedUrl;
-                }
-              }
-            }
-            setSignedUrls(urls);
-          }
+        if (weeksData && weeksData.length > 0) {
+          setWeeks(weeksData);
+          setSelectedWeekIdx(0);
+          setCurrentWeek(weeksData[0]);
         }
       } catch (err) {
         console.error("Workout load error:", err);
+      }
+    }
+
+    loadInitial();
+  }, [router, supabase]);
+
+  // Load check-ins whenever the selected week changes
+  useEffect(() => {
+    async function loadWeekData() {
+      if (!user || weeks.length === 0) return;
+
+      const week = weeks[selectedWeekIdx];
+      if (!week) return;
+
+      setLoading(true);
+      setCurrentWeek(week);
+
+      try {
+        const { data: weekCheckIns } = (await supabase
+          .from("check_ins")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("week_id", week.id)
+          .order("day_of_week", { ascending: true })) as unknown as {
+          data: CheckIn[] | null;
+        };
+
+        if (weekCheckIns) {
+          setCheckIns(weekCheckIns);
+          // Generate signed URLs for check-ins with images
+          const urls: Record<number, string> = {};
+          for (const ci of weekCheckIns) {
+            if (ci.image_url) {
+              const { data } = await supabase.storage
+                .from("workout-photos")
+                .createSignedUrl(ci.image_url, 3600);
+              if (data?.signedUrl) {
+                urls[ci.day_of_week] = data.signedUrl;
+              }
+            }
+          }
+          setSignedUrls(urls);
+        } else {
+          setCheckIns([]);
+          setSignedUrls({});
+        }
+      } catch (err) {
+        console.error("Week data load error:", err);
       } finally {
         setLoading(false);
       }
     }
 
-    loadData();
-  }, [router, supabase]);
+    loadWeekData();
+  }, [user, weeks, selectedWeekIdx, supabase]);
+
+  function goToPrevWeek() {
+    if (selectedWeekIdx < weeks.length - 1) {
+      setSelectedWeekIdx(selectedWeekIdx + 1);
+    }
+  }
+
+  function goToNextWeek() {
+    if (selectedWeekIdx > 0) {
+      setSelectedWeekIdx(selectedWeekIdx - 1);
+    }
+  }
 
   const checkInMap: Record<number, CheckIn> = {};
   for (const ci of checkIns) {
@@ -192,6 +235,7 @@ export default function WorkoutPage() {
   });
 
   function handleDayClick(day: DayCard) {
+    if (!isCurrentWeek) return; // Read-only for past weeks
     if (day.checkIn && day.checkIn.status !== "X") return;
     setSelectedDay(day);
     setSelectedFile(null);
@@ -377,7 +421,7 @@ export default function WorkoutPage() {
         >
           <ChevronLeft size={24} />
         </button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1
             style={{
               fontSize: "1.25rem",
@@ -390,7 +434,51 @@ export default function WorkoutPage() {
           </h1>
           <p style={{ fontSize: "0.75rem", color: "#666666" }}>
             {currentWeek?.title ?? "이번 주"}
+            {!isCurrentWeek && (
+              <span style={{ marginLeft: "0.5rem", color: "#FFD600", fontWeight: 700 }}>
+                지난주 기록
+              </span>
+            )}
           </p>
+        </div>
+        {/* Week navigation */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+          <button
+            onClick={goToPrevWeek}
+            disabled={selectedWeekIdx >= weeks.length - 1}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "2rem",
+              height: "2rem",
+              borderRadius: "50%",
+              background: "#1A1A1A",
+              border: "1px solid #333333",
+              color: selectedWeekIdx >= weeks.length - 1 ? "#333333" : "#FFFFFF",
+              cursor: selectedWeekIdx >= weeks.length - 1 ? "not-allowed" : "pointer",
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={goToNextWeek}
+            disabled={selectedWeekIdx <= 0}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "2rem",
+              height: "2rem",
+              borderRadius: "50%",
+              background: "#1A1A1A",
+              border: "1px solid #333333",
+              color: selectedWeekIdx <= 0 ? "#333333" : "#FFFFFF",
+              cursor: selectedWeekIdx <= 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </header>
 
@@ -482,49 +570,81 @@ export default function WorkoutPage() {
                   {badge.label}
                 </div>
               ) : status === "X" ? (
-                <button
-                  onClick={() => handleDayClick(day)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: "2rem",
-                    background: "#FF5252",
-                    color: "#FFFFFF",
-                    fontSize: "0.75rem",
-                    fontWeight: 800,
-                    border: "none",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.375rem",
-                    whiteSpace: "nowrap",
-                    boxShadow: "0 0 15px rgba(255,82,82,0.2)",
-                  }}
-                >
-                  <Camera size={14} />
-                  재업로드
-                </button>
+                isCurrentWeek ? (
+                  <button
+                    onClick={() => handleDayClick(day)}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      borderRadius: "2rem",
+                      background: "#FF5252",
+                      color: "#FFFFFF",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.375rem",
+                      whiteSpace: "nowrap",
+                      boxShadow: "0 0 15px rgba(255,82,82,0.2)",
+                    }}
+                  >
+                    <Camera size={14} />
+                    재업로드
+                  </button>
+                ) : (
+                  <div
+                    style={{
+                      padding: "0.375rem 0.75rem",
+                      borderRadius: "2rem",
+                      background: badge.bg,
+                      color: badge.color,
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {badge.label}
+                  </div>
+                )
               ) : (
-                <button
-                  onClick={() => handleDayClick(day)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: "2rem",
-                    background: "#00E676",
-                    color: "#0A0A0A",
-                    fontSize: "0.75rem",
-                    fontWeight: 800,
-                    border: "none",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.375rem",
-                    whiteSpace: "nowrap",
-                    boxShadow: "0 0 15px rgba(0,230,118,0.2)",
-                  }}
-                >
-                  <Camera size={14} />
-                  업로드
-                </button>
+                isCurrentWeek ? (
+                  <button
+                    onClick={() => handleDayClick(day)}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      borderRadius: "2rem",
+                      background: "#00E676",
+                      color: "#0A0A0A",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.375rem",
+                      whiteSpace: "nowrap",
+                      boxShadow: "0 0 15px rgba(0,230,118,0.2)",
+                    }}
+                  >
+                    <Camera size={14} />
+                    업로드
+                  </button>
+                ) : (
+                  <div
+                    style={{
+                      padding: "0.375rem 0.75rem",
+                      borderRadius: "2rem",
+                      background: badge.bg,
+                      color: badge.color,
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {badge.label}
+                  </div>
+                )
               )}
             </motion.div>
           );

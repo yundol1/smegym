@@ -32,6 +32,14 @@ export default function FinesPage() {
   const [fineHistory, setFineHistory] = useState<FineWithWeek[]>([]);
   const [totalFines, setTotalFines] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0);
+  const [fineStats, setFineStats] = useState<{
+    myTotal: number;
+    avgTotal: number;
+    maxTotal: number;
+    minTotal: number;
+    percentile: number;
+    totalMembers: number;
+  } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -72,31 +80,42 @@ export default function FinesPage() {
           });
         }
 
-        // Get fine history with week titles
-        const { data: fines } = (await supabase
+        // Get ALL fine history with week titles (no limit for cumulative totals)
+        const { data: allFines } = (await supabase
           .from("fines")
           .select("*, weeks(title)")
           .eq("user_id", authUser.id)
-          .order("created_at", { ascending: false })
-          .limit(12)) as unknown as { data: FineWithWeek[] | null };
+          .order("created_at", { ascending: false })) as unknown as { data: FineWithWeek[] | null };
 
-        if (fines) {
-          setFineHistory(fines);
+        if (allFines) {
+          // Use last 12 for chart display
+          setFineHistory(allFines.slice(0, 12));
 
           // Last week fine (most recent)
-          if (fines.length > 0) {
-            setLastWeekFine(fines[0]);
+          if (allFines.length > 0) {
+            setLastWeekFine(allFines[0]);
           }
 
-          // Totals
+          // Cumulative totals from ALL fines
           let total = 0;
           let paid = 0;
-          for (const f of fines) {
+          for (const f of allFines) {
             total += f.fine_amount;
             if (f.is_paid) paid += f.fine_amount;
           }
           setTotalFines(total);
           setTotalPaid(paid);
+        }
+
+        // Fetch fine stats (average, percentile) from API
+        try {
+          const statsRes = await fetch("/api/fine-stats");
+          if (statsRes.ok) {
+            const statsData = await statsRes.json();
+            setFineStats(statsData);
+          }
+        } catch {
+          // stats fetch failed, leave as null
         }
       } catch (err) {
         console.error("Fines load error:", err);
@@ -431,6 +450,175 @@ export default function FinesPage() {
           </div>
         ))}
       </motion.section>
+
+      {/* Fine Statistics */}
+      {fineStats && fineStats.totalMembers > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          style={{
+            padding: "1.25rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+            background: "#1A1A1A",
+            borderRadius: "var(--radius)",
+            border: "1px solid #222222",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              color: "#FFD600",
+            }}
+          >
+            <Banknote size={18} />
+            <span style={{ fontSize: "0.875rem", fontWeight: 700, fontFamily: "var(--font-heading)" }}>
+              벌금 통계
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0.75rem",
+            }}
+          >
+            {/* My total vs average */}
+            <div
+              style={{
+                padding: "0.75rem",
+                background: "#222222",
+                borderRadius: "12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.25rem",
+              }}
+            >
+              <span style={{ fontSize: "0.6875rem", color: "#666666", fontWeight: 600 }}>
+                내 총 벌금
+              </span>
+              <span
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FF5252",
+                }}
+              >
+                {fineStats.myTotal.toLocaleString()}원
+              </span>
+            </div>
+            <div
+              style={{
+                padding: "0.75rem",
+                background: "#222222",
+                borderRadius: "12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.25rem",
+              }}
+            >
+              <span style={{ fontSize: "0.6875rem", color: "#666666", fontWeight: 600 }}>
+                전체 평균
+              </span>
+              <span
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FFFFFF",
+                }}
+              >
+                {fineStats.avgTotal.toLocaleString()}원
+              </span>
+            </div>
+            {/* Max / Min */}
+            <div
+              style={{
+                padding: "0.75rem",
+                background: "#222222",
+                borderRadius: "12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.25rem",
+              }}
+            >
+              <span style={{ fontSize: "0.6875rem", color: "#666666", fontWeight: 600 }}>
+                최대 벌금
+              </span>
+              <span
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FF5252",
+                }}
+              >
+                {fineStats.maxTotal.toLocaleString()}원
+              </span>
+            </div>
+            <div
+              style={{
+                padding: "0.75rem",
+                background: "#222222",
+                borderRadius: "12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.25rem",
+              }}
+            >
+              <span style={{ fontSize: "0.6875rem", color: "#666666", fontWeight: 600 }}>
+                최소 벌금
+              </span>
+              <span
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#00E676",
+                }}
+              >
+                {fineStats.minTotal.toLocaleString()}원
+              </span>
+            </div>
+          </div>
+
+          {/* Percentile */}
+          <div
+            style={{
+              padding: "0.75rem 1rem",
+              background: "rgba(0, 176, 255, 0.1)",
+              border: "1px solid rgba(0, 176, 255, 0.2)",
+              borderRadius: "12px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontSize: "0.8125rem", color: "#FFFFFF", fontWeight: 600 }}>
+              내 백분위
+            </span>
+            <span
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: 900,
+                fontFamily: "var(--font-heading)",
+                color: "#00B0FF",
+              }}
+            >
+              상위 {100 - fineStats.percentile}%
+            </span>
+          </div>
+          <span style={{ fontSize: "0.625rem", color: "#444444" }}>
+            전체 {fineStats.totalMembers}명 기준 (낮을수록 벌금이 많음)
+          </span>
+        </motion.section>
+      )}
 
       {/* Fine Trend Chart */}
       <motion.section

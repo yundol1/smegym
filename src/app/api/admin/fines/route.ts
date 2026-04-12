@@ -174,20 +174,23 @@ export async function PATCH(request: NextRequest) {
 
     // Record the fine payment as a transaction
     if (fineRecord) {
-      // Look up nickname and week title
-      const [userResult, weekResult] = await Promise.all([
+      // Look up nickname, week title, and latest transaction balance
+      const [userResult, weekResult, latestTxResult] = await Promise.all([
         supabase.from("users").select("nickname").eq("id", fineRecord.user_id).single() as unknown as Promise<{ data: { nickname: string } | null }>,
         supabase.from("weeks").select("title").eq("id", fineRecord.week_id).single() as unknown as Promise<{ data: { title: string } | null }>,
+        supabase.from("transactions").select("balance").order("created_at", { ascending: false }).limit(1).maybeSingle() as unknown as Promise<{ data: { balance: number } | null }>,
       ]);
 
       const targetNickname = userResult.data?.nickname ?? "알 수 없음";
       const weekTitle = weekResult.data?.title ?? "";
+      const previousBalance = latestTxResult.data?.balance ?? 0;
+      const newBalance = previousBalance + fineRecord.fine_amount;
 
       await supabase.from("transactions").insert({
         description: `벌금 납부 - ${targetNickname}`,
         income: fineRecord.fine_amount,
         expense: 0,
-        balance: 0,
+        balance: newBalance,
         transacted_by: targetNickname,
         note: weekTitle,
       } as never);

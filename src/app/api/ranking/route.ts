@@ -1,5 +1,6 @@
 import { createClient, PostgrestError } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
 interface WeekRow { id: string }
@@ -9,7 +10,7 @@ interface ReportRow { user_id: string; current_streak: number; max_streak: numbe
 
 type QResult<T> = { data: T[] | null; error: PostgrestError | null };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -112,7 +113,23 @@ export async function GET() {
       return { rank: currentRank, ...item };
     });
 
-    return NextResponse.json(result);
+    // Calculate percentile for the requesting user
+    let myPercentile: number | null = null;
+    try {
+      const sSupabase = await createServerSupabase();
+      const { data: { user: authUser } } = await sSupabase.auth.getUser();
+      if (authUser) {
+        const totalUsers = result.length;
+        const myEntry = result.find((r: { userId: string }) => r.userId === authUser.id);
+        if (myEntry && totalUsers > 0) {
+          myPercentile = Math.round(((totalUsers - myEntry.rank) / totalUsers) * 100);
+        }
+      }
+    } catch {
+      // ignore - percentile is optional
+    }
+
+    return NextResponse.json({ rankings: result, myPercentile });
   } catch (error) {
     console.error("Ranking API error:", error);
     return NextResponse.json(

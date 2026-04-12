@@ -38,6 +38,7 @@ export default function RankingPage() {
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [myPercentile, setMyPercentile] = useState<number | null>(null);
   const [myStats, setMyStats] = useState({
     totalWorkouts: 0,
     currentStreak: 0,
@@ -56,8 +57,12 @@ export default function RankingPage() {
         // Fetch ranking from API
         const res = await fetch("/api/ranking");
         if (res.ok) {
-          const data: RankingEntry[] = await res.json();
+          const json = await res.json();
+          const data: RankingEntry[] = json.rankings ?? json;
           setRankings(data);
+          if (json.myPercentile !== undefined && json.myPercentile !== null) {
+            setMyPercentile(json.myPercentile);
+          }
 
           // Set my stats from ranking data
           if (user) {
@@ -267,6 +272,33 @@ export default function RankingPage() {
                   {entry.nickname}
                 </span>
 
+                {/* Percentile badge for current user in podium */}
+                {entry.userId === currentUserId && myPercentile !== null && (
+                  <span
+                    style={{
+                      padding: "1px 6px",
+                      borderRadius: "9999px",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      marginBottom: 4,
+                      background:
+                        myPercentile >= 70
+                          ? "#00E67630"
+                          : myPercentile >= 30
+                            ? "#FFD60030"
+                            : "#44444430",
+                      color:
+                        myPercentile >= 70
+                          ? "#00E676"
+                          : myPercentile >= 30
+                            ? "#FFD600"
+                            : "#666666",
+                    }}
+                  >
+                    상위 {100 - myPercentile}%
+                  </span>
+                )}
+
                 {/* Score */}
                 <span
                   style={{
@@ -419,6 +451,31 @@ export default function RankingPage() {
                         }}
                       >
                         (나)
+                      </span>
+                    )}
+                    {isMe && myPercentile !== null && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          padding: "1px 6px",
+                          borderRadius: "9999px",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          background:
+                            myPercentile >= 70
+                              ? "#00E67630"
+                              : myPercentile >= 30
+                                ? "#FFD60030"
+                                : "#44444430",
+                          color:
+                            myPercentile >= 70
+                              ? "#00E676"
+                              : myPercentile >= 30
+                                ? "#FFD600"
+                                : "#666666",
+                        }}
+                      >
+                        상위 {100 - myPercentile}%
                       </span>
                     )}
                   </div>

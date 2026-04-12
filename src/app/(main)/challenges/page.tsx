@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Target, Calendar, Trophy, Loader2 } from "lucide-react";
+import { Target, Calendar, Trophy, Loader2, Users, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import type { Challenge } from "@/types/database";
 
 type StatusFilter = "전체" | "진행 중" | "예정" | "종료";
+
+interface ChallengeStats {
+  participants: { nickname: string; count: number }[];
+  myCount: number;
+  target: number;
+}
 
 function getChallengeStatus(
   challenge: Challenge,
@@ -44,8 +50,26 @@ export default function ChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("전체");
+  const [statsMap, setStatsMap] = useState<Record<string, ChallengeStats>>({});
 
   const today = format(new Date(), "yyyy-MM-dd");
+
+  const fetchStats = useCallback(async (activeChallenges: Challenge[]) => {
+    const results: Record<string, ChallengeStats> = {};
+    await Promise.all(
+      activeChallenges.map(async (c) => {
+        try {
+          const res = await fetch(`/api/challenges/stats?challengeId=${c.id}`);
+          if (res.ok) {
+            results[c.id] = await res.json();
+          }
+        } catch {
+          // ignore individual failures
+        }
+      }),
+    );
+    setStatsMap(results);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -55,7 +79,13 @@ export default function ChallengesPage() {
           .select("*")
           .order("start_date", { ascending: false });
 
-        if (data) setChallenges(data);
+        if (data) {
+          setChallenges(data);
+          const active = data.filter((c) => getChallengeStatus(c, today) === "진행 중");
+          if (active.length > 0) {
+            fetchStats(active);
+          }
+        }
       } catch (err) {
         console.error("Failed to load challenges:", err);
       } finally {
@@ -64,7 +94,7 @@ export default function ChallengesPage() {
     }
 
     load();
-  }, [supabase]);
+  }, [supabase, today, fetchStats]);
 
   const filters: StatusFilter[] = ["전체", "진행 중", "예정", "종료"];
 
@@ -396,6 +426,120 @@ export default function ChallengesPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Participation stats for active challenges */}
+                  {status === "진행 중" && statsMap[challenge.id] && (() => {
+                    const stats = statsMap[challenge.id];
+                    const topParticipants = stats.participants.slice(0, 5);
+                    const achieved = stats.myCount >= stats.target;
+
+                    return (
+                      <div
+                        style={{
+                          background: "#111111",
+                          borderRadius: "12px",
+                          padding: "0.875rem",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.625rem",
+                        }}
+                      >
+                        {/* My progress */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.375rem",
+                              fontSize: "0.8125rem",
+                              fontWeight: 600,
+                              color: "#FFFFFF",
+                            }}
+                          >
+                            <Target size={14} style={{ color: "#00E676" }} />
+                            내 진행: {stats.myCount} / {stats.target}회
+                          </div>
+                          {achieved && (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                                padding: "0.2rem 0.5rem",
+                                borderRadius: "9999px",
+                                background: "#00E67630",
+                                color: "#00E676",
+                                fontSize: "0.6875rem",
+                                fontWeight: 700,
+                              }}
+                            >
+                              <CheckCircle size={12} />
+                              목표 달성
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Top participants */}
+                        {topParticipants.length > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.375rem",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.375rem",
+                                fontSize: "0.6875rem",
+                                fontWeight: 600,
+                                color: "#666666",
+                              }}
+                            >
+                              <Users size={12} />
+                              참여 현황
+                            </div>
+                            {topParticipants.map((p, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  fontSize: "0.75rem",
+                                  color: "#CCCCCC",
+                                  padding: "0.125rem 0",
+                                }}
+                              >
+                                <span>
+                                  <span style={{ color: "#666666", marginRight: "0.375rem" }}>
+                                    {i + 1}.
+                                  </span>
+                                  {p.nickname}
+                                </span>
+                                <span
+                                  style={{
+                                    fontWeight: 700,
+                                    color: p.count >= stats.target ? "#00E676" : "#FFFFFF",
+                                  }}
+                                >
+                                  {p.count}회
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </motion.article>
             );

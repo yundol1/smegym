@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, Week, CheckIn, Notice } from "@/types/database";
+import { parseISO, addDays, format, differenceInCalendarDays } from "date-fns";
 
 type CheckStatus = "O" | "△" | "X" | "☆" | null;
 
@@ -76,19 +77,44 @@ export default function DashboardPage() {
 
           if (weekCheckIns) setCheckIns(weekCheckIns);
 
-          // Calculate streak: count consecutive days with 'O' or '☆', breaking on other status or gap
+          // Calculate streak: date-based consecutive workout days
+          // Fetch all check-ins with their week info to compute actual dates
           const { data: allCheckIns } = (await supabase
             .from("check_ins")
-            .select("*")
-            .eq("user_id", authUser.id)
-            .order("created_at", { ascending: false })
-            .limit(100)) as unknown as { data: CheckIn[] | null };
+            .select("*, weeks!inner(start_date)")
+            .eq("user_id", authUser.id)) as unknown as {
+            data: (CheckIn & { weeks: { start_date: string } })[] | null;
+          };
 
           if (allCheckIns) {
-            let s = 0;
+            // Build a set of date strings (YYYY-MM-DD) where user had a workout (O or ☆)
+            const workoutDates = new Set<string>();
             for (const ci of allCheckIns) {
-              if (ci.status === "O" || ci.status === "☆") s++;
-              else break;
+              if (ci.status === "O" || ci.status === "☆") {
+                const weekStart = parseISO(ci.weeks.start_date);
+                const actualDate = addDays(weekStart, ci.day_of_week - 1);
+                workoutDates.add(format(actualDate, "yyyy-MM-dd"));
+              }
+            }
+
+            // Count consecutive days backwards from today
+            const today = new Date();
+            let s = 0;
+            let checkDate = today;
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+              const dateStr = format(checkDate, "yyyy-MM-dd");
+              if (workoutDates.has(dateStr)) {
+                s++;
+                checkDate = addDays(checkDate, -1);
+              } else {
+                // If today has no workout yet, don't break - check from yesterday
+                if (differenceInCalendarDays(today, checkDate) === 0 && s === 0) {
+                  checkDate = addDays(checkDate, -1);
+                  continue;
+                }
+                break;
+              }
             }
             setStreak(s);
           }
