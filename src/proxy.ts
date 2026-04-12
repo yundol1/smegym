@@ -33,14 +33,19 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 인증이 필요 없는 페이지 (로그인, 회원가입, 비밀번호 찾기, API 라우트)
+  // 인증이 필요 없는 페이지
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register") ||
     request.nextUrl.pathname.startsWith("/forgot-password");
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
+  // 비밀번호 리셋 관련 API만 비인증 허용 (나머지 API는 인증 필수)
+  const isPublicApi =
+    request.nextUrl.pathname.startsWith("/api/auth/reset-password") ||
+    request.nextUrl.pathname.startsWith("/api/auth/lookup-user") ||
+    request.nextUrl.pathname.startsWith("/api/auth/verify-security-answer") ||
+    request.nextUrl.pathname.startsWith("/api/auth/signout");
 
-  if (!user && !isAuthPage && !isApiRoute) {
+  if (!user && !isAuthPage && !isPublicApi) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

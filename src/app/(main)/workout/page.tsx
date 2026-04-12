@@ -161,7 +161,7 @@ export default function WorkoutPage() {
     setUploading(true);
     try {
       const ext = selectedFile.name.split(".").pop() || "jpg";
-      const filePath = `workout-photos/${user.id}/${currentWeek.id}_${selectedDay.dayOfWeek}.${ext}`;
+      const filePath = `${user.id}/${currentWeek.id}_${selectedDay.dayOfWeek}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("workout-photos")

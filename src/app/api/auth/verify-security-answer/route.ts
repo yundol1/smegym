@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "crypto";
+
+function hashAnswer(answer: string): string {
+  return createHash("sha256")
+    .update(answer.trim().toLowerCase())
+    .digest("hex");
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,11 +51,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 대소문자 무시 비교
-    if (
-      securityAnswer.trim().toLowerCase() !==
-      user.security_answer.trim().toLowerCase()
-    ) {
+    // 입력값을 해시하여 저장된 해시와 비교
+    const inputHash = hashAnswer(securityAnswer);
+    if (inputHash !== user.security_answer) {
       return NextResponse.json(
         { error: "보안 답변이 일치하지 않습니다." },
         { status: 401 }
