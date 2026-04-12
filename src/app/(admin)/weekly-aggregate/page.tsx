@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarCheck,
@@ -35,7 +35,7 @@ interface AggregationSummary {
 
 export default function WeeklyAggregatePage() {
   const { user } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [currentWeek, setCurrentWeek] = useState<Week | null>(null);
   const [lastAggregatedWeek, setLastAggregatedWeek] = useState<

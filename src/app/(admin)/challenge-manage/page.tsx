@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy,
@@ -55,7 +55,7 @@ const labelStyle: React.CSSProperties = {
 
 export default function ChallengeManagePage() {
   const { user } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [isFetching, setIsFetching] = useState(true);
