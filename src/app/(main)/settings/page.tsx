@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Settings,
@@ -59,16 +60,12 @@ export default function SettingsPage() {
     {
       label: "프로필 수정",
       icon: <UserIcon size={20} style={{ color: "#00E676" }} />,
-      onClick: () => {
-        /* TODO: navigate to profile edit */
-      },
+      href: "/settings/profile",
     },
     {
       label: "비밀번호 변경",
       icon: <KeyRound size={20} style={{ color: "#00B0FF" }} />,
-      onClick: () => {
-        /* TODO: navigate to password change */
-      },
+      href: "/settings/password",
     },
   ];
 
@@ -191,10 +188,9 @@ export default function SettingsPage() {
         }}
       >
         {menuItems.map((item, i) => (
-          <motion.button
+          <Link
             key={item.label}
-            whileTap={{ scale: 0.98 }}
-            onClick={item.onClick}
+            href={item.href}
             style={{
               display: "flex",
               alignItems: "center",
@@ -202,11 +198,10 @@ export default function SettingsPage() {
               width: "100%",
               padding: "1rem 1.25rem",
               background: "transparent",
-              border: "none",
               borderBottom:
                 i < menuItems.length - 1 ? "1px solid #222222" : "none",
               cursor: "pointer",
-              textAlign: "left",
+              textDecoration: "none",
             }}
           >
             {item.icon}
@@ -221,7 +216,7 @@ export default function SettingsPage() {
               {item.label}
             </span>
             <ChevronRight size={18} style={{ color: "#444444" }} />
-          </motion.button>
+          </Link>
         ))}
       </motion.section>
 
