@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { nicknameToEmail } from "@/lib/utils/nickname";
 
 async function hashSecurityAnswer(answer: string): Promise<string> {
   const normalized = answer.trim().toLowerCase();
@@ -109,7 +110,7 @@ export default function RegisterPage() {
     }
 
     try {
-      const email = `${nickname}@smegym.noreply.com`;
+      const email = nicknameToEmail(nickname);
 
       // Check if nickname already exists
       const { data: existingUser } = await supabase

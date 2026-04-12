@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { nicknameToEmail } from "@/lib/utils/nickname";
 import type { User } from "@/types/database";
 
 const NICKNAME_REGEX = /^[a-zA-Z0-9가-힣_-]+$/;
@@ -52,7 +53,7 @@ export default function LoginPage() {
     }
 
     try {
-      const email = `${nickname}@smegym.noreply.com`;
+      const email = nicknameToEmail(nickname);
 
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({

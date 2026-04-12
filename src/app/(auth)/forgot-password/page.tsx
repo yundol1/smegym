@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { nicknameToEmail } from "@/lib/utils/nickname";
 
 type Step = "nickname" | "security" | "reset";
 
@@ -136,7 +137,7 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const email = `${nickname}@smegym.noreply.com`;
+      const email = nicknameToEmail(nickname);
 
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
