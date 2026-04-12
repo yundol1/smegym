@@ -33,13 +33,13 @@ interface GalleryCheckIn {
 type EmojiType = "fire" | "muscle" | "chili";
 
 const EMOJI_MAP: Record<EmojiType, string> = {
-  fire: "\uD83D\uDD25",
-  muscle: "\uD83D\uDCAA",
-  chili: "\uD83C\uDF36\uFE0F",
+  fire: "🔥",
+  muscle: "💪",
+  chili: "🌶️",
 };
 
-const DAY_LABELS = ["", "\uC6D4", "\uD654", "\uC218", "\uBAA9", "\uD504", "\uD1A0", "\uC77C"];
-const DAY_EMOJI = ["", "\uD83D\uDCAA", "\uD83C\uDFC3", "\uD83E\uDD38", "\uD83C\uDFCB\uFE0F", "\uD83E\uDDD8", "\u26BD", "\uD83D\uDECC"];
+const DAY_LABELS = ["", "월", "화", "수", "목", "프", "토", "일"];
+const DAY_EMOJI = ["", "💪", "🏃", "🤸", "🏋️", "🧘", "⚽", "🛌"];
 
 /* ─── Palette (Design C - Sporty Dark) ─── */
 const C = {
@@ -376,7 +376,7 @@ export default function GalleryPage() {
                 letterSpacing: "-0.03em",
               }}
             >
-              {"\uD83D\uDCF8"} \uAC24\uB7EC\uB9AC
+              {"📸"} 갤러리
             </h1>
             <p
               style={{
@@ -385,7 +385,7 @@ export default function GalleryPage() {
                 marginTop: "0.25rem",
               }}
             >
-              \uBA64\uBC84\uB4E4\uC758 \uC6B4\uB3D9 \uC778\uC99D \uD53C\uB4DC
+              멤버들의 운동 인증 피드
             </p>
           </div>
           <motion.button
@@ -465,7 +465,7 @@ export default function GalleryPage() {
                 color: C.textSub,
               }}
             >
-              \uC544\uC9C1 \uACF5\uC720\uB41C \uC778\uC99D\uC774 \uC5C6\uC5B4\uC694
+              아직 공유된 인증이 없어요
             </p>
             <p
               style={{
@@ -474,8 +474,8 @@ export default function GalleryPage() {
                 textAlign: "center",
               }}
             >
-              \uC6B4\uB3D9 \uC778\uC99D \uC2DC \uACF5\uAC1C\uB85C \uC124\uC815\uD558\uBA74{"\n"}
-              \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4
+              운동 인증 시 공개로 설정하면{"\n"}
+              여기에 표시됩니다
             </p>
           </motion.div>
         )}
@@ -593,7 +593,7 @@ export default function GalleryPage() {
                                 borderRadius: "999px",
                               }}
                             >
-                              {dayEmoji} {dayLabel}\uC694\uC77C \uC6B4\uB3D9
+                              {dayEmoji} {dayLabel}요일 운동
                             </span>
                           )}
                         </div>
@@ -645,7 +645,7 @@ export default function GalleryPage() {
                       >
                         <img
                           src={item.imageUrl}
-                          alt="\uC6B4\uB3D9 \uC778\uC99D"
+                          alt="운동 인증"
                           style={{
                             width: "100%",
                             height: expandedImage === item.id ? "auto" : "240px",
@@ -783,7 +783,7 @@ export default function GalleryPage() {
                     }}
                   >
                     <ChevronDown size={16} />
-                    \uB354 \uBCF4\uAE30
+                    더 보기
                   </motion.button>
                 )}
               </div>
@@ -799,7 +799,7 @@ export default function GalleryPage() {
                   padding: "1.5rem 0",
                 }}
               >
-                \uBAA8\uB4E0 \uC778\uC99D\uC744 \uD655\uC778\uD588\uC5B4\uC694
+                모든 인증을 확인했어요
               </p>
             )}
           </div>

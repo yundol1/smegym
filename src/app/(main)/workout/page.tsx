@@ -297,121 +297,115 @@ export default function WorkoutPage() {
         </div>
       </header>
 
-      {/* Horizontal Scrollable Day Cards */}
+      {/* Day Cards - Vertical List */}
       <section
-        ref={scrollRef}
         style={{
           display: "flex",
+          flexDirection: "column",
           gap: "0.75rem",
-          overflowX: "auto",
-          paddingBottom: "0.5rem",
-          scrollSnapType: "x mandatory",
-          WebkitOverflowScrolling: "touch",
-          msOverflowStyle: "none",
-          scrollbarWidth: "none",
         }}
       >
         {days.map((day, i) => {
           const status = day.checkIn?.status ?? null;
           const badge = getStatusBadge(status);
           const isClickable = !day.checkIn;
-          const hasImage = day.checkIn?.image_url;
+          const todayDow = new Date().getDay();
+          const todayIdx = todayDow === 0 ? 7 : todayDow;
+          const isToday = day.dayOfWeek === todayIdx;
 
           return (
             <motion.div
               key={day.dayOfWeek}
               data-testid={`day-card-${day.dayOfWeek}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06 }}
-              onClick={() => isClickable && handleDayClick(day)}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
               style={{
-                flex: "0 0 140px",
-                height: "200px",
                 background: "#1A1A1A",
                 borderRadius: "var(--radius)",
-                border: `1px solid ${status === "O" ? "rgba(0,230,118,0.3)" : "#222222"}`,
-                cursor: isClickable ? "pointer" : "default",
+                border: `1px solid ${isToday ? "rgba(0,230,118,0.4)" : status === "O" ? "rgba(0,230,118,0.2)" : "#222222"}`,
+                padding: "1rem 1.25rem",
                 display: "flex",
-                flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: "0.625rem",
-                padding: "1rem 0.75rem",
-                scrollSnapAlign: "start",
+                gap: "1rem",
                 position: "relative",
                 overflow: "hidden",
-                transition: "border-color 0.2s ease",
               }}
             >
-              {/* Photo thumbnail as background if available */}
-              {hasImage && signedUrls[day.dayOfWeek] && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundImage: `url(${signedUrls[day.dayOfWeek]})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    opacity: 0.15,
-                  }}
-                />
-              )}
-
-              {/* Big day number */}
-              <span
-                style={{
-                  fontSize: "2.5rem",
-                  fontWeight: 900,
-                  fontFamily: "var(--font-heading)",
-                  color: "#FFFFFF",
-                  lineHeight: 1,
-                  position: "relative",
-                }}
-              >
-                {format(day.date, "d")}
-              </span>
-
-              {/* Day name */}
-              <span
-                style={{
-                  fontSize: "0.8125rem",
-                  fontWeight: 600,
-                  color: "#666666",
-                  position: "relative",
-                }}
-              >
-                {day.label}요일
-              </span>
-
-              {/* Status badge */}
+              {/* Day badge */}
               <div
                 style={{
-                  padding: "0.25rem 0.75rem",
-                  borderRadius: "2rem",
-                  background: badge.bg,
-                  color: badge.color,
-                  fontSize: "0.6875rem",
-                  fontWeight: 700,
-                  position: "relative",
+                  width: "3rem",
+                  height: "3rem",
+                  borderRadius: "0.875rem",
+                  background: isToday ? "rgba(0,230,118,0.15)" : "#222222",
+                  border: isToday ? "1px solid rgba(0,230,118,0.3)" : "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
-                {badge.label}
+                <span style={{ fontSize: "1.125rem", fontWeight: 900, fontFamily: "var(--font-heading)", color: "#FFFFFF", lineHeight: 1 }}>
+                  {format(day.date, "d")}
+                </span>
+                <span style={{ fontSize: "0.625rem", color: "#666666", fontWeight: 600 }}>
+                  {day.label}
+                </span>
               </div>
 
-              {/* Camera icon for unsubmitted */}
-              {!day.checkIn && (
-                <Camera
-                  size={16}
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#FFFFFF" }}>
+                  {day.label}요일{isToday && <span style={{ color: "#00E676", marginLeft: "0.5rem", fontSize: "0.75rem" }}>오늘</span>}
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#666666", marginTop: "0.125rem" }}>
+                  {status === "O" && "관리자 승인 완료"}
+                  {status === "△" && "검토를 기다리는 중..."}
+                  {status === "X" && `반려: ${day.checkIn?.reject_reason || ""}`}
+                  {status === "☆" && "면제 승인됨"}
+                  {!status && "사진을 업로드해주세요"}
+                </div>
+              </div>
+
+              {/* Status badge or Upload button */}
+              {day.checkIn ? (
+                <div
                   style={{
-                    color: "#00E676",
-                    opacity: 0.5,
-                    position: "relative",
+                    padding: "0.375rem 0.75rem",
+                    borderRadius: "2rem",
+                    background: badge.bg,
+                    color: badge.color,
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    whiteSpace: "nowrap",
                   }}
-                />
+                >
+                  {badge.label}
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleDayClick(day)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    borderRadius: "2rem",
+                    background: "#00E676",
+                    color: "#0A0A0A",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.375rem",
+                    whiteSpace: "nowrap",
+                    boxShadow: "0 0 15px rgba(0,230,118,0.2)",
+                  }}
+                >
+                  <Camera size={14} />
+                  업로드
+                </button>
               )}
             </motion.div>
           );
