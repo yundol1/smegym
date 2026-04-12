@@ -69,7 +69,7 @@ const moreMenuAdminItems: MenuItem[] = [
   { label: "벌금관리", icon: <Wallet size={20} />, href: "/fine-manage" },
   { label: "멤버관리", icon: <Users size={20} />, href: "/member-manage" },
   { label: "주간집계", icon: <BarChart3 size={20} />, href: "/weekly-aggregate" },
-  { label: "공지작성", icon: <Megaphone size={20} />, href: "/notice-create" },
+  { label: "공지작성", icon: <Megaphone size={20} />, href: "/notice-write" },
   { label: "챌린지관리", icon: <ListChecks size={20} />, href: "/challenge-manage" },
 ];
 
@@ -79,6 +79,8 @@ const adminMenuItems: MenuItem[] = [
   { label: "벌금관리", icon: <Wallet size={20} />, href: "/fine-manage" },
   { label: "멤버관리", icon: <Users size={20} />, href: "/member-manage" },
   { label: "주간집계", icon: <BarChart3 size={20} />, href: "/weekly-aggregate" },
+  { label: "공지작성", icon: <Megaphone size={20} />, href: "/notice-write" },
+  { label: "챌린지관리", icon: <ListChecks size={20} />, href: "/challenge-manage" },
 ];
 
 interface SidebarProps {

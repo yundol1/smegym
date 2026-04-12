@@ -41,11 +41,21 @@ interface ReportData {
   ai_coach_uses: number;
 }
 
+interface FineStatsData {
+  myTotal: number;
+  avgTotal: number;
+  maxTotal: number;
+  minTotal: number;
+  percentile: number;
+  totalMembers: number;
+}
+
 const dayLabels = ["월", "화", "수", "목", "금", "토", "일"];
 
 export default function ReportPage() {
   const router = useRouter();
   const [report, setReport] = useState<ReportData | null>(null);
+  const [fineStats, setFineStats] = useState<FineStatsData | null>(null);
   const [periodLabel, setPeriodLabel] = useState("");
   const [totalWorkouts, setTotalWorkouts] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,9 +64,12 @@ export default function ReportPage() {
   useEffect(() => {
     async function fetchReport() {
       try {
-        const res = await fetch("/api/report");
-        if (!res.ok) throw new Error("Failed to fetch report");
-        const data = await res.json();
+        const [reportRes, fineStatsRes] = await Promise.all([
+          fetch("/api/report"),
+          fetch("/api/fine-stats"),
+        ]);
+        if (!reportRes.ok) throw new Error("Failed to fetch report");
+        const data = await reportRes.json();
         setReport(data.report);
         setPeriodLabel(data.periodLabel);
 
@@ -71,6 +84,11 @@ export default function ReportPage() {
             r.sat_count +
             r.sun_count;
         setTotalWorkouts(total);
+
+        if (fineStatsRes.ok) {
+          const fData = await fineStatsRes.json();
+          setFineStats(fData);
+        }
       } catch {
         setError("데이터를 불러오는데 실패했습니다.");
       } finally {
@@ -471,6 +489,185 @@ export default function ReportPage() {
           </motion.div>
         ))}
       </div>
+
+      {/* Fines Comparison Section */}
+      {fineStats && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          style={cardStyle}
+        >
+          <div
+            style={{
+              ...labelStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.375rem",
+            }}
+          >
+            <Wallet size={14} style={{ color: "#FF9800" }} />
+            벌금 현황 비교
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0.75rem",
+              marginTop: "0.75rem",
+            }}
+          >
+            <div
+              style={{
+                background: "#0A0A0A",
+                borderRadius: "12px",
+                padding: "0.875rem",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: "0.75rem", color: "#666666", marginBottom: "0.25rem" }}>
+                내 벌금
+              </div>
+              <div
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FF9800",
+                }}
+              >
+                {fineStats.myTotal.toLocaleString()}
+                <span style={{ fontSize: "0.75rem", color: "#666666", marginLeft: "0.125rem" }}>원</span>
+              </div>
+            </div>
+            <div
+              style={{
+                background: "#0A0A0A",
+                borderRadius: "12px",
+                padding: "0.875rem",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: "0.75rem", color: "#666666", marginBottom: "0.25rem" }}>
+                평균 벌금
+              </div>
+              <div
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FFFFFF",
+                }}
+              >
+                {fineStats.avgTotal.toLocaleString()}
+                <span style={{ fontSize: "0.75rem", color: "#666666", marginLeft: "0.125rem" }}>원</span>
+              </div>
+            </div>
+            <div
+              style={{
+                background: "#0A0A0A",
+                borderRadius: "12px",
+                padding: "0.875rem",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: "0.75rem", color: "#666666", marginBottom: "0.25rem" }}>
+                상위 백분위
+              </div>
+              <div
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#00E676",
+                }}
+              >
+                {fineStats.percentile}
+                <span style={{ fontSize: "0.75rem", color: "#666666", marginLeft: "0.125rem" }}>%</span>
+              </div>
+            </div>
+            <div
+              style={{
+                background: "#0A0A0A",
+                borderRadius: "12px",
+                padding: "0.875rem",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: "0.75rem", color: "#666666", marginBottom: "0.25rem" }}>
+                전체 인원
+              </div>
+              <div
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 900,
+                  fontFamily: "var(--font-heading)",
+                  color: "#FFFFFF",
+                }}
+              >
+                {fineStats.totalMembers}
+                <span style={{ fontSize: "0.75rem", color: "#666666", marginLeft: "0.125rem" }}>명</span>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+      )}
+
+      {/* Exemption Summary Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        style={{
+          ...cardStyle,
+          background: "linear-gradient(135deg, #1A1A1A 0%, #0D1F2D 100%)",
+          border: "1px solid rgba(128, 203, 196, 0.2)",
+        }}
+      >
+        <div
+          style={{
+            ...labelStyle,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.375rem",
+          }}
+        >
+          <ShieldCheck size={14} style={{ color: "#80CBC4" }} />
+          면제 현황
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: "0.5rem",
+            marginTop: "0.5rem",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "2rem",
+              fontWeight: 900,
+              fontFamily: "var(--font-heading)",
+              color: "#80CBC4",
+            }}
+          >
+            {report.total_exemptions}
+          </span>
+          <span style={{ fontSize: "0.875rem", color: "#666666" }}>
+            건 승인됨
+          </span>
+        </div>
+        <p
+          style={{
+            fontSize: "0.75rem",
+            color: "#555555",
+            marginTop: "0.5rem",
+            lineHeight: 1.5,
+          }}
+        >
+          이번 반기 동안 승인된 면제 건수입니다.
+        </p>
+      </motion.section>
     </main>
   );
 }

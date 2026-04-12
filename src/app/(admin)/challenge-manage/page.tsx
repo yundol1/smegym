@@ -13,6 +13,7 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle,
+  ImagePlus,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -72,6 +73,8 @@ export default function ChallengeManagePage() {
   const [targetCount, setTargetCount] = useState("");
   const [reward, setReward] = useState("");
   const [description, setDescription] = useState("");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
   const fetchChallenges = useCallback(async () => {
     setIsFetching(true);
@@ -95,6 +98,17 @@ export default function ChallengeManagePage() {
     setTargetCount("");
     setReward("");
     setDescription("");
+    setBannerFile(null);
+    setBannerPreview(null);
+  };
+
+  const handleBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBannerFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setBannerPreview(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   const showSuccess = (msg: string) => {
@@ -112,6 +126,25 @@ export default function ChallengeManagePage() {
     setError(null);
 
     try {
+      // Upload banner image if selected
+      let bannerImageUrl: string | null = null;
+      if (bannerFile) {
+        const ext = bannerFile.name.split(".").pop() ?? "jpg";
+        const filePath = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("challenge-banners")
+          .upload(filePath, bannerFile, { cacheControl: "3600", upsert: false });
+        if (uploadError) {
+          setError("배너 이미지 업로드 실패: " + uploadError.message);
+          setIsCreating(false);
+          return;
+        }
+        const { data: publicUrlData } = supabase.storage
+          .from("challenge-banners")
+          .getPublicUrl(filePath);
+        bannerImageUrl = publicUrlData.publicUrl;
+      }
+
       const res = await fetch("/api/admin/challenges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,6 +155,7 @@ export default function ChallengeManagePage() {
           target_count: parseInt(targetCount, 10),
           reward: reward.trim() || null,
           description: description.trim() || null,
+          banner_image_url: bannerImageUrl,
         }),
       });
 
@@ -318,6 +352,39 @@ export default function ChallengeManagePage() {
                 lineHeight: 1.5,
               }}
             />
+          </div>
+
+          {/* Banner image */}
+          <div>
+            <div style={labelStyle}>
+              <ImagePlus size={14} />
+              배너 이미지
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleBannerSelect}
+              style={{
+                ...inputStyle,
+                padding: "10px 14px",
+                cursor: "pointer",
+              }}
+            />
+            {bannerPreview && (
+              <div style={{ marginTop: 10 }}>
+                <img
+                  src={bannerPreview}
+                  alt="배너 미리보기"
+                  style={{
+                    width: "100%",
+                    maxHeight: 200,
+                    objectFit: "cover",
+                    borderRadius: "12px",
+                    border: `1px solid ${C.textSub}33`,
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Submit */}

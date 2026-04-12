@@ -12,6 +12,9 @@ import {
   ChevronRight,
   Loader2,
   Calendar,
+  HardDrive,
+  Menu,
+  Info,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -218,6 +221,116 @@ export default function SettingsPage() {
             <ChevronRight size={18} style={{ color: "#444444" }} />
           </Link>
         ))}
+      </motion.section>
+
+      {/* Storage Info */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        style={{
+          background: "#1A1A1A",
+          borderRadius: "20px",
+          padding: "1.25rem",
+          border: "1px solid #222222",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginBottom: "0.75rem",
+          }}
+        >
+          <HardDrive size={18} style={{ color: "#00B0FF" }} />
+          <span
+            style={{
+              fontSize: "0.9375rem",
+              fontWeight: 700,
+              color: "#FFFFFF",
+            }}
+          >
+            저장소 사용량
+          </span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "0.5rem",
+            padding: "0.75rem",
+            background: "#0A0A0A",
+            borderRadius: "12px",
+          }}
+        >
+          <Info size={14} style={{ color: "#666666", marginTop: "0.125rem", flexShrink: 0 }} />
+          <p
+            style={{
+              fontSize: "0.8125rem",
+              color: "#666666",
+              lineHeight: 1.6,
+              margin: 0,
+            }}
+          >
+            운동 인증 사진은 자동 압축되어 저장됩니다. (최대 10MB/장)
+          </p>
+        </div>
+      </motion.section>
+
+      {/* Menu Customization Note */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.18 }}
+        style={{
+          background: "#1A1A1A",
+          borderRadius: "20px",
+          padding: "1.25rem",
+          border: "1px solid #222222",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginBottom: "0.75rem",
+          }}
+        >
+          <Menu size={18} style={{ color: "#CE93D8" }} />
+          <span
+            style={{
+              fontSize: "0.9375rem",
+              fontWeight: 700,
+              color: "#FFFFFF",
+            }}
+          >
+            메뉴 설정
+          </span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "0.5rem",
+            padding: "0.75rem",
+            background: "#0A0A0A",
+            borderRadius: "12px",
+          }}
+        >
+          <Info size={14} style={{ color: "#666666", marginTop: "0.125rem", flexShrink: 0 }} />
+          <p
+            style={{
+              fontSize: "0.8125rem",
+              color: "#666666",
+              lineHeight: 1.6,
+              margin: 0,
+            }}
+          >
+            메뉴 커스터마이징은 향후 업데이트 예정입니다
+          </p>
+        </div>
       </motion.section>
 
       {/* Sign Out */}

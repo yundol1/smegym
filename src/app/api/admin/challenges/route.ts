@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { title, start_date, end_date, target_count, reward, description } =
+    const { title, start_date, end_date, target_count, reward, description, banner_image_url } =
       body;
 
     if (!title || !start_date || !end_date || !target_count) {
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         target_count,
         reward: reward || null,
         description: description || null,
+        banner_image_url: banner_image_url || null,
       })
       .select()
       .single();

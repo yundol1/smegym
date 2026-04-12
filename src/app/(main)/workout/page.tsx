@@ -80,6 +80,66 @@ function compressImage(file: File): Promise<File> {
   });
 }
 
+function addTimestamp(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { width, height } = img;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+
+      // Draw original image
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Semi-transparent bar at the bottom
+      const barHeight = 40;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+      ctx.fillRect(0, height - barHeight, width, barHeight);
+
+      // Timestamp text
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mi = String(now.getMinutes()).padStart(2, "0");
+      const timestamp = `SME GYM \u00b7 ${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(timestamp, width / 2, height - barHeight / 2);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.92
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("이미지를 불러올 수 없습니다."));
+    };
+    img.src = url;
+  });
+}
+
 interface DayCard {
   dayOfWeek: number;
   label: string;
@@ -285,12 +345,19 @@ export default function WorkoutPage() {
 
     setUploading(true);
     try {
+      // Add SME GYM timestamp watermark
+      const timestampedBlob = await addTimestamp(selectedFile);
+      const timestampedFile = new File([timestampedBlob], selectedFile.name, {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
+
       const ext = selectedFile.name.split(".").pop() || "jpg";
       const filePath = `${user.id}/${currentWeek.id}_${selectedDay.dayOfWeek}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("workout-photos")
-        .upload(filePath, selectedFile, { upsert: true });
+        .upload(filePath, timestampedFile, { upsert: true });
 
       if (uploadError) throw uploadError;
 

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       .eq("id", userId)
       .single()) as unknown as {
       data: { security_answer: string | null } | null;
-      error: any;
+      error: { message: string; code?: string } | null;
     };
 
     if (fetchError || !user || !user.security_answer) {
