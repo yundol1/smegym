@@ -95,18 +95,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Generate signed URLs for images
+    // Generate signed URLs for images (썸네일 우선, 없으면 원본)
     const result = await Promise.all(
       checkIns.map(async (ci) => {
         let signedImageUrl: string | null = null;
+        let signedFullUrl: string | null = null;
         if (ci.image_url && ci.image_url.startsWith(ci.user_id + "/")) {
-          // image_url이 해당 유저의 폴더에 속하는지 검증
-          const { data } = await supabaseAdmin.storage
-            .from("workout-photos")
-            .createSignedUrl(ci.image_url, 3600);
-          if (data?.signedUrl) {
-            signedImageUrl = data.signedUrl;
-          }
+          // 썸네일 경로 생성: {path}.jpg → {path}_thumb.jpg
+          const thumbPath = ci.image_url.replace(/\.([^.]+)$/, "_thumb.jpg");
+
+          // 썸네일과 원본 signed URL 병렬 생성
+          const [thumbRes, fullRes] = await Promise.all([
+            supabaseAdmin.storage.from("workout-photos").createSignedUrl(thumbPath, 3600),
+            supabaseAdmin.storage.from("workout-photos").createSignedUrl(ci.image_url, 3600),
+          ]);
+
+          // 썸네일이 있으면 썸네일, 없으면 원본 사용
+          signedImageUrl = thumbRes.data?.signedUrl || fullRes.data?.signedUrl || null;
+          signedFullUrl = fullRes.data?.signedUrl || null;
         }
 
         const userInfo = userMap[ci.user_id];
@@ -124,6 +130,7 @@ export async function GET(request: NextRequest) {
           dayOfWeek: ci.day_of_week,
           status: ci.status,
           imageUrl: signedImageUrl,
+          fullImageUrl: signedFullUrl,
           postContent: ci.post_content,
           createdAt: ci.created_at,
           reactions: {

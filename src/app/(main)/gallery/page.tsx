@@ -21,6 +21,7 @@ interface GalleryCheckIn {
   dayOfWeek: number;
   status: string | null;
   imageUrl: string | null;
+  fullImageUrl: string | null;
   postContent: string | null;
   createdAt: string;
   reactions: {
@@ -644,7 +645,7 @@ export default function GalleryPage() {
                         }}
                       >
                         <img
-                          src={item.imageUrl}
+                          src={expandedImage === item.id ? (item.fullImageUrl || item.imageUrl) : item.imageUrl}
                           alt="운동 인증"
                           style={{
                             width: "100%",

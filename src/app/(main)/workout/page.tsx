@@ -31,6 +31,44 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"];
 const COMPRESS_THRESHOLD = 2 * 1024 * 1024; // 2MB
 const MAX_IMAGE_WIDTH = 1920;
+const THUMB_MAX_DIMENSION = 480; // 썸네일 최대 가로 또는 세로
+
+function createThumbnail(file: File | Blob): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+
+      // 원본 비율 유지하면서 최대 480px로 축소
+      if (width > THUMB_MAX_DIMENSION || height > THUMB_MAX_DIMENSION) {
+        if (width > height) {
+          height = Math.round(height * (THUMB_MAX_DIMENSION / width));
+          width = THUMB_MAX_DIMENSION;
+        } else {
+          width = Math.round(width * (THUMB_MAX_DIMENSION / height));
+          height = THUMB_MAX_DIMENSION;
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(file); return; }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => resolve(blob || file),
+        "image/jpeg",
+        0.75
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("썸네일 생성 실패")); };
+    img.src = url;
+  });
+}
 
 function compressImage(file: File): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -354,12 +392,18 @@ export default function WorkoutPage() {
 
       const ext = selectedFile.name.split(".").pop() || "jpg";
       const filePath = `${user.id}/${currentWeek.id}_${selectedDay.dayOfWeek}.${ext}`;
+      const thumbPath = `${user.id}/${currentWeek.id}_${selectedDay.dayOfWeek}_thumb.jpg`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("workout-photos")
-        .upload(filePath, timestampedFile, { upsert: true });
+      // 원본 + 썸네일 병렬 업로드
+      const thumbnailBlob = await createThumbnail(timestampedBlob);
 
-      if (uploadError) throw uploadError;
+      const [uploadResult, thumbResult] = await Promise.all([
+        supabase.storage.from("workout-photos").upload(filePath, timestampedFile, { upsert: true }),
+        supabase.storage.from("workout-photos").upload(thumbPath, thumbnailBlob, { upsert: true }),
+      ]);
+
+      if (uploadResult.error) throw uploadResult.error;
+      if (thumbResult.error) console.warn("썸네일 업로드 실패:", thumbResult.error);
 
       // If re-uploading after rejection, update existing record; otherwise insert new
       if (selectedDay.checkIn && selectedDay.checkIn.status === "X") {
