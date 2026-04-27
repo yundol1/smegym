@@ -42,54 +42,53 @@ export default function DashboardPage() {
           return;
         }
 
-        const { data: userData } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", authUser.id)
-          .single();
+        // 병렬로 독립적인 쿼리 실행 (waterfall → parallel)
+        const [userRes, noticeRes, weekRes, rankRes] = await Promise.all([
+          supabase.from("users").select("*").eq("id", authUser.id).single() as unknown as Promise<{ data: User | null }>,
+          supabase.from("notices").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle() as unknown as Promise<{ data: Notice | null }>,
+          supabase.from("weeks").select("*").eq("is_current" as string, true).maybeSingle() as unknown as Promise<{ data: Week | null }>,
+          fetch("/api/ranking").then(r => r.ok ? r.json() : null).catch(() => null) as Promise<unknown>,
+        ]);
 
-        if (userData) setUser(userData);
+        if (userRes.data) setUser(userRes.data);
+        if (noticeRes.data) setNotice(noticeRes.data);
 
-        const { data: noticeData } = await supabase
-          .from("notices")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        // 랭킹 데이터 처리
+        if (rankRes) {
+          const rankObj = rankRes as Record<string, unknown>;
+          const rankings = (rankObj.rankings ?? rankObj) as Array<{ userId: string; rank: number }>;
+          const myEntry = Array.isArray(rankings)
+            ? rankings.find((r) => r.userId === authUser.id)
+            : null;
+          setRank(myEntry ? myEntry.rank : null);
+        }
 
-        if (noticeData) setNotice(noticeData);
-
-        const { data: weekData } = (await supabase
-          .from("weeks")
-          .select("*")
-          .eq("is_current" as string, true)
-          .maybeSingle()) as unknown as { data: Week | null };
-
+        const weekData = weekRes.data;
         if (weekData) {
           setCurrentWeek(weekData);
 
-          const { data: weekCheckIns } = await supabase
-            .from("check_ins")
-            .select("*")
-            .eq("user_id", authUser.id)
-            .eq("week_id", weekData.id)
-            .order("day_of_week", { ascending: true });
+          // 체크인 데이터 + 스트릭 계산용 데이터 병렬 fetch
+          const [weekCheckInsRes, allCheckInsRes] = await Promise.all([
+            supabase
+              .from("check_ins")
+              .select("*")
+              .eq("user_id", authUser.id)
+              .eq("week_id", weekData.id)
+              .order("day_of_week", { ascending: true }),
+            (supabase
+              .from("check_ins")
+              .select("*, weeks!inner(start_date)")
+              .eq("user_id", authUser.id)) as unknown as Promise<{
+              data: (CheckIn & { weeks: { start_date: string } })[] | null;
+            }>,
+          ]);
 
-          if (weekCheckIns) setCheckIns(weekCheckIns);
+          if (weekCheckInsRes.data) setCheckIns(weekCheckInsRes.data);
 
-          // Calculate streak: date-based consecutive workout days
-          // Fetch all check-ins with their week info to compute actual dates
-          const { data: allCheckIns } = (await supabase
-            .from("check_ins")
-            .select("*, weeks!inner(start_date)")
-            .eq("user_id", authUser.id)) as unknown as {
-            data: (CheckIn & { weeks: { start_date: string } })[] | null;
-          };
-
-          if (allCheckIns) {
-            // Build a set of date strings (YYYY-MM-DD) where user had a workout (O or ☆)
+          // 스트릭 계산
+          if (allCheckInsRes.data) {
             const workoutDates = new Set<string>();
-            for (const ci of allCheckIns) {
+            for (const ci of allCheckInsRes.data) {
               if (ci.status === "O" || ci.status === "☆") {
                 const weekStart = parseISO(ci.weeks.start_date);
                 const actualDate = addDays(weekStart, ci.day_of_week - 1);
@@ -97,7 +96,6 @@ export default function DashboardPage() {
               }
             }
 
-            // Count consecutive days backwards from today
             const today = new Date();
             let s = 0;
             let checkDate = today;
@@ -108,7 +106,6 @@ export default function DashboardPage() {
                 s++;
                 checkDate = addDays(checkDate, -1);
               } else {
-                // If today has no workout yet, don't break - check from yesterday
                 if (differenceInCalendarDays(today, checkDate) === 0 && s === 0) {
                   checkDate = addDays(checkDate, -1);
                   continue;
@@ -117,20 +114,6 @@ export default function DashboardPage() {
               }
             }
             setStreak(s);
-          }
-
-          // Fetch rank from /api/ranking
-          try {
-            const rankRes = await fetch("/api/ranking");
-            if (rankRes.ok) {
-              const rankData = await rankRes.json();
-              const myEntry = rankData.find(
-                (r: { userId: string; rank: number }) => r.userId === authUser.id
-              );
-              setRank(myEntry ? myEntry.rank : null);
-            }
-          } catch {
-            // ranking fetch failed, leave rank as null
           }
         }
       } catch (err) {
