@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    // ── Blocker 4: Verify exactly 1 current week exists ──
+    // ── 현재 주차 단일성 검증 ──
     const { data: currentWeeks, error: currentWeeksError } = await supabase
       .from("weeks")
       .select("*")
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
     const currentWeek = currentWeeks[0];
 
-    // ── Blocker 3: Duplicate execution prevention ──
+    // ── 중복 집계 방지 ──
     if (currentWeek.aggregated_at) {
       return Response.json(
         { error: "이미 집계가 완료된 주차입니다." },
@@ -281,7 +281,7 @@ export async function POST(request: Request) {
     }
 
     // ── Step 4-5: Close current week & create next week ──
-    // (Wrapped in try-catch for rollback - Blocker 2)
+    // (실패 시 롤백 처리)
     const nextStartDate = addDays(new Date(currentWeek.start_date), 7);
     const nextEndDate = addDays(new Date(currentWeek.end_date), 7);
     const nextTitle = `${format(nextStartDate, "M/d")} ~ ${format(nextEndDate, "M/d")}`;
@@ -312,7 +312,7 @@ export async function POST(request: Request) {
     });
 
     if (insertWeekError) {
-      // ── Blocker 2: Rollback - restore is_current on old week ──
+      // ── 롤백: 이전 주차 복원 ──
       await supabase
         .from("weeks")
         .update({ is_current: true, aggregated_at: null, aggregated_by: null })
@@ -324,7 +324,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ── Blocker 4: Verify new week is current ──
+    // ── 집계 후 현재 주차 단일성 검증 ──
     const { data: verifyWeeks } = await supabase
       .from("weeks")
       .select("id")
@@ -347,7 +347,7 @@ export async function POST(request: Request) {
       ...(endDateNotPassed ? { warning: "주차 종료일이 아직 지나지 않았습니다." } : {}),
     });
   } catch (err) {
-    // ── Blocker 2: Top-level catch ──
+    // ── 집계 처리 최상위 오류 핸들링 ──
     console.error("집계 처리 중 오류:", err);
     return Response.json(
       { error: "집계 처리 중 오류가 발생했습니다" },
