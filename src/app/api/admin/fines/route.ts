@@ -79,21 +79,26 @@ export async function GET() {
       }
     }
 
-    // Fetch user nicknames
+    // Fetch user nicknames and roles (탈퇴 유저 제외)
     const userIds = [...new Set(fines.map((f) => f.user_id))];
     const { data: users } = (await supabase
       .from("users")
-      .select("id, nickname")
-      .in("id", userIds)) as unknown as { data: Pick<User, "id" | "nickname">[] | null };
+      .select("id, nickname, role")
+      .in("id", userIds)) as unknown as { data: Pick<User, "id" | "nickname" | "role">[] | null };
 
     const userMap: Record<string, string> = {};
+    const withdrawnIds = new Set<string>();
     if (users) {
       for (const u of users) {
         userMap[u.id] = u.nickname;
+        if (u.role === "withdrawn") withdrawnIds.add(u.id);
       }
     }
 
-    const result = fines.map((f) => ({
+    // 탈퇴 유저 벌금 제외
+    const activeFines = fines.filter((f) => !withdrawnIds.has(f.user_id));
+
+    const result = activeFines.map((f) => ({
       id: f.id,
       userId: f.user_id,
       nickname: userMap[f.user_id] || "알 수 없음",
