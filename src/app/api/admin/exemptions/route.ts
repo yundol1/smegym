@@ -172,17 +172,20 @@ export async function PATCH(request: NextRequest) {
             // Check if a check_in record already exists
             const { data: existing } = (await supabase
               .from("check_ins")
-              .select("id")
+              .select("id, status")
               .eq("user_id" as string, exemption.user_id)
               .eq("week_id" as string, targetWeek.id)
               .eq("day_of_week" as string, dow)
-              .maybeSingle()) as unknown as { data: { id: string } | null };
+              .maybeSingle()) as unknown as { data: { id: string; status: string } | null };
 
             if (existing) {
-              await supabase
-                .from("check_ins")
-                .update({ status: "☆" } as never)
-                .eq("id" as string, existing.id);
+              // 이미 승인(O)된 운동 기록은 보존 (면제로 덮어쓰지 않음)
+              if (existing.status !== "O") {
+                await supabase
+                  .from("check_ins")
+                  .update({ status: "☆" } as never)
+                  .eq("id" as string, existing.id);
+              }
             } else {
               await supabase.from("check_ins").insert({
                 user_id: exemption.user_id,
