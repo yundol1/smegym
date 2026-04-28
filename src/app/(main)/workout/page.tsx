@@ -415,6 +415,8 @@ export default function WorkoutPage() {
             is_public: isPublic,
             post_content: postContent.trim() || null,
             reject_reason: null,
+            reviewed_by: null,
+            reviewed_at: null,
           } as never)
           .eq("id", selectedDay.checkIn.id);
 

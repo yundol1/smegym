@@ -59,11 +59,15 @@ export async function GET(request: NextRequest) {
     // Find weeks that overlap with the challenge period
     const { data: weeks } = (await supabase
       .from("weeks")
-      .select("id")
+      .select("id, start_date")
       .lte("start_date", challenge.end_date)
-      .gte("end_date", challenge.start_date)) as { data: { id: string }[] | null };
+      .gte("end_date", challenge.start_date)) as { data: { id: string; start_date: string }[] | null };
 
     const weekIds = (weeks ?? []).map((w) => w.id);
+    const weekStartMap: Record<string, string> = {};
+    for (const w of weeks ?? []) {
+      weekStartMap[w.id] = w.start_date;
+    }
 
     if (weekIds.length === 0) {
       return NextResponse.json({
@@ -76,10 +80,19 @@ export async function GET(request: NextRequest) {
     // Get all check-ins with status O during those weeks
     const { data: checkIns } = (await supabase
       .from("check_ins")
-      .select("user_id, status")
-      .in("week_id", weekIds)) as { data: CheckInRow[] | null };
+      .select("user_id, status, week_id, day_of_week")
+      .in("week_id", weekIds)) as { data: (CheckInRow & { week_id: string; day_of_week: number })[] | null };
 
-    const approved = (checkIns ?? []).filter((ci) => ci.status === "O");
+    // Filter by actual date within challenge period
+    const challengeStart = new Date(challenge.start_date);
+    const challengeEnd = new Date(challenge.end_date);
+    const approved = (checkIns ?? []).filter((ci) => {
+      if (ci.status !== "O") return false;
+      const weekStart = new Date(weekStartMap[ci.week_id]);
+      const actualDate = new Date(weekStart);
+      actualDate.setDate(actualDate.getDate() + ci.day_of_week - 1);
+      return actualDate >= challengeStart && actualDate <= challengeEnd;
+    });
 
     // Count per user
     const countMap: Record<string, number> = {};
