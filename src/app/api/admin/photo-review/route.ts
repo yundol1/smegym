@@ -142,14 +142,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { checkInId, decision, reason, adminId } = body as {
+    const { checkInId, decision, reason } = body as {
       checkInId: string;
       decision: "approve" | "reject";
       reason?: string;
-      adminId: string;
     };
 
-    if (!checkInId || !decision || !adminId) {
+    if (!checkInId || !decision) {
       return Response.json(
         { error: "필수 파라미터가 누락되었습니다." },
         { status: 400 }
@@ -184,7 +183,7 @@ export async function PATCH(request: NextRequest) {
         .from("check_ins")
         .update({
           status: "O" as const,
-          reviewed_by: adminId,
+          reviewed_by: authUser.id,
           reviewed_at: now,
         })
         .eq("id", checkInId);
@@ -201,7 +200,7 @@ export async function PATCH(request: NextRequest) {
         .from("check_ins")
         .update({
           status: "X" as const,
-          reviewed_by: adminId,
+          reviewed_by: authUser.id,
           reviewed_at: now,
           reject_reason: reason || null,
         })

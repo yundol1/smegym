@@ -142,12 +142,11 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { fineId, adminId } = body as {
+    const { fineId } = body as {
       fineId: string;
-      adminId: string;
     };
 
-    if (!fineId || !adminId) {
+    if (!fineId) {
       return NextResponse.json(
         { error: "필수 파라미터가 누락되었습니다." },
         { status: 400 },
@@ -166,7 +165,7 @@ export async function PATCH(request: NextRequest) {
       .update({
         is_paid: true,
         paid_at: new Date().toISOString(),
-        confirmed_by: adminId,
+        confirmed_by: authUser.id,
       } as never)
       .eq("id", fineId);
 

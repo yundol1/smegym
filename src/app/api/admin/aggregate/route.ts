@@ -44,9 +44,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
-    const adminId: string | undefined = body.admin_id;
-
     // ── Blocker 4: Verify exactly 1 current week exists ──
     const { data: currentWeeks, error: currentWeeksError } = await supabase
       .from("weeks")
@@ -295,7 +292,7 @@ export async function POST(request: Request) {
       .update({
         is_current: false,
         aggregated_at: new Date().toISOString(),
-        aggregated_by: adminId ?? null,
+        aggregated_by: authUser.id,
       })
       .eq("id", currentWeek.id);
 

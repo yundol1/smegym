@@ -102,13 +102,12 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { exemptionId, action, adminId } = body as {
+    const { exemptionId, action } = body as {
       exemptionId: string;
       action: "approve" | "reject";
-      adminId: string;
     };
 
-    if (!exemptionId || !action || !adminId) {
+    if (!exemptionId || !action) {
       return NextResponse.json(
         { error: "필수 파라미터가 누락되었습니다." },
         { status: 400 },
@@ -121,7 +120,7 @@ export async function PATCH(request: NextRequest) {
       .from("exemptions")
       .update({
         status: newStatus,
-        processed_by: adminId,
+        processed_by: authUser.id,
       } as never)
       .eq("id", exemptionId);
 
