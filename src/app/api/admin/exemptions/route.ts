@@ -138,13 +138,15 @@ export async function PATCH(request: NextRequest) {
       if (exemption) {
         // Parse actual dates from the free-form text (e.g., "4/13(월), 4/14(화)" or "2026-04-13")
         const dateRegex = /(\d{1,2})\/(\d{1,2})/g;
-        const parsedDates: Date[] = [];
+        const parsedDateStrings: string[] = [];
         let match;
         while ((match = dateRegex.exec(exemption.dates)) !== null) {
           const month = parseInt(match[1], 10);
           const day = parseInt(match[2], 10);
           const year = new Date().getFullYear();
-          parsedDates.push(new Date(year, month - 1, day));
+          // 시간대 이슈 방지: Date 객체 대신 "YYYY-MM-DD" 문자열로 관리
+          const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          parsedDateStrings.push(dateStr);
         }
 
         // Fetch all weeks to find the correct one for each date
@@ -154,19 +156,20 @@ export async function PATCH(request: NextRequest) {
           .order("start_date", { ascending: false })
           .limit(10)) as unknown as { data: { id: string; start_date: string; end_date: string }[] | null };
 
-        if (allWeeks && parsedDates.length > 0) {
-          for (const exemptDate of parsedDates) {
-            // Find which week this date belongs to
-            const targetWeek = allWeeks.find((w: { id: string; start_date: string; end_date: string }) => {
-              const start = new Date(w.start_date);
-              const end = new Date(w.end_date);
-              return exemptDate >= start && exemptDate <= end;
+        if (allWeeks && parsedDateStrings.length > 0) {
+          for (const dateStr of parsedDateStrings) {
+            // 문자열 비교로 시간대 이슈 없이 주차 매칭
+            const targetWeek = allWeeks.find((w) => {
+              return dateStr >= w.start_date && dateStr <= w.end_date;
             });
 
             if (!targetWeek) continue;
 
-            // Calculate day_of_week (1=Mon, 7=Sun)
-            const jsDay = exemptDate.getDay(); // 0=Sun
+            // Calculate day_of_week (1=Mon, 7=Sun) from date string
+            // UTC 날짜로 파싱하여 요일 계산 (시간대 무관)
+            const [y, m, d] = dateStr.split("-").map(Number);
+            const utcDate = new Date(Date.UTC(y, m - 1, d));
+            const jsDay = utcDate.getUTCDay(); // 0=Sun
             const dow = jsDay === 0 ? 7 : jsDay;
 
             // Check if a check_in record already exists
