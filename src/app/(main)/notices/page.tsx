@@ -18,8 +18,9 @@ export default function NoticesPage() {
       try {
         const { data } = await supabase
           .from("notices")
-          .select("*")
-          .order("created_at", { ascending: false });
+          .select("id, content, created_at")
+          .order("created_at", { ascending: false })
+          .limit(30);
 
         if (data) setNotices(data);
       } catch (err) {

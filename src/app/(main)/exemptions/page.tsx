@@ -50,7 +50,7 @@ export default function ExemptionsPage() {
 
       const { data: exemptionList } = (await supabase
         .from("exemptions")
-        .select("*")
+        .select("id, user_id, dates, reason, status, notified, created_at")
         .eq("user_id", authUser.id)
         .order("created_at", { ascending: false })) as unknown as {
         data: Exemption[] | null;

@@ -44,9 +44,9 @@ export default function DashboardPage() {
 
         // 병렬로 독립적인 쿼리 실행 (waterfall → parallel)
         const [userRes, noticeRes, weekRes, rankRes] = await Promise.all([
-          supabase.from("users").select("*").eq("id", authUser.id).single() as unknown as Promise<{ data: User | null }>,
-          supabase.from("notices").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle() as unknown as Promise<{ data: Notice | null }>,
-          supabase.from("weeks").select("*").eq("is_current" as string, true).maybeSingle() as unknown as Promise<{ data: Week | null }>,
+          supabase.from("users").select("id, nickname, role, profile_image_url, joined_at, last_login_at, menu_order").eq("id", authUser.id).single() as unknown as Promise<{ data: User | null }>,
+          supabase.from("notices").select("id, content, created_at").order("created_at", { ascending: false }).limit(1).maybeSingle() as unknown as Promise<{ data: Notice | null }>,
+          supabase.from("weeks").select("id, title, start_date, end_date, is_current").eq("is_current" as string, true).maybeSingle() as unknown as Promise<{ data: Week | null }>,
           fetch("/api/ranking").then(r => r.ok ? r.json() : null).catch(() => null) as Promise<unknown>,
         ]);
 
@@ -71,13 +71,13 @@ export default function DashboardPage() {
           const [weekCheckInsRes, allCheckInsRes] = await Promise.all([
             supabase
               .from("check_ins")
-              .select("*")
+              .select("id, user_id, week_id, day_of_week, status, image_url, is_public, post_content, created_at")
               .eq("user_id", authUser.id)
               .eq("week_id", weekData.id)
               .order("day_of_week", { ascending: true }),
             (supabase
               .from("check_ins")
-              .select("*, weeks!inner(start_date)")
+              .select("id, day_of_week, status, weeks!inner(start_date)")
               .eq("user_id", authUser.id)) as unknown as Promise<{
               data: (CheckIn & { weeks: { start_date: string } })[] | null;
             }>,

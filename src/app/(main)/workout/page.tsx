@@ -226,7 +226,7 @@ export default function WorkoutPage() {
 
         const { data: userData } = await supabase
           .from("users")
-          .select("*")
+          .select("id, nickname, role, profile_image_url, joined_at, last_login_at, menu_order")
           .eq("id", authUser.id)
           .single();
 
@@ -235,7 +235,7 @@ export default function WorkoutPage() {
         // Fetch last 4 weeks ordered by start_date DESC (index 0 = most recent / current)
         const { data: weeksData } = (await supabase
           .from("weeks")
-          .select("*")
+          .select("id, title, start_date, end_date, is_current")
           .order("start_date", { ascending: false })
           .limit(4)) as unknown as { data: Week[] | null };
 
@@ -266,7 +266,7 @@ export default function WorkoutPage() {
       try {
         const { data: weekCheckIns } = (await supabase
           .from("check_ins")
-          .select("*")
+          .select("id, user_id, week_id, day_of_week, status, image_url, is_public, post_content, reviewed_by, reviewed_at, reject_reason, created_at")
           .eq("user_id", user.id)
           .eq("week_id", week.id)
           .order("day_of_week", { ascending: true })) as unknown as {

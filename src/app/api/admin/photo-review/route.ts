@@ -40,7 +40,8 @@ export async function GET(_request: NextRequest) {
       .from("check_ins")
       .select("id, user_id, week_id, day_of_week, image_url, post_content, created_at")
       .eq("status", "△")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (checkInsError) {
       console.error("Photo review check_ins fetch error:", checkInsError);

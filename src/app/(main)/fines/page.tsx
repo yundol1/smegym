@@ -55,7 +55,7 @@ export default function FinesPage() {
         // Get current week
         const { data: currentWeek } = (await supabase
           .from("weeks")
-          .select("*")
+          .select("id, title, start_date, end_date, is_current")
           .eq("is_current" as string, true)
           .single()) as unknown as { data: Week | null };
 
@@ -63,7 +63,7 @@ export default function FinesPage() {
           // Current week check-ins
           const { data: checkIns } = (await supabase
             .from("check_ins")
-            .select("*")
+            .select("id, status")
             .eq("user_id", authUser.id)
             .eq("week_id", currentWeek.id)) as unknown as {
             data: CheckIn[] | null;

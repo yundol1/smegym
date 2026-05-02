@@ -17,11 +17,6 @@ interface CheckInRow {
   created_at: string;
 }
 
-interface WeeklyCheckInRow {
-  week_id: string;
-  status: string | null;
-}
-
 interface FineRow {
   fine_amount: number;
 }
@@ -89,16 +84,16 @@ export async function GET() {
     const weeks = (weeksRaw as WeekRow[] | null) ?? [];
     const weekIds = weeks.map((w) => w.id);
 
-    // 2. Fetch check_ins for this user in the period
-    let checkIns: CheckInRow[] = [];
+    // 2. Fetch check_ins for this user in the period (single query for both day counts and streak)
+    let checkIns: (CheckInRow & { week_id: string })[] = [];
 
     if (weekIds.length > 0) {
       const { data } = await supabase
         .from("check_ins")
-        .select("id, day_of_week, status, is_public, post_content, created_at")
+        .select("id, week_id, day_of_week, status, is_public, post_content, created_at")
         .eq("user_id", userId)
         .in("week_id", weekIds);
-      checkIns = (data as CheckInRow[] | null) ?? [];
+      checkIns = (data as (CheckInRow & { week_id: string })[] | null) ?? [];
     }
 
     // Day-of-week counts (1=Mon ... 7=Sun)
@@ -118,20 +113,11 @@ export async function GET() {
 
     const totalWorkouts = approvedCheckIns.length;
 
-    // Streak calculation using weekly data
-    let weeklyCheckIns: WeeklyCheckInRow[] = [];
-    if (weekIds.length > 0) {
-      const { data } = await supabase
-        .from("check_ins")
-        .select("week_id, status")
-        .eq("user_id", userId)
-        .in("week_id", weekIds);
-      weeklyCheckIns = (data as WeeklyCheckInRow[] | null) ?? [];
-    }
+    // Streak calculation using the same check_ins data (no duplicate query)
 
-    // Group by week_id
+    // Group by week_id (reusing checkIns from above)
     const weekWorkoutMap = new Map<string, boolean>();
-    for (const ci of weeklyCheckIns) {
+    for (const ci of checkIns) {
       if (ci.status === "O" || ci.status === "\u2606") {
         weekWorkoutMap.set(ci.week_id, true);
       }
@@ -165,58 +151,62 @@ export async function GET() {
       currentMissStreak = tempMissStreak;
     }
 
-    // 3. Reactions
+    // 3. Reactions, fines, AI logs, exemptions — all in parallel
     const checkInIds = checkIns.map((ci) => ci.id);
-    let reactionsReceived = 0;
-    let reactionsSent = 0;
 
-    if (checkInIds.length > 0) {
-      const { count: rcvCount } = await supabase
-        .from("reactions")
-        .select("id", { count: "exact", head: true })
-        .in("check_in_id", checkInIds);
-      reactionsReceived = rcvCount ?? 0;
-    }
-
-    const { count: sentCount } = await supabase
-      .from("reactions")
-      .select("id", { count: "exact", head: true })
-      .eq("reactor_id", userId);
-    reactionsSent = sentCount ?? 0;
-
-    // 4. Gallery shares
+    // 4. Gallery shares & posts (computed from existing data, no query needed)
     const galleryShares = checkIns.filter((ci) => ci.is_public).length;
-
-    // 5. Fines paid
-    let totalFinesPaid = 0;
-    if (weekIds.length > 0) {
-      const { data: finesRaw } = await supabase
-        .from("fines")
-        .select("fine_amount")
-        .eq("user_id", userId)
-        .eq("is_paid", true)
-        .in("week_id", weekIds);
-      const fines = (finesRaw as FineRow[] | null) ?? [];
-      totalFinesPaid = fines.reduce((sum, f) => sum + (f.fine_amount || 0), 0);
-    }
-
-    // 6. Posts written
     const postsWritten = checkIns.filter(
       (ci) => ci.post_content && ci.post_content.trim().length > 0
     ).length;
 
-    // 7. AI coach uses
-    const { count: aiCount } = await supabase
-      .from("ai_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
+    // Build parallel queries
+    const [rcvRes, sentRes, finesRes, aiRes, exemptionRes] = await Promise.all([
+      // 0: reactions received
+      checkInIds.length > 0
+        ? supabase
+            .from("reactions")
+            .select("id", { count: "exact", head: true })
+            .in("check_in_id", checkInIds)
+            .then((r) => ({ count: r.count }))
+        : Promise.resolve({ count: 0 as number | null }),
+      // 1: reactions sent
+      supabase
+        .from("reactions")
+        .select("id", { count: "exact", head: true })
+        .eq("reactor_id", userId)
+        .then((r) => ({ count: r.count })),
+      // 2: fines paid
+      weekIds.length > 0
+        ? supabase
+            .from("fines")
+            .select("fine_amount")
+            .eq("user_id", userId)
+            .eq("is_paid", true)
+            .in("week_id", weekIds)
+            .then((r) => ({ data: r.data as FineRow[] | null }))
+        : Promise.resolve({ data: [] as FineRow[] | null }),
+      // 3: AI coach uses
+      supabase
+        .from("ai_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .then((r) => ({ count: r.count })),
+      // 4: exemptions
+      supabase
+        .from("exemptions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("status", "approved")
+        .then((r) => ({ count: r.count })),
+    ]);
 
-    // 8. Exemptions
-    const { count: exemptionCount } = await supabase
-      .from("exemptions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("status", "approved");
+    const reactionsReceived = rcvRes.count ?? 0;
+    const reactionsSent = sentRes.count ?? 0;
+    const fines = (finesRes.data as FineRow[] | null) ?? [];
+    const totalFinesPaid = fines.reduce((sum, f) => sum + (f.fine_amount || 0), 0);
+    const aiCount = aiRes.count ?? 0;
+    const exemptionCount = exemptionRes.count ?? 0;
 
     const report = {
       user_id: userId,

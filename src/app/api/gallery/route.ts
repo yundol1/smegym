@@ -47,14 +47,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ checkIns: [], hasMore: false });
     }
 
-    // Collect unique user IDs
+    // Collect unique user IDs and check-in IDs
     const userIds = [...new Set(checkIns.map((ci) => ci.user_id))];
+    const checkInIds = checkIns.map((ci) => ci.id);
 
-    // Fetch user info (nickname, profile_image_url) using service_role to bypass RLS
-    const { data: users } = await supabaseAdmin
-      .from("users")
-      .select("id, nickname, profile_image_url")
-      .in("id", userIds);
+    // Fetch user info and reactions in parallel
+    const [{ data: users }, { data: reactions }] = await Promise.all([
+      supabaseAdmin
+        .from("users")
+        .select("id, nickname, profile_image_url")
+        .in("id", userIds),
+      supabaseAdmin
+        .from("reactions")
+        .select("check_in_id, emoji_type, reactor_id")
+        .in("check_in_id", checkInIds),
+    ]);
 
     const userMap: Record<string, { nickname: string; profileUrl: string | null }> = {};
     if (users) {
@@ -62,13 +69,6 @@ export async function GET(request: NextRequest) {
         userMap[u.id] = { nickname: u.nickname, profileUrl: u.profile_image_url };
       }
     }
-
-    // Fetch reactions for these check-ins
-    const checkInIds = checkIns.map((ci) => ci.id);
-    const { data: reactions } = await supabaseAdmin
-      .from("reactions")
-      .select("check_in_id, emoji_type, reactor_id")
-      .in("check_in_id", checkInIds);
 
     // Aggregate reactions per check-in
     const reactionMap: Record<

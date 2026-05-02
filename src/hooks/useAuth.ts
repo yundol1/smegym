@@ -24,7 +24,7 @@ export function useAuth(): UseAuthReturn {
     async (userId: string) => {
       const { data, error } = await supabase
         .from("users")
-        .select("*")
+        .select("id, nickname, role, profile_image_url, joined_at, last_login_at, menu_order")
         .eq("id", userId)
         .single<User>();
 
