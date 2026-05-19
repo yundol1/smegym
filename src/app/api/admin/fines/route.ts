@@ -45,13 +45,19 @@ export async function GET() {
       .eq("is_current" as string, true)
       .maybeSingle()) as unknown as { data: Pick<Week, "id" | "title"> | null };
 
-    // Fetch all unpaid fines
-    const { data: fines, error: finesError } = (await supabase
+    // Fetch unpaid fines (현재 진행 중인 주차는 제외 — 확정된 벌금만)
+    let finesQuery = supabase
       .from("fines")
       .select("*")
       .eq("is_paid" as string, false)
       .gt("fine_amount" as string, 0)
-      .order("created_at", { ascending: false })) as unknown as { data: Fine[] | null; error: typeof Error | null };
+      .order("created_at", { ascending: false });
+
+    if (currentWeek) {
+      finesQuery = finesQuery.neq("week_id" as string, currentWeek.id);
+    }
+
+    const { data: fines, error: finesError } = (await finesQuery) as unknown as { data: Fine[] | null; error: typeof Error | null };
 
     if (finesError) throw finesError;
     if (!fines || fines.length === 0) {
